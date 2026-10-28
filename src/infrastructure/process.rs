@@ -1,6 +1,4 @@
 use anyhow::{Context, Result, ensure};
-mod checks;
-pub use checks::check;
 use std::{
     io::{Read, Seek},
     process::{Command, Stdio},
