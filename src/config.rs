@@ -1,0 +1,299 @@
+use crate::cli::Options;
+use anyhow::{Context, Result, bail, ensure};
+use serde::{Deserialize, Serialize};
+use std::{
+    env, fs,
+    path::{Component, Path, PathBuf},
+};
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Config {
+    pub system: String,
+    pub root: PathBuf,
+    pub home_dir: PathBuf,
+    pub data_dir: PathBuf,
+    pub state_dir: PathBuf,
+    pub host: String,
+    pub base_host: Option<String>,
+    pub snapshot: String,
+    pub include: Vec<String>,
+    pub exclude: Vec<String>,
+    pub ownership_roots: Vec<String>,
+    pub require_uki: bool,
+    pub check_packages: bool,
+    pub overwrite: bool,
+    pub prune: bool,
+    pub max_file_bytes: u64,
+    pub format: String,
+}
+
+pub fn xdg(name: &str, fallback: &str) -> PathBuf {
+    env::var_os(name)
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .unwrap_or_else(|| home().join(fallback))
+}
+
+fn home() -> PathBuf {
+    env::var_os("HOME")
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .unwrap_or_else(|| PathBuf::from("/root"))
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        let host = fs::read_to_string("/etc/hostname").unwrap_or_else(|_| "localhost".into());
+        Self {
+            system: "arch".into(),
+            root: "/".into(),
+            home_dir: home(),
+            data_dir: xdg("XDG_DATA_HOME", ".local/share").join("lyfy"),
+            state_dir: xdg("XDG_STATE_HOME", ".local/state").join("lyfy"),
+            host: host.trim().into(),
+            base_host: None,
+            snapshot: "latest".into(),
+            include: vec![
+                xdg("XDG_CONFIG_HOME", ".config").to_string_lossy().into(),
+                "~/.bashrc".into(),
+                "~/.bash_profile".into(),
+                "~/.zshrc".into(),
+                "~/.profile".into(),
+                "~/.gitconfig".into(),
+                "/etc".into(),
+                "/usr/local/etc".into(),
+            ],
+            exclude: vec![
+                "~/Projects".into(),
+                "~/.cache".into(),
+                "~/.local/state".into(),
+                "~/.ssh".into(),
+                "~/.gnupg".into(),
+                "/etc/shadow".into(),
+                "/etc/shadow-".into(),
+                "/etc/gshadow".into(),
+                "/etc/gshadow-".into(),
+                "/etc/ssh".into(),
+                "/etc/ssl/private".into(),
+                "/etc/credstore".into(),
+                "/etc/credstore.encrypted".into(),
+                "/etc/pacman.d/gnupg".into(),
+                "/etc/machine-id".into(),
+            ],
+            ownership_roots: vec!["/usr/bin".into(), "/usr/lib".into(), "/usr/share".into()],
+            require_uki: true,
+            check_packages: true,
+            overwrite: false,
+            prune: false,
+            max_file_bytes: 16 * 1024 * 1024,
+            format: "text".into(),
+        }
+    }
+}
+
+impl Config {
+    pub fn load(options: Options) -> Result<Self> {
+        let explicit = options.config_file.is_some();
+        let mut candidates = vec![];
+        if let Some(path) = &options.config_file {
+            candidates.push(path.clone());
+        } else {
+            candidates.push(xdg("XDG_CONFIG_HOME", ".config").join("lyfy/config.toml"));
+            let dirs = env::var_os("XDG_CONFIG_DIRS")
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "/etc/xdg".into());
+            candidates.extend(
+                env::split_paths(&dirs)
+                    .filter(|p| p.is_absolute())
+                    .map(|p| p.join("lyfy/config.toml")),
+            );
+        }
+        let mut config = Self::default();
+        for path in candidates {
+            match fs::read_to_string(&path) {
+                Ok(text) => {
+                    config = toml::from_str(&text)
+                        .with_context(|| format!("invalid config {}", path.display()))?;
+                    break;
+                }
+                Err(e)
+                    if !explicit
+                        && [
+                            std::io::ErrorKind::NotFound,
+                            std::io::ErrorKind::PermissionDenied,
+                        ]
+                        .contains(&e.kind()) =>
+                {
+                    continue;
+                }
+                Err(e) => return Err(e).with_context(|| format!("read config {}", path.display())),
+            }
+        }
+        macro_rules! replace { ($($field:ident),*) => { $(if let Some(value) = options.$field { config.$field = value; })* }; }
+        replace!(
+            system,
+            root,
+            home_dir,
+            data_dir,
+            state_dir,
+            host,
+            snapshot,
+            include,
+            exclude,
+            ownership_roots,
+            require_uki,
+            check_packages,
+            overwrite,
+            prune,
+            max_file_bytes,
+            format
+        );
+        if let Some(host) = options.base_host {
+            config.base_host = (!host.is_empty()).then_some(host);
+        }
+        config.validate()?;
+        Ok(config)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        ensure!(self.system == "arch", "only system = arch is supported");
+        for path in [&self.root, &self.home_dir, &self.data_dir, &self.state_dir] {
+            absolute(path)?;
+        }
+        ensure!(self.root.is_dir(), "root must be an existing directory");
+        identifier(&self.host)?;
+        if let Some(host) = &self.base_host {
+            identifier(host)?;
+            ensure!(host != &self.host, "base_host must differ from host");
+        }
+        ensure!(
+            self.snapshot == "latest" || is_digest(&self.snapshot),
+            "invalid snapshot id"
+        );
+        ensure!(
+            ["text", "json"].contains(&self.format.as_str()),
+            "format must be text or json"
+        );
+        ensure!(self.max_file_bytes > 0, "max_file_bytes must be positive");
+        for path in self
+            .include
+            .iter()
+            .chain(&self.exclude)
+            .chain(&self.ownership_roots)
+        {
+            self.logical(path)?;
+        }
+        Ok(())
+    }
+
+    pub fn logical(&self, value: &str) -> Result<PathBuf> {
+        let path = if value == "~" {
+            self.home_dir.clone()
+        } else if let Some(rest) = value.strip_prefix("~/") {
+            self.home_dir.join(rest)
+        } else {
+            PathBuf::from(value)
+        };
+        absolute(&path)?;
+        Ok(path)
+    }
+
+    pub fn physical(&self, logical: &Path) -> PathBuf {
+        self.root
+            .join(logical.strip_prefix("/").expect("validated absolute path"))
+    }
+
+    pub fn key(&self, path: &Path) -> Result<String> {
+        absolute(path)?;
+        let (prefix, relative) = if let Ok(p) = path.strip_prefix(&self.home_dir) {
+            ("home", p)
+        } else {
+            ("system", path.strip_prefix("/")?)
+        };
+        let relative = relative
+            .to_str()
+            .context("non-UTF-8 paths cannot be stored in a manifest")?;
+        ensure!(
+            !relative.is_empty(),
+            "cannot manage the root or home directory itself"
+        );
+        Ok(format!("{prefix}/{relative}"))
+    }
+
+    pub fn from_key(&self, key: &str) -> Result<PathBuf> {
+        let (prefix, relative) = key.split_once('/').context("invalid target key")?;
+        ensure!(!relative.is_empty(), "empty target");
+        let rel = Path::new(relative);
+        ensure!(
+            rel.components().all(|c| matches!(c, Component::Normal(_))),
+            "unsafe target key"
+        );
+        match prefix {
+            "home" => Ok(self.home_dir.join(rel)),
+            "system" => Ok(Path::new("/").join(rel)),
+            _ => bail!("unknown target namespace"),
+        }
+    }
+
+    pub fn excluded(&self, logical: &Path) -> bool {
+        let physical = self.physical(logical);
+        let protected = [
+            "/proc",
+            "/sys",
+            "/dev",
+            "/run",
+            "/tmp",
+            "/var/tmp",
+            "/var/cache",
+            "/var/lib/pacman",
+        ];
+        protected.iter().any(|p| logical.starts_with(p))
+            || physical.starts_with(&self.data_dir)
+            || physical.starts_with(&self.state_dir)
+            || self
+                .exclude
+                .iter()
+                .any(|p| self.logical(p).is_ok_and(|p| logical.starts_with(p)))
+    }
+
+    pub fn managed(&self, logical: &Path) -> bool {
+        !self.excluded(logical)
+            && self
+                .include
+                .iter()
+                .any(|p| self.logical(p).is_ok_and(|p| logical.starts_with(p)))
+    }
+}
+
+pub fn absolute(path: &Path) -> Result<()> {
+    ensure!(
+        path.is_absolute()
+            && path
+                .components()
+                .all(|c| matches!(c, Component::RootDir | Component::Normal(_))),
+        "expected absolute path without . or ..: {}",
+        path.display()
+    );
+    Ok(())
+}
+
+pub fn identifier(value: &str) -> Result<()> {
+    ensure!(
+        !value.is_empty()
+            && value.len() <= 128
+            && !value.starts_with('.')
+            && value
+                .bytes()
+                .all(|c| c.is_ascii_alphanumeric() || b"-_.".contains(&c)),
+        "invalid host identifier"
+    );
+    Ok(())
+}
+
+pub fn is_digest(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+}
