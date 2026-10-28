@@ -18,13 +18,14 @@ if version_check.returncode:
     raise SystemExit(version_check.returncode)
 package = tomllib.loads((root / "Cargo.toml").read_text())["package"]
 license_id = package.get("license", "")
-if not re.fullmatch(r"[A-Za-z0-9.+-]+", license_id):
+binary_license = package.get("metadata", {}).get("lyfy", {}).get("binary-license", "")
+if not all(re.fullmatch(r"[A-Za-z0-9.+-]+", value) for value in (license_id, binary_license)):
     raise SystemExit("Cargo.toml must declare one SPDX license identifier before publishing")
 archive = args.archive.resolve(strict=True)
 with archive.open("rb") as source:
     checksum = hashlib.file_digest(source, "sha256").hexdigest()
 text = (root / "packaging/aur/PKGBUILD.in").read_text()
-for key, value in {"VERSION": args.version, "LICENSE": license_id,
+for key, value in {"VERSION": args.version, "LICENSE": license_id, "BINARY_LICENSE": binary_license,
                    "SOURCE_SHA256": checksum}.items():
     text = text.replace(f"@{key}@", value)
 args.output.mkdir(parents=True, exist_ok=True)
