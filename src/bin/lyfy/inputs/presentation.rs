@@ -43,6 +43,12 @@ impl Lint {
                 if let Some(check) = self.progress.stage.lock().unwrap().as_mut() {
                     check.progress = Some((completed, total));
                 }
+                if self.progress.worker.is_none() && (completed % 100 == 0 || completed == total) {
+                    let _ = writeln!(
+                        io::stderr().lock(),
+                        "lyfy: checked {completed}/{total} packages"
+                    );
+                }
             }
             Observation::Finding(finding) if !self.json => {
                 let mut out = io::stdout().lock();
