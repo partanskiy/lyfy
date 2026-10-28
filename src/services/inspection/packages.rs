@@ -2,7 +2,10 @@ use crate::domain::{
     config::Config,
     package_files::{DatabaseIssue, FileDifference, PackageEvidence, PackageFile},
 };
-use crate::infrastructure::{filesystem::Root, pacman::Database};
+use crate::infrastructure::{
+    filesystem::{IdentityView, Root},
+    pacman::Database,
+};
 use crate::services::inspection::{arch, run::Run};
 use anyhow::Result;
 use std::{collections::BTreeMap, path::Path};
@@ -41,9 +44,18 @@ pub fn inspect(config: &Config, report: &mut Run<'_>) -> Result<()> {
     });
     report.check("libalpm package files and mtree", |report| {
         let root = Root::open(&config.root)?;
+        let identity = IdentityView::read()?;
+        let mut identity_warning = false;
         let packages = database.inventory()?;
         for (index, package) in packages.iter().enumerate() {
-            if let Err(error) = inspect_package(&root, &mut database, &package.name, report) {
+            if let Err(error) = inspect_package(
+                &root,
+                &mut database,
+                &package.name,
+                report,
+                &identity,
+                &mut identity_warning,
+            ) {
                 report.failed(&package.name, error);
             }
             report.progress(index + 1, packages.len());
@@ -65,6 +77,8 @@ fn inspect_package(
     database: &mut Database,
     name: &str,
     report: &mut Run<'_>,
+    identity: &IdentityView,
+    identity_warning: &mut bool,
 ) -> Result<()> {
     let mut files: BTreeMap<String, Option<PackageFile>> = database
         .file_paths(name)?
@@ -99,7 +113,11 @@ fn inspect_package(
             }
         };
         if let Some(expected) = expected {
-            match compare(root, &expected, &actual) {
+            if (!identity.uid || !identity.gid) && !*identity_warning {
+                report.add("scan.incomplete",vec![],"Package UID/GID checks require the host identity mapping; this user namespace changes or hides ownership IDs. Repeat outside the user namespace for full coverage.",false);
+                *identity_warning = true;
+            }
+            match compare(root, &expected, &actual, identity) {
                 Ok(fields) if !fields.is_empty() => {
                     difference_count += 1;
                     if differences.len() < 100 {
@@ -143,6 +161,7 @@ fn compare(
     root: &Root,
     expected: &PackageFile,
     actual: &libc::stat,
+    identity: &IdentityView,
 ) -> Result<Vec<FileDifference>> {
     use FileDifference::*;
     let kind = expected.mode & libc::S_IFMT;
@@ -153,10 +172,10 @@ fn compare(
     if actual.st_mode & 0o7777 != expected.mode & 0o7777 {
         fields.push(Mode);
     }
-    if i64::from(actual.st_uid) != expected.uid {
+    if identity.uid && i64::from(actual.st_uid) != expected.uid {
         fields.push(Uid);
     }
-    if i64::from(actual.st_gid) != expected.gid {
+    if identity.gid && i64::from(actual.st_gid) != expected.gid {
         fields.push(Gid);
     }
     if kind != libc::S_IFDIR && expected.mtime.is_some_and(|value| value != actual.st_mtime) {
