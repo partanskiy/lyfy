@@ -5,6 +5,7 @@ lyfy \- declarative system maintenance for Arch Linux
 .B lyfy
 .RI [ options ]
 .B lint
+.RB [ \-\-elevate ]
 .br
 .B lyfy
 .RI [ options ]
@@ -48,6 +49,20 @@ missing package files, package metadata drift, files without a package owner,
 orphan dependencies, running kernel state, the configured UKI policy and
 failed systemd units.
 Incomplete and skipped checks are reported explicitly.
+Text findings are printed as checks run.
+Check progress and durations go to stderr, with periodic elapsed-time updates
+when stderr is a terminal.
+JSON display keeps a single final document on stdout.
+.IP
+.B \-\-elevate
+explicitly requests sudo authentication for protected paths.
+The child runs only read-only lint, preserving the original resolved user
+settings and HOME/XDG-derived paths rather than choosing root's defaults.
+Without this flag, inaccessible paths are aggregated into one
+.B scan.access_denied
+warning and accessible checks continue.
+Partial coverage returns exit status 1.
+Root access does not bypass every access policy or missing mount.
 .IP
 UKI is a lyfy policy, not an Arch Linux requirement.
 Unowned files, orphan packages and modified package metadata require review.
@@ -102,6 +117,12 @@ removed automatically.
 Other findings require manual review.
 .SH OPTIONS
 .TP
+.B \-\-elevate
+Request /usr/bin/sudo for lint only.
+Sudo must be installed and authorize the operation; it owns the password prompt.
+This launch permission has no configuration key or environment equivalent.
+If already root, lint runs directly.
+.TP
 .BI \-\-config_file " path"
 Use this required TOML file instead of XDG configuration lookup.
 The environment equivalent is
@@ -132,6 +153,7 @@ Comma-separated list overrides replace the lower-priority list.
 .SH EXAMPLES
 .nf
 lyfy lint
+lyfy lint \-\-elevate
 lyfy save \-\-host common
 lyfy save \-\-host laptop \-\-base_host common
 lyfy apply \-\-host laptop
@@ -189,4 +211,5 @@ state; lyfy does not freeze the filesystem.
 .BR pacman (8),
 .BR bootctl (1),
 .BR systemctl (1),
+.BR sudo (8),
 .BR git (1)

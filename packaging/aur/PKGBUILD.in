@@ -9,6 +9,7 @@ arch=('x86_64')
 url="https://github.com/partanskiy/$pkgname"
 license=('@LICENSE@')
 depends=('glibc' 'libgcc' 'git' 'pacman' 'systemd')
+optdepends=('sudo: request protected read-only scans with lint --elevate')
 makedepends=('cargo')
 options=('!debug')
 source=("$pkgname-$pkgver.tar.gz::$url/releases/download/v$pkgver/$pkgname-v$pkgver-source.tar.gz")

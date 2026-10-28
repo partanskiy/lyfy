@@ -20,6 +20,8 @@ or
 selects one required file directly.
 A missing or unreadable explicitly selected file is an error.
 Unknown keys and malformed values are errors.
+.PP
+The manual is named lyfy.conf(5); the configuration file is named config.toml.
 .SH PRECEDENCE
 Each setting below accepts a
 .B \-\-snake_case
@@ -39,6 +41,9 @@ List overrides are comma-separated and replace the whole lower-priority list.
 .B \-\-write
 is execution permission for apply/fmt, not a setting.
 It cannot be supplied through TOML or ENV.
+.B \-\-elevate
+is likewise an explicit launch permission for lint only, not a setting.
+It preserves resolved user settings when invoking sudo for a protected scan.
 .SH SETTINGS
 .TP
 .B system
@@ -135,7 +140,7 @@ Allow supported package restoration during apply with
 .BR \-\-write .
 The default is false.
 Execution requires existing root privileges and text display.
-lyfy never invokes sudo.
+Apply does not invoke sudo.
 .TP
 .B overwrite
 Permit replacements that conflict with live content or the last applied
