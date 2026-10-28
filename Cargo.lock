@@ -286,12 +286,24 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "libc",
+ "lyfy-core",
  "serde",
  "serde_json",
  "sha2",
  "tempfile",
  "toml",
+]
+
+[[package]]
+name = "lyfy-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "libc",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
  "walkdir",
 ]
 
