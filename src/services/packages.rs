@@ -12,3 +12,11 @@ pub fn capture(config: &Config) -> Result<Option<Vec<Package>>> {
 pub fn restore(config: &Config, desired: &[Package]) -> Result<()> {
     pacman::restore::run(config, desired)
 }
+
+pub fn file_scope(config: &Config) -> Result<Config> {
+    let mut scoped = config.clone();
+    scoped
+        .exclude
+        .push(pacman::database_path(config)?.to_string_lossy().into());
+    Ok(scoped)
+}

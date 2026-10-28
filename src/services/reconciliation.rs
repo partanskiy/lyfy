@@ -24,7 +24,8 @@ pub fn receipt_path(config: &Config) -> PathBuf {
 }
 
 pub fn build(context: &Context) -> Result<Plan> {
-    let config = &context.config;
+    let scoped = crate::services::packages::file_scope(&context.config)?;
+    let config = &scoped;
     let store = &context.repository;
     let id = if config.snapshot == "latest" {
         store.head(&config.host)?

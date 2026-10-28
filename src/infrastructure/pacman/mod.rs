@@ -11,3 +11,7 @@ use anyhow::Result;
 pub fn inventory(config: &Config) -> Result<Vec<Package>> {
     Database::open(config)?.inventory()
 }
+
+pub fn database_path(config: &Config) -> Result<std::path::PathBuf> {
+    Ok(configuration::read(config)?.db_path)
+}

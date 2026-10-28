@@ -17,7 +17,7 @@ pub fn run(config: &Config, desired: &[Package]) -> Result<()> {
     // SAFETY: geteuid has no pointer arguments.
     ensure!(
         unsafe { libc::geteuid() } == 0,
-        "package transactions require root; lyfy never invokes sudo"
+        "package transactions require existing root privileges"
     );
     let current = inventory(config)?;
     let package_plan = plan(desired, &current)?;

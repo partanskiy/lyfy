@@ -154,3 +154,60 @@ fn malformed_mtree_and_unknown_installation_reasons_never_look_healthy() {
     .unwrap();
     assert!(has(&lint(&f), "scan.incomplete"));
 }
+
+#[test]
+fn configured_sync_repositories_classify_native_packages_without_pacman_queries() {
+    let f = Fixture::new();
+    package(&f, "demo", 0, "", "");
+    let staging = f.temp.path().join("sync-fixture");
+    fs::create_dir_all(staging.join("demo-1-1")).unwrap();
+    fs::write(
+        staging.join("demo-1-1/desc"),
+        "%NAME%\ndemo\n\n%VERSION%\n1-1\n\n",
+    )
+    .unwrap();
+    let sync = f.root.join("var/lib/pacman/sync");
+    fs::create_dir_all(&sync).unwrap();
+    assert!(
+        std::process::Command::new("/usr/bin/bsdtar")
+            .arg("-cf")
+            .arg(sync.join("core.db"))
+            .arg("-C")
+            .arg(&staging)
+            .arg("demo-1-1")
+            .status()
+            .unwrap()
+            .success()
+    );
+    f.write("etc/pacman.conf", "[options]\n[core]\n");
+    f.ok(&["save", "--check_packages", "true"]);
+    assert_eq!(f.snapshot("laptop")["packages"][0]["source"], "native");
+    f.write("etc/pacman.conf", "[options]\n");
+    f.ok(&["save", "--check_packages", "true"]);
+    assert_eq!(f.snapshot("laptop")["packages"][0]["source"], "foreign");
+}
+
+#[test]
+fn custom_database_paths_are_excluded_from_capture_and_apply() {
+    let f = Fixture::new();
+    package(&f, "demo", 0, "", "");
+    fs::rename(
+        f.root.join("var/lib/pacman"),
+        f.root.join("etc/custom-database"),
+    )
+    .unwrap();
+    f.write(
+        "etc/pacman.conf",
+        "[options]\nDBPath = /etc/custom-database\n",
+    );
+    f.ok(&["save", "--check_packages", "true"]);
+    let snapshot = f.snapshot("laptop");
+    assert!(
+        !snapshot["changes"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .any(|key| key.contains("custom-database"))
+    );
+    f.ok(&["apply", "--check_packages", "true"]);
+}
