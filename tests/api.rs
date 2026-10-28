@@ -1,4 +1,4 @@
-use lyfy_core::{Config, Context, Data, Request, execute};
+use lyfy::{Config, Context, Data, Request, execute};
 use std::fs;
 
 #[test]
