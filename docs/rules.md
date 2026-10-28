@@ -38,6 +38,12 @@ tools such as `pacman -Qkk` return findings when that tool finishes; the termina
 shows its active check and elapsed time while it runs. JSON stays a single
 final document on stdout.
 
+Pacman consistency/file checks discard unused stdout and consume all stderr,
+counting permission messages and retaining bounded samples. Large diagnostic
+output alone no longer aborts the check. Other warning lines remain visible as
+the appropriate package finding. The external-check time limit is 120 seconds;
+exceeding it remains an explicit incomplete check, never a healthy result.
+
 The UKI check consumes bootctl JSON. It does not infer UKI validity from a file
 extension, verify Secure Boot signatures, confirm the running loader is
 systemd-boot or guarantee a new image will boot. This policy is stricter than
