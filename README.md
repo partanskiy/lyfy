@@ -46,6 +46,9 @@ Docker service is needed.
 Current releases support x86_64 (amd64) only and are distributed as the AUR
 source package `lyfy`. See [RELEASING.md](RELEASING.md) for release automation,
 package checks and credential handling.
+Versions use calendar numbering like synchrogit: `YY.M.PATCH`, for example
+`26.10.0`. Month and patch have no leading zeros; PATCH starts at 0 each month
+and increments for every release. Compatibility changes appear in release notes.
 
 ## Four commands
 
