@@ -1,8 +1,9 @@
 use clap::{Args, Parser, Subcommand};
+use serde::Serialize;
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
-#[command(version, about = "Declarative system maintenance for Arch Linux")]
+#[command(version = option_env!("LYFY_BUILD_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")), about = "Declarative system maintenance for Arch Linux", disable_help_subcommand = true)]
 pub struct Cli {
     #[command(flatten)]
     pub options: Options,
@@ -11,7 +12,7 @@ pub struct Cli {
 }
 
 // None means absent: clap resolves flag > ENV, then Config resolves > TOML.
-#[derive(Debug, Default, Args)]
+#[derive(Debug, Default, Args, Serialize)]
 #[command(rename_all = "snake_case")]
 pub struct Options {
     #[arg(long, env = "LYFY_CONFIG_FILE", global = true)]
@@ -77,8 +78,15 @@ pub enum Command {
         #[arg(long)]
         write: bool,
     },
-    /// Display the effective configuration.
-    Config,
-    /// Show the complete implemented rule catalog.
-    Rules,
+}
+
+impl From<Command> for lyfy_core::Request {
+    fn from(command: Command) -> Self {
+        match command {
+            Command::Lint => Self::Lint,
+            Command::Save => Self::Save,
+            Command::Fmt { write } => Self::Fmt { write },
+            Command::Apply { write } => Self::Apply { write },
+        }
+    }
 }
