@@ -73,6 +73,10 @@ pub fn owned_files(config: &Config) -> Result<BTreeSet<String>> {
             32 * 1024 * 1024,
         )?;
         let text = std::str::from_utf8(&bytes)?;
+        // Packages without payload files have an empty local files record.
+        if text.trim().is_empty() {
+            continue;
+        }
         for file in field(text, "FILES")
             .context("missing FILES section")?
             .lines()

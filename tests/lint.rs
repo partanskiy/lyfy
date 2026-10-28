@@ -162,3 +162,25 @@ fn protected_directories_are_one_coverage_warning_and_other_paths_are_scanned() 
     assert!(!f.data.exists());
     assert!(!f.state.exists());
 }
+
+#[test]
+fn empty_package_file_lists_are_valid_but_malformed_records_are_not() {
+    let f = Fixture::new();
+    let directory = f.root.join("var/lib/pacman/local/empty-1-1");
+    fs::create_dir_all(&directory).unwrap();
+    fs::write(directory.join("files"), "").unwrap();
+    fs::create_dir_all(f.root.join("usr/bin")).unwrap();
+    let args = [
+        "lint",
+        "--check_packages",
+        "true",
+        "--ownership_roots",
+        "/usr/bin",
+    ];
+    f.ok(&args);
+    fs::write(directory.join("files"), "%INVALID%\nentry\n").unwrap();
+    let output = f.run(&args);
+    assert_eq!(output.status.code(), Some(1));
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["findings"][0]["rule"], "scan.incomplete");
+}
