@@ -1,5 +1,6 @@
 mod arch;
 mod boot;
+mod packages;
 mod run;
 use crate::domain::config::Config;
 use crate::domain::diagnostics::Report;
@@ -51,21 +52,20 @@ pub fn run_observed(config: &Config, observer: &mut dyn FnMut(Observation<'_>)) 
         Ok(())
     });
     if config.check_packages {
-        report.check("package ownership", |report| arch::unowned(config, report));
+        report.check("package database", |report| {
+            packages::inspect(config, report)
+        });
     } else {
         report.skipped("package checks disabled by check_packages = false");
     }
     if config.root == Path::new("/") {
-        if config.check_packages {
-            arch::pacman(&mut report);
-        }
         report.check("running kernel", |report| arch::kernel(&root, report));
         report.check("systemd units", arch::systemd);
         if config.require_uki {
             report.check("boot entries", boot::check);
         }
     } else {
-        report.skipped("runtime checks (pacman commands, kernel, EFI, systemd) require root = /");
+        report.skipped("runtime checks (kernel, EFI, systemd) require root = /");
     }
     Ok(report.finish())
 }

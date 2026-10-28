@@ -50,6 +50,7 @@ fn package_inventory_and_ownership_use_the_target_root() {
     let f = Fixture::new();
     let database = f.root.join("var/lib/pacman/local/demo-1-1");
     fs::create_dir_all(&database).unwrap();
+    fs::write(database.parent().unwrap().join("ALPM_DB_VERSION"), "9\n").unwrap();
     fs::write(
         database.join("desc"),
         "%NAME%\ndemo\n\n%VERSION%\n1-1\n\n%REASON%\n0\n\n",
@@ -168,6 +169,12 @@ fn empty_package_file_lists_are_valid_but_malformed_records_are_not() {
     let f = Fixture::new();
     let directory = f.root.join("var/lib/pacman/local/empty-1-1");
     fs::create_dir_all(&directory).unwrap();
+    fs::write(directory.parent().unwrap().join("ALPM_DB_VERSION"), "9\n").unwrap();
+    fs::write(
+        directory.join("desc"),
+        "%NAME%\nempty\n\n%VERSION%\n1-1\n\n%REASON%\n0\n\n",
+    )
+    .unwrap();
     fs::write(directory.join("files"), "").unwrap();
     fs::create_dir_all(f.root.join("usr/bin")).unwrap();
     let args = [
@@ -178,7 +185,7 @@ fn empty_package_file_lists_are_valid_but_malformed_records_are_not() {
         "/usr/bin",
     ];
     f.ok(&args);
-    fs::write(directory.join("files"), "%INVALID%\nentry\n").unwrap();
+    fs::write(directory.join("files"), "%FILES%\n../escape\n\n").unwrap();
     let output = f.run(&args);
     assert_eq!(output.status.code(), Some(1));
     let value: Value = serde_json::from_slice(&output.stdout).unwrap();
