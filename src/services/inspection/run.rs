@@ -7,6 +7,35 @@ pub(crate) struct Run<'a> {
     denied: BTreeSet<String>,
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::domain::observation::Observation;
+    use crate::services::inspection::run::Run;
+    use std::io;
+
+    #[test]
+    fn permission_errors_are_coverage_but_other_errors_remain_failures() {
+        let mut observer = |_: Observation<'_>| {};
+        let mut run = Run::new(&mut observer);
+        for _ in 0..2 {
+            run.failed(
+                "/etc/protected",
+                anyhow::Error::new(io::Error::from(io::ErrorKind::PermissionDenied))
+                    .context("traversal"),
+            );
+        }
+        run.failed(
+            "missing tool",
+            io::Error::from(io::ErrorKind::NotFound).into(),
+        );
+        let report = run.finish();
+        assert_eq!(report.findings.len(), 2);
+        assert_eq!(report.findings[0].rule, "scan.incomplete");
+        assert_eq!(report.findings[1].rule, "scan.access_denied");
+        assert_eq!(report.findings[1].paths, ["/etc/protected"]);
+    }
+}
+
 impl<'a> Run<'a> {
     pub fn new(observer: &'a mut dyn FnMut(Observation<'_>)) -> Self {
         Self {

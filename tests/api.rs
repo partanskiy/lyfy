@@ -51,4 +51,34 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
         fs::read_to_string(root.join("home/test/.config/app")).unwrap(),
         "saved\n"
     );
+    // Feedback runs during inspection: a finding callback creates a file that
+    // the subsequent /etc check must see, rather than receiving a buffered report.
+    fs::create_dir(root.join("etc")).unwrap();
+    fs::write(root.join("etc/os-release"), "ID=other\n").unwrap();
+    let mut events = Vec::new();
+    let outcome = lyfy::execute_observed(&context, Request::Lint, &mut |event| {
+        use lyfy::domain::observation::Observation;
+        match event {
+            Observation::CheckStarted(name) => events.push(format!("start:{name}")),
+            Observation::CheckFinished { name, .. } => events.push(format!("end:{name}")),
+            Observation::Finding(finding) => {
+                events.push(finding.rule.clone());
+                if finding.rule == "arch.os_release" {
+                    fs::write(root.join("etc/late.pacsave"), "saved\n").unwrap();
+                }
+            }
+            _ => {}
+        }
+    })
+    .unwrap();
+    assert_eq!(outcome.exit_code, 1);
+    assert_eq!(
+        &events[..3],
+        [
+            "start:Arch identity",
+            "arch.os_release",
+            "end:Arch identity"
+        ]
+    );
+    assert!(events.iter().any(|event| event == "arch.pacsave"));
 }
