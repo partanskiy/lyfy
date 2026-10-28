@@ -213,4 +213,13 @@ fn custom_database_paths_are_excluded_from_capture_and_apply() {
             .any(|key| key.contains("custom-database"))
     );
     f.ok(&["apply", "--check_packages", "true"]);
+    f.ok(&["save", "--check_packages", "false"]);
+    assert!(
+        !f.snapshot("laptop")["changes"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .any(|key| key.contains("custom-database"))
+    );
+    f.ok(&["apply", "--check_packages", "false"]);
 }
