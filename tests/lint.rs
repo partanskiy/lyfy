@@ -140,7 +140,7 @@ fn protected_directories_are_one_coverage_warning_and_other_paths_are_scanned() 
         .collect();
     for path in &protected {
         fs::create_dir(path).unwrap();
-        fs::set_permissions(path, fs::Permissions::from_mode(0)).unwrap();
+        fs::set_permissions(path, fs::Permissions::from_mode(0o0)).unwrap();
     }
     f.write("etc/z-visible.pacnew", "pending\n");
     let output = f.run(&["lint"]);
