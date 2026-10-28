@@ -1,5 +1,6 @@
 # All keys have a --snake_case flag and LYFY_UPPER_CASE environment override.
 system = "arch"
+storage_format = "git"
 host = "laptop"
 root = "/"
 snapshot = "latest"
