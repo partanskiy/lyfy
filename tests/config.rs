@@ -110,6 +110,8 @@ fn relative_xdg_paths_are_ignored_and_config_dirs_are_searched() {
             "/etc",
             "--check_packages",
             "false",
+            "--storage_format",
+            "directory",
             "save",
         ])
         .output()

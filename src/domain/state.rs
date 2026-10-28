@@ -8,9 +8,14 @@ pub type Tree = BTreeMap<String, Node>;
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Content {
-    File { sha256: String },
+    File {
+        #[serde(default)]
+        sha256: String,
+    },
     Directory,
-    Symlink { target: String },
+    Symlink {
+        target: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -48,7 +53,7 @@ pub fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Reference {
     pub host: String,

@@ -13,6 +13,7 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
         home_dir: "/home/test".into(),
         data_dir: temp.path().join("data"),
         state_dir: temp.path().join("state"),
+        storage_format: "directory".into(),
         host: "library-test".into(),
         base_host: None,
         snapshot: "latest".into(),

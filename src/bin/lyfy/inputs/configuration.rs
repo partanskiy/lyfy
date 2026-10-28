@@ -31,6 +31,7 @@ pub(super) fn defaults() -> Config {
         home_dir: home(),
         data_dir: xdg("XDG_DATA_HOME", ".local/share").join("lyfy"),
         state_dir: xdg("XDG_STATE_HOME", ".local/state").join("lyfy"),
+        storage_format: "git".into(),
         host: host.trim().into(),
         base_host: None,
         snapshot: "latest".into(),
