@@ -123,6 +123,23 @@ impl Database {
     pub fn excluded(&mut self, path: &str) -> bool {
         self.handle.match_noextract(path.trim_start_matches('/')) == Match::Yes
     }
+
+    pub fn file_paths(&self, name: &str) -> Result<Vec<String>> {
+        let package = self.handle.localdb().pkg(name)?;
+        let mut paths = Vec::new();
+        for file in package.files().files() {
+            let path = std::str::from_utf8(file.name())?;
+            ensure!(
+                !Path::new(path).is_absolute(),
+                "absolute path in package file list"
+            );
+            let logical = Path::new("/").join(path.trim_end_matches('/'));
+            crate::domain::config::absolute(&logical)?;
+            paths.push(logical.to_str().unwrap().into());
+        }
+        self.check_errors()?;
+        Ok(paths)
+    }
 }
 
 unsafe extern "C" {
