@@ -69,6 +69,8 @@ pub(super) fn defaults() -> Config {
         overwrite: false,
         prune: false,
         max_file_bytes: 16 * 1024 * 1024,
+        disabled_rules: vec![],
+        fail_on: lyfy::domain::rules::Severity::Warning,
     }
 }
 

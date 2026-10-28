@@ -11,7 +11,7 @@ pub struct PackageFile {
     pub backup: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FileDifference {
     Type,
@@ -24,7 +24,7 @@ pub enum FileDifference {
     Sha256,
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct PackageEvidence {
     pub package: String,
     pub path: String,
