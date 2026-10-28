@@ -1,3 +1,4 @@
+pub mod checks;
 pub mod config;
 pub mod diagnostics;
 pub mod observation;
@@ -5,4 +6,5 @@ pub mod package_files;
 pub mod packages;
 pub mod plan;
 pub mod results;
+pub mod rules;
 pub mod state;
