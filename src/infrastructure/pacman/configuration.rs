@@ -53,6 +53,7 @@ fn parse(
     );
     let bytes = root.read(path, 4 * 1024 * 1024)?;
     let text = std::str::from_utf8(&bytes).context("pacman.conf is not UTF-8")?;
+    ensure!(!text.contains('\0'), "NUL in pacman.conf");
     for line in text.lines() {
         let line = line.split('#').next().unwrap().trim();
         if line.is_empty() {
