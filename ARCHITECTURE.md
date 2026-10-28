@@ -125,6 +125,17 @@ when its responsibility cannot be expressed by an existing one.
 
 Infrastructure has five adapters: `filesystem`, `store`, `git`, `process`, `pacman`.
 They implement mechanisms. Policy decisions belong to domain or services.
+The pacman adapter reads state through dynamically linked libalpm and libarchive.
+Only infrastructure may import their Rust bindings or contain their FFI calls.
+It returns owned domain data: packages, database issues and expected file
+metadata. Inspection services compare observations and select rules. Package
+findings expose typed file evidence rather than parsed CLI diagnostics.
+The only remaining pacman subprocess is the interactive package restoration
+transaction in `pacman/restore.rs`; inventory and inspection never invoke it.
+Read-only opens must reject missing local databases/version markers before
+initializing libalpm, which otherwise creates them. Never start a transaction
+or update a repository while inspecting. Apply/save exclude the configured
+DBPath from file state, including when package checks are disabled.
 Do not add a trait and implementation pair for every concrete operation.
 Introduce an interface when a second implementation or a real testing need
 requires it, while preserving the dependency direction.

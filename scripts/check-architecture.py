@@ -40,6 +40,10 @@ for path in CORE.rglob("*.rs"):
             error(path, f"{layer} must not depend on {dependency}")
     if re.search(r"\b(?:clap|toml)::|std::env|\b(?:e?print(?:ln)?|dbg)!", text):
         error(path, "launch parsing, environment and terminal rendering belong to inputs/bootstrap")
+    if layer != "infrastructure" and re.search(r"\b(?:alpm|alpm_sys|libarchive|libarchive3_sys)::", text):
+        error(path, "native package-library bindings belong to infrastructure")
+    if relative != Path("infrastructure/pacman/restore.rs") and '"/usr/bin/pacman"' in text:
+        error(path, "inventory/inspection must use libalpm; only interactive restoration invokes pacman")
     if layer in {"domain", "managers"}:
         if re.search(r"\b(?:libc|walkdir|tempfile)::|std::(?:fs|io|process|os)::", text):
             error(path, "OS access belongs to infrastructure/services")
