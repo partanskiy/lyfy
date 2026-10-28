@@ -87,6 +87,16 @@ jobs:
           runuser -u nobody -- env CARGO_HOME=/tmp/lyfy-aur/cargo \
             bash -c 'cd /tmp/lyfy-aur/package && makepkg --noconfirm --cleanbuild'
       - name: Publish the tested recipe to AUR
+        if: vars.AUR_AUTOPUBLISH == 'true'
         env:
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
         run: bash scripts/publish-aur.sh "$VERSION" /tmp/lyfy-aur/package
+      - name: Retain the tested recipe for local authenticated publication
+        uses: actions/upload-artifact@v4
+        with:
+          name: lyfy-aur-${{ needs.publish.outputs.version }}
+          path: |
+            /tmp/lyfy-aur/package/PKGBUILD
+            /tmp/lyfy-aur/package/.SRCINFO
+          include-hidden-files: true
+          if-no-files-found: error
