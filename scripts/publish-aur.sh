@@ -7,7 +7,8 @@ if [[ $# != 2 ]]; then
 fi
 version=$1
 rendered=$(cd "$2" && pwd)
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+bash "$repo_root/scripts/check-version.sh" "$version"
 test -s "$rendered/PKGBUILD"
 test -s "$rendered/.SRCINFO"
 

@@ -19,6 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 scripts/check-architecture.py
+      - run: bash scripts/test-version.sh
 
   fmt:
     name: rustfmt
@@ -92,6 +93,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build and inspect the source package as an unprivileged user
         run: |
+          bash scripts/test-version.sh
           install -d -m755 -o nobody -g nobody /tmp/lyfy-arch-package
           runuser -u nobody -- env CARGO_HOME=/tmp/lyfy-arch-package/cargo \
-            bash scripts/check-arch-package.sh 0.1.0 /tmp/lyfy-arch-package
+            bash scripts/check-arch-package.sh 26.10.0 /tmp/lyfy-arch-package

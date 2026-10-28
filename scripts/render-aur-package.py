@@ -12,9 +12,10 @@ parser.add_argument("version")
 parser.add_argument("archive", type=Path)
 parser.add_argument("output", type=Path)
 args = parser.parse_args()
-if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", args.version):
-    raise SystemExit("AUR requires a stable version in MAJOR.MINOR.PATCH form")
 root = Path(__file__).resolve().parent.parent
+version_check = subprocess.run(["bash", str(root / "scripts/check-version.sh"), args.version])
+if version_check.returncode:
+    raise SystemExit(version_check.returncode)
 package = tomllib.loads((root / "Cargo.toml").read_text())["package"]
 license_id = package.get("license", "")
 if not re.fullmatch(r"[A-Za-z0-9.+-]+", license_id):
