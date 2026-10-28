@@ -19,7 +19,7 @@ workdir=$(mktemp -d /tmp/lyfy-native-source.XXXXXXXX)
 trap 'rm -rf "$workdir"' EXIT
 git clone --quiet --filter=blob:none --no-checkout \
   https://gitlab.archlinux.org/pacman/pacman.git "$workdir/upstream"
-git clone --quiet --depth 1 --branch "$arch_version" \
+git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$arch_version" \
   https://gitlab.archlinux.org/archlinux/packaging/packages/pacman.git "$workdir/packaging"
 commit=$(git -C "$workdir/upstream" rev-parse "$source_ref^{commit}")
 git -C "$workdir/upstream" archive --prefix="pacman-$upstream_version/" "$commit" | \
