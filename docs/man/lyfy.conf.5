@@ -1,0 +1,202 @@
+.TH LYFY.CONF 5 "2026-10-28" "lyfy" "File Formats"
+.SH NAME
+lyfy.conf \- configuration and launch settings for lyfy
+.SH DESCRIPTION
+.B lyfy
+reads TOML settings from
+.I $XDG_CONFIG_HOME/lyfy/config.toml
+or, by default,
+.IR ~/.config/lyfy/config.toml .
+If no readable user file exists, it searches the directories in
+.BR XDG_CONFIG_DIRS ,
+defaulting to
+.IR /etc/xdg .
+The first readable file wins as a whole; files from multiple directories
+are not merged.
+.PP
+.B \-\-config_file
+or
+.B LYFY_CONFIG_FILE
+selects one required file directly.
+A missing or unreadable explicitly selected file is an error.
+Unknown keys and malformed values are errors.
+.SH PRECEDENCE
+Each setting below accepts a
+.B \-\-snake_case
+global option and a
+.B LYFY_UPPER_CASE
+environment variable.
+For example,
+.B require_uki
+corresponds to
+.B \-\-require_uki
+and
+.BR LYFY_REQUIRE_UKI .
+.PP
+Precedence is command-line option, environment, TOML, then default.
+Boolean overrides take an explicit true or false value.
+List overrides are comma-separated and replace the whole lower-priority list.
+.B \-\-write
+is execution permission for apply/fmt, not a setting.
+It cannot be supplied through TOML or ENV.
+.SH SETTINGS
+.TP
+.B system
+System profile.
+Only
+.B arch
+is supported; it is the default.
+.TP
+.B root
+Absolute physical root of the managed filesystem tree.
+The default is
+.IR / .
+Runtime checks of the running kernel, EFI, systemd and host pacman commands
+are skipped explicitly for an alternative root.
+.TP
+.B home_dir
+Absolute logical home path inside root.
+The default comes from HOME.
+Saved home paths map to this destination path and its owner's uid/gid.
+.TP
+.B data_dir
+Absolute local path to the state repository, independent of root.
+The default is
+.I $XDG_DATA_HOME/lyfy
+or
+.IR ~/.local/share/lyfy .
+.TP
+.B state_dir
+Absolute local path for receipts, locks and recovery journals.
+The default is
+.I $XDG_STATE_HOME/lyfy
+or
+.IR ~/.local/state/lyfy .
+It must differ from data_dir.
+.TP
+.B storage_format
+.B git
+(default) stores ordinary host payload files and JSON metadata in a Git
+worktree.
+.B directory
+uses immutable JSON snapshots and SHA-256 content objects.
+Automatic conversion between the formats is not implemented.
+.TP
+.B host
+Host identifier, defaulting to the trimmed contents of
+.IR /etc/hostname .
+Identifiers use ASCII letters, digits, hyphen, underscore or dot, cannot
+start with a dot and contain at most 128 bytes.
+.TP
+.B base_host
+Optional host whose current saved state becomes the pinned base of a new
+save.
+It must differ from host.
+An empty override clears this setting.
+.TP
+.B snapshot
+Full committed revision or snapshot ID to apply.
+The default is
+.BR latest .
+Save always selects latest and creates or reuses state according to the
+storage backend.
+Uncommitted Git payload changes are not deployed.
+.TP
+.B include
+Managed file/directory prefixes.
+Defaults are the current XDG_CONFIG_HOME, ~/.bashrc, ~/.bash_profile,
+~/.zshrc, ~/.profile, ~/.gitconfig, /etc and /usr/local/etc.
+Missing optional paths are skipped.
+.TP
+.B exclude
+Prefixes omitted from capture and reconciliation.
+Defaults include ~/Projects, ~/.cache, ~/.local/state, ~/.ssh, ~/.gnupg,
+/etc/shadow, /etc/shadow-, /etc/gshadow, /etc/gshadow-, /etc/ssh,
+/etc/ssl/private, /etc/credstore, /etc/credstore.encrypted,
+/etc/pacman.d/gnupg and /etc/machine-id.
+Associated pacnew/pacsave files inherit the active file's exclusion.
+.TP
+.B ownership_roots
+Trees scanned for files not recorded in pacman's local ownership inventory.
+Defaults are /usr/bin, /usr/lib and /usr/share.
+.TP
+.B require_uki
+Require Type #2 UKI boot entries and no Type #1 entries.
+The default is true.
+This is a lyfy policy rather than an Arch Linux requirement.
+.TP
+.B check_packages
+Capture, compare and inspect package state.
+The default is true.
+Offline package inventories have unknown native/foreign classification.
+.TP
+.B install_packages
+Allow supported package restoration during apply with
+.BR \-\-write .
+The default is false.
+Execution requires existing root privileges and text display.
+lyfy never invokes sudo.
+.TP
+.B overwrite
+Permit replacements that conflict with live content or the last applied
+receipt.
+The default is false.
+Review the apply preview before enabling it.
+.TP
+.B prune
+Permit deletion of explicitly tracked paths absent from desired state.
+The default is false.
+Untracked files are retained and directory deletion is nonrecursive.
+.TP
+.B max_file_bytes
+Maximum regular-file bytes during capture and planning.
+The default is 16777216 (16 MiB).
+.TP
+.B format
+CLI result display:
+.B text
+(default) or
+.BR json .
+This launch preference is not passed to the library.
+Interactive package execution requires text display.
+.SH PATH RULES
+Scope-list paths must be absolute or start with
+.BR ~/ .
+They are prefixes, not globs.
+The tilde maps to home_dir; absolute target paths are resolved inside root.
+data_dir and state_dir are physical local paths and are not prefixed by root.
+There is no shell or general environment interpolation.
+.PP
+Virtual/runtime/cache trees /proc, /sys, /dev, /run, /tmp, /var/tmp,
+/var/cache and /var/lib/pacman are always excluded from file state.
+The data and state repositories themselves are also excluded.
+The root and home directory nodes are not restored as files, but their
+children may be managed through / or ~ scopes.
+.SH EXAMPLE
+.nf
+system = "arch"
+host = "laptop"
+storage_format = "git"
+base_host = "common"
+require_uki = true
+check_packages = true
+install_packages = false
+overwrite = false
+prune = false
+max_file_bytes = 16777216
+format = "text"
+.fi
+.PP
+Omit include/exclude to retain the defaults and XDG_CONFIG_HOME handling.
+.SH XDG DIRECTORIES
+Relative XDG base-directory values are ignored.
+Unset or empty variables use their standard HOME defaults.
+New application directories use mode 0700 and files use mode 0600.
+Existing XDG parent directories are not chmodded.
+An existing application repository/state directory must already be private
+and owned by the invoking user for mutating operations.
+.SH SEE ALSO
+.BR lyfy (1),
+.BR git (1),
+.BR pacman (8),
+.BR bootctl (1)
