@@ -1,0 +1,27 @@
+# All keys have a --snake_case flag and LYFY_UPPER_CASE environment override.
+system = "arch"
+host = "laptop"
+root = "/"
+snapshot = "latest"
+
+# Pin this host to the current saved snapshot of common when saving.
+# base_host = "common"
+
+# Absolute paths only. Omit to use HOME and the corresponding XDG defaults.
+# home_dir = "/home/you"
+# data_dir = "/home/you/.local/share/lyfy"
+# state_dir = "/home/you/.local/state/lyfy"
+
+# Omit include/exclude to retain the defaults, including XDG_CONFIG_HOME.
+# Lists replace the entire default/lower-priority list.
+# include = ["~/.config", "~/.bashrc", "/etc", "/usr/local/etc"]
+# exclude = ["~/Projects", "~/.ssh", "~/.gnupg", "/etc/shadow", "/etc/ssh"]
+ownership_roots = ["/usr/bin", "/usr/lib", "/usr/share"]
+
+require_uki = true
+check_packages = true
+install_packages = false
+overwrite = false
+prune = false
+max_file_bytes = 16777216
+format = "text"
