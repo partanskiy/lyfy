@@ -12,6 +12,8 @@
 - Releases tag existing main commits. Never require a dedicated release commit.
 - The user authorizes merging green PRs by rebase and publishing releases without another approval.
 - Release only for Arch Linux x86_64 (amd64). The current distribution target is AUR package lyfy.
+- License: MIT, explicitly selected by the user.
+- The user explicitly authorizes the existing AUR credential in the lyfy GitHub Actions secret for automatic AUR publication. Never expose its contents.
 - All configuration fields need a snake_case flag and LYFY_UPPER_CASE environment variable.
 - Preserve flag > environment > TOML > default precedence.
 - Store concrete files and host overlays. Do not introduce configuration templates.

@@ -65,11 +65,12 @@ preserves AUR history, rejects version downgrades and uses a Conventional
 Commit. AUR requires its package Git branch to be named master; the upstream
 source repository remains main with rebase-only PRs.
 
-No GitHub credential upload is needed for this path. Automatic Actions-based
-publication is disabled by default. Enabling it requires explicit authorization
-to provide an AUR SSH credential to the lyfy repository, an Actions secret
-named AUR_SSH_PRIVATE_KEY and repository variable AUR_AUTOPUBLISH=true. Do not
-copy an existing private key to GitHub merely because publication is authorized.
+No GitHub credential upload is needed for this local path. The owner explicitly
+authorized using the existing AUR credential in partanskiy/lyfy Actions for
+automatic publication. That path uses the AUR_SSH_PRIVATE_KEY Actions secret
+and repository variable AUR_AUTOPUBLISH=true. Never print or commit the secret.
+If the variable is disabled, the workflow retains the tested recipe for local
+publication instead.
 
 ## Local packaging check
 
