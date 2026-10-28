@@ -201,3 +201,51 @@ impl<'a> Run<'a> {
         self.report
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn permission_denials_are_aggregated_without_hiding_real_findings() {
+        let mut observer = |_: Observation<'_>| {};
+        let mut run = Run::new(&mut observer);
+        run.check(CheckId::Pacfiles, |run| {
+            for _ in 0..2 {
+                run.failed(
+                    "/etc/protected",
+                    io::Error::from(io::ErrorKind::PermissionDenied).into(),
+                );
+            }
+            run.add(
+                RuleId::Pacnew,
+                vec!["/etc/a.pacnew".into()],
+                "pending",
+                None,
+            );
+            Ok(())
+        });
+        let report = run.finish();
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].rule, RuleId::Pacnew);
+        assert_eq!(report.diagnostics.len(), 1);
+        assert_eq!(report.diagnostics[0].paths, ["/etc/protected"]);
+        assert_eq!(report.checks[0].status, CheckStatus::Incomplete);
+        assert_eq!(report.exit_code(), 2);
+    }
+    #[test]
+    fn a_disabled_check_never_executes_and_wrong_rule_ownership_is_incomplete() {
+        let mut observer = |_: Observation<'_>| {};
+        let mut run = Run::new(&mut observer);
+        run.report.disabled_rules = vec![RuleId::Pacnew, RuleId::Pacsave];
+        run.check(CheckId::Pacfiles, |_| -> anyhow::Result<()> {
+            panic!("disabled check executed")
+        });
+        assert_eq!(run.report.checks[0].status, CheckStatus::Disabled);
+        run.check(CheckId::Identity, |run| {
+            run.add(RuleId::Uki, vec![], "wrong check", None);
+            Ok(())
+        });
+        assert!(run.report.findings.is_empty());
+        assert_eq!(run.report.checks[1].status, CheckStatus::Incomplete);
+    }
+}

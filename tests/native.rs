@@ -28,7 +28,7 @@ fn lint(f: &Fixture) -> Value {
         "/usr/bin",
     ]);
     assert!(
-        [Some(0), Some(1)].contains(&output.status.code()),
+        [Some(0), Some(1), Some(2)].contains(&output.status.code()),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
@@ -46,11 +46,11 @@ fn has(value: &Value, rule: &str) -> bool {
 #[test]
 fn lint_never_initializes_a_missing_database_or_version_marker() {
     let f = Fixture::new();
-    assert!(has(&lint(&f), "scan.incomplete"));
+    assert!(!lint(&f)["diagnostics"].as_array().unwrap().is_empty());
     assert!(!f.root.join("var/lib/pacman").exists());
     let local = f.root.join("var/lib/pacman/local");
     fs::create_dir_all(&local).unwrap();
-    assert!(has(&lint(&f), "scan.incomplete"));
+    assert!(!lint(&f)["diagnostics"].as_array().unwrap().is_empty());
     assert!(fs::read_dir(local).unwrap().next().is_none());
     assert!(!f.data.exists());
     assert!(!f.state.exists());
@@ -61,7 +61,7 @@ fn native_dependencies_honor_versioned_provides_and_report_conflicts() {
     let f = Fixture::new();
     package(&f, "application", 0, "%DEPENDS%\nvirtual>=2\n\n", "");
     let provider = package(&f, "provider", 1, "%PROVIDES%\nvirtual=2\n\n", "");
-    assert!(!has(&lint(&f), "arch.database"));
+    assert!(!has(&lint(&f), "arch.missing_dependency"));
     let desc = fs::read_to_string(provider.join("desc")).unwrap();
     fs::write(
         provider.join("desc"),
@@ -77,7 +77,7 @@ fn native_dependencies_honor_versioned_provides_and_report_conflicts() {
             .any(|finding| finding["detail"].as_str().unwrap().contains("virtual>=2"))
     );
     fs::write(provider.join("desc"), desc + "%CONFLICTS%\napplication\n\n").unwrap();
-    assert!(has(&lint(&f), "arch.database"));
+    assert!(has(&lint(&f), "arch.missing_dependency"));
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn native_orphans_and_shared_file_owners_are_reported() {
     package(&f, "one", 0, "", "etc/example.conf");
     package(&f, "two", 1, "", "etc/example.conf");
     let report = lint(&f);
-    assert!(has(&report, "arch.database"));
+    assert!(has(&report, "arch.file_owners"));
     assert!(has(&report, "arch.orphans"));
 }
 
@@ -139,7 +139,7 @@ fn noextract_and_recursive_config_includes_are_handled_explicitly() {
     f.write("etc/native-options.conf", "NoExtract = etc/optional.conf\n");
     assert!(!has(&lint(&f), "arch.package_files"));
     f.write("etc/native-options.conf", "Include = /etc/pacman.conf\n");
-    assert!(has(&lint(&f), "scan.incomplete"));
+    assert!(!lint(&f)["diagnostics"].as_array().unwrap().is_empty());
 }
 
 #[test]
@@ -147,7 +147,7 @@ fn malformed_mtree_and_unknown_installation_reasons_never_look_healthy() {
     let f = Fixture::new();
     let directory = package(&f, "demo", 0, "", "etc/example.conf");
     fs::write(directory.join("mtree"), "not a valid mtree\0\0").unwrap();
-    assert!(has(&lint(&f), "scan.incomplete"));
+    assert!(!lint(&f)["diagnostics"].as_array().unwrap().is_empty());
     fs::remove_file(directory.join("mtree")).unwrap();
     let desc = fs::read_to_string(directory.join("desc")).unwrap();
     fs::write(
@@ -155,7 +155,7 @@ fn malformed_mtree_and_unknown_installation_reasons_never_look_healthy() {
         desc.replace("%REASON%\n0", "%REASON%\n2"),
     )
     .unwrap();
-    assert!(has(&lint(&f), "scan.incomplete"));
+    assert!(!lint(&f)["diagnostics"].as_array().unwrap().is_empty());
 }
 
 #[test]

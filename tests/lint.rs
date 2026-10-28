@@ -27,6 +27,7 @@ fn fmt_only_removes_identical_pacnew_and_keeps_recovery_data() {
     let value = f.ok(&["fmt", "--write"]);
     assert_eq!(value["plan"]["changes"].as_array().unwrap().len(), 1);
     assert!(!f.root.join("etc/example.conf.pacnew").exists());
+    assert_eq!(value["report"]["findings"][0]["fixed"], true);
     assert_eq!(f.read("etc/example.conf"), "common\n");
     assert!(
         !f.state.join("receipts").exists(),
@@ -72,7 +73,7 @@ fn package_inventory_and_ownership_use_the_target_root() {
         "--ownership_roots",
         "/usr/bin",
     ]);
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(2));
     let value: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(value["findings"][0]["rule"], "arch.unowned_file");
     assert_eq!(
@@ -86,14 +87,14 @@ fn missing_scan_roots_are_incomplete_checks() {
     let f = Fixture::new();
     fs::remove_dir_all(f.root.join("etc")).unwrap();
     let output = f.run(&["lint"]);
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(2));
     let value: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert!(
-        value["findings"]
+        value["diagnostics"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|v| v["rule"] == "scan.incomplete")
+            .any(|v| v["code"] == "incomplete")
     );
 }
 
@@ -148,16 +149,17 @@ fn protected_directories_are_one_coverage_warning_and_other_paths_are_scanned() 
     for path in &protected {
         fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
     }
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(2));
     let value: Value = serde_json::from_slice(&output.stdout).unwrap();
     let findings = value["findings"].as_array().unwrap();
-    assert_eq!(findings.len(), 2);
+    assert_eq!(findings.len(), 1);
     assert!(findings.iter().any(|f| f["rule"] == "arch.pacnew"));
-    let access = findings
+    let access = value["diagnostics"]
+        .as_array()
+        .unwrap()
         .iter()
-        .find(|f| f["rule"] == "scan.access_denied")
+        .find(|f| f["code"] == "access_denied")
         .unwrap();
-    assert_eq!(access["severity"], "warning");
     assert_eq!(access["paths"].as_array().unwrap().len(), 2);
     assert!(access["detail"].as_str().unwrap().contains("--elevate"));
     assert!(!f.data.exists());
@@ -187,9 +189,9 @@ fn empty_package_file_lists_are_valid_but_malformed_records_are_not() {
     f.ok(&args);
     fs::write(directory.join("files"), "%FILES%\n../escape\n\n").unwrap();
     let output = f.run(&args);
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(2));
     let value: Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(value["findings"][0]["rule"], "scan.incomplete");
+    assert_eq!(value["diagnostics"][0]["code"], "incomplete");
 }
 
 #[test]
