@@ -23,7 +23,8 @@ impl Lint {
 
     pub fn observe(&mut self, observation: Observation<'_>) {
         match observation {
-            Observation::CheckStarted(name) => {
+            Observation::CheckStarted(id) => {
+                let name = id.name();
                 *self.progress.stage.lock().unwrap() = Some(ActiveCheck {
                     name,
                     started: Instant::now(),
@@ -31,7 +32,8 @@ impl Lint {
                 });
                 let _ = writeln!(io::stderr().lock(), "lyfy: checking {name}...");
             }
-            Observation::CheckFinished { name, elapsed } => {
+            Observation::CheckFinished { id, elapsed, .. } => {
+                let name = id.name();
                 *self.progress.stage.lock().unwrap() = None;
                 let _ = writeln!(
                     io::stderr().lock(),

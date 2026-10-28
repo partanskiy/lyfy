@@ -1,5 +1,5 @@
 use crate::domain::config::Config;
-use crate::domain::{checks::CheckId, rules::RuleId};
+use crate::domain::rules::RuleId;
 use crate::infrastructure::{filesystem::Root, pacman::Database, process};
 use crate::services::inspection::run::Run;
 use anyhow::{Result, ensure};

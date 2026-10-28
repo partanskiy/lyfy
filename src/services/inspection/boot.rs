@@ -1,4 +1,4 @@
-use crate::domain::{checks::CheckId, rules::RuleId};
+use crate::domain::rules::RuleId;
 use crate::infrastructure::process;
 use crate::services::inspection::run::Run;
 use anyhow::{Context, Result, ensure};
@@ -32,19 +32,16 @@ fn inspect(value: &Value, report: &mut Run<'_>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use crate::domain::checks::CheckId;
     use crate::services::inspection::boot::inspect;
     use crate::services::inspection::run::Run;
     #[test]
     fn uki_policy_distinguishes_type1_type2_and_firmware_entries() {
         let mut observer = |_: crate::domain::observation::Observation<'_>| {};
         let mut report = Run::new(&mut observer);
-        inspect(
-            &serde_json::json!([{"type":"type2","id":"arch.efi"},{"type":"auto","id":"windows"}]),
-            &mut report,
-        )
-        .unwrap();
+        report.check(CheckId::Boot, |report| inspect(&serde_json::json!([{"type":"type2","id":"arch.efi"},{"type":"auto","id":"windows"}]), report)).unwrap();
         assert!(report.report.findings.is_empty());
-        inspect(&serde_json::json!([{"type":"type1","id":"arch.conf"},{"type":"type2","id":"arch.efi"}]),&mut report).unwrap();
+        report.check(CheckId::Boot, |report| inspect(&serde_json::json!([{"type":"type1","id":"arch.conf"},{"type":"type2","id":"arch.efi"}]), report)).unwrap();
         assert_eq!(report.report.findings.len(), 1);
         assert_eq!(report.report.findings[0].paths, ["arch.conf"]);
         assert!(inspect(&serde_json::json!({}), &mut report).is_err());

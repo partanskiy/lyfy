@@ -61,11 +61,11 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
     let outcome = lyfy::execute_observed(&context, Request::Lint, &mut |event| {
         use lyfy::domain::observation::Observation;
         match event {
-            Observation::CheckStarted(name) => events.push(format!("start:{name}")),
-            Observation::CheckFinished { name, .. } => events.push(format!("end:{name}")),
+            Observation::CheckStarted(name) => events.push(format!("start:{}", name.name())),
+            Observation::CheckFinished { id, .. } => events.push(format!("end:{}", id.name())),
             Observation::Finding(finding) => {
-                events.push(finding.rule.clone());
-                if finding.rule == "arch.os_release" {
+                events.push(finding.rule.to_string());
+                if finding.rule == lyfy::domain::rules::RuleId::OsRelease {
                     fs::write(root.join("etc/late.pacsave"), "saved\n").unwrap();
                 }
             }
