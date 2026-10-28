@@ -24,10 +24,14 @@ sha2 = "0.10"
 tempfile = "3"
 toml = { version = "0.8", optional = true }
 walkdir = "2"
+indicatif = { version = "0.18", optional = true }
+console = { version = "0.16", optional = true }
+serde_yaml_ng = { version = "0.10", optional = true }
+percent-encoding = { version = "2", optional = true }
 
 [features]
 default = ["cli"]
-cli = ["dep:clap", "dep:toml"]
+cli = ["dep:clap", "dep:toml", "dep:indicatif", "dep:console", "dep:serde_yaml_ng", "dep:percent-encoding"]
 
 [[bin]]
 name = "lyfy"
