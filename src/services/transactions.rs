@@ -1,4 +1,4 @@
-use crate::domain::config::Config;
+use crate::Context as AppContext;
 use crate::domain::plan::{Change, Plan, Receipt};
 use crate::domain::state::Content;
 use crate::infrastructure::filesystem::Root;
@@ -20,23 +20,29 @@ struct Journal<'a> {
     status: &'a str,
 }
 
-pub fn write(config: &Config, plan: &Plan, record_receipt: bool) -> Result<std::path::PathBuf> {
+pub fn write(
+    context: &AppContext,
+    plan: &Plan,
+    record_receipt: bool,
+) -> Result<std::path::PathBuf> {
+    let config = &context.config;
     let transaction = config
         .state_dir
         .join("transactions")
         .join(timestamp().to_string());
-    execute(config, plan, record_receipt, &transaction)
+    execute(context, plan, record_receipt, &transaction)
         .with_context(|| format!("transaction directory: {}", transaction.display()))?;
     Ok(transaction)
 }
 
 fn execute(
-    config: &Config,
+    context: &AppContext,
     plan: &Plan,
     record_receipt: bool,
     transaction: &std::path::Path,
 ) -> Result<()> {
-    let store = Store::new(config.data_dir.clone());
+    let config = &context.config;
+    let store = &context.repository;
     ensure!(
         plan.changes.iter().all(|c| c.conflict.is_none()),
         "plan contains conflicts; nothing was written"

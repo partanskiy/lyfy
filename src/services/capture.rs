@@ -1,13 +1,13 @@
-use crate::domain::config::Config;
+use crate::Context;
 use crate::domain::state::Tree;
 use crate::infrastructure::filesystem::Root;
-use crate::infrastructure::store::Store;
 use crate::services::files::observe;
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context as _, Result, ensure};
 use walkdir::WalkDir;
 
-pub fn scan(config: &Config) -> Result<Tree> {
-    let store = Store::new(config.data_dir.clone());
+pub fn scan(context: &Context) -> Result<Tree> {
+    let config = &context.config;
+    let store = &context.repository;
     let root = Root::open(&config.root)?;
     let mut current = Tree::new();
     for value in &config.include {

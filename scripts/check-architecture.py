@@ -12,7 +12,7 @@ LAYERS = {"domain", "infrastructure", "services", "managers"}
 ALLOWED = {
     "domain": {"domain"},
     "infrastructure": {"domain", "infrastructure"},
-    "services": {"domain", "infrastructure", "services"},
+    "services": {"domain", "infrastructure", "services", "Context"},
     "managers": {"domain", "services", "Context"},
 }
 errors = []
@@ -48,11 +48,13 @@ for path in CORE.rglob("*.rs"):
                 error(path, "OS access belongs to infrastructure/services")
     if layer == "managers" and re.search(r"\bsuper::|\buse\s+crate\s*;", text):
         error(path, "managers must not import siblings or alias the crate root")
+    if layer == "managers" and re.search(r"\bcontext\.repository\b",text):
+        error(path, "managers must access persistence through named services")
     if layer != "infrastructure" and "super::" in text:
         error(path, "cross-layer dependencies must use explicit crate::layer paths")
     if "super::super::" in text or "extern crate" in text:
         error(path, "relative crate aliases are forbidden")
-    if layer != "managers" and re.search(r"\bcrate::(?:execute|Context)\b", text):
+    if re.search(r"\bcrate::execute\b", text):
         error(path, "shared code must not invoke the application dispatcher")
     if layer == "services" and relative.name != "mod.rs":
         source = relative.parts[1].removesuffix(".rs")

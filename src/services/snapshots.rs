@@ -1,13 +1,10 @@
+use crate::Context;
 use crate::domain::{
-    config::Config,
     packages::Package,
     results::Saved,
     state::{Node, Reference, Snapshot, Tree},
 };
-use crate::infrastructure::{
-    filesystem::Root,
-    store::{Store, timestamp},
-};
+use crate::infrastructure::store::timestamp;
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -16,8 +13,9 @@ pub struct Baseline {
     pub tree: Tree,
 }
 
-pub fn baseline(config: &Config) -> Result<Baseline> {
-    let store = Store::new(config.data_dir.clone());
+pub fn baseline(context: &Context) -> Result<Baseline> {
+    let config = &context.config;
+    let store = &context.repository;
     let reference = config
         .base_host
         .as_ref()
@@ -36,14 +34,11 @@ pub fn baseline(config: &Config) -> Result<Baseline> {
     Ok(Baseline { reference, tree })
 }
 
-pub fn previous_keys(config: &Config) -> Result<BTreeSet<String>> {
-    let store = Store::new(config.data_dir.clone());
-    let head_path = store.host_dir(&config.host)?.join("HEAD");
+pub fn previous_keys(context: &Context) -> Result<BTreeSet<String>> {
+    let config = &context.config;
+    let store = &context.repository;
     let mut keys = BTreeSet::new();
-    if Root::open(std::path::Path::new("/"))?
-        .metadata(&head_path)?
-        .is_some()
-    {
+    if store.has_head(&config.host)? {
         let previous = store.head(&config.host)?;
         let (_, tree) = store.effective(&config.host, &previous)?;
         keys.extend(tree.into_keys());
@@ -53,12 +48,13 @@ pub fn previous_keys(config: &Config) -> Result<BTreeSet<String>> {
 }
 
 pub fn commit(
-    config: &Config,
+    context: &Context,
     base: Option<Reference>,
     changes: BTreeMap<String, Option<Node>>,
     packages: Option<Vec<Package>>,
     entries: usize,
 ) -> Result<Saved> {
+    let config = &context.config;
     let deletions = changes.values().filter(|n| n.is_none()).count();
     let snapshot = Snapshot {
         schema: 1,
@@ -69,7 +65,7 @@ pub fn commit(
         changes,
         packages,
     };
-    let id = Store::new(config.data_dir.clone()).save(&snapshot)?;
+    let id = context.repository.save(&snapshot)?;
     Ok(Saved {
         host: config.host.clone(),
         snapshot: id,

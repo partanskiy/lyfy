@@ -1,4 +1,4 @@
-use crate::domain::config::{absolute, identifier, is_digest};
+use crate::domain::config::{Config, absolute, identifier, is_digest};
 use crate::domain::state::{Snapshot, Tree, digest};
 use crate::infrastructure::filesystem::Root;
 use anyhow::{Context, Result, ensure};
@@ -77,16 +77,52 @@ pub fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T> {
 
 pub struct Store {
     pub path: PathBuf,
+    git: Option<crate::infrastructure::git::Repository>,
 }
 impl Store {
+    pub fn begin(&self) {
+        if let Some(git) = &self.git {
+            git.begin();
+        }
+    }
     pub fn new(path: PathBuf) -> Self {
-        Self { path }
+        Self { path, git: None }
+    }
+    pub fn configured(config: &Config) -> Self {
+        let git = (config.storage_format == "git").then(|| {
+            crate::infrastructure::git::Repository::new(
+                config.data_dir.clone(),
+                config.max_file_bytes,
+            )
+        });
+        Self {
+            path: config.data_dir.clone(),
+            git,
+        }
+    }
+    pub fn lock(&self) -> Result<Lock> {
+        if let Some(git) = &self.git {
+            git.lock()
+        } else {
+            Lock::acquire(&self.path)
+        }
+    }
+    pub fn has_head(&self, host: &str) -> Result<bool> {
+        if let Some(git) = &self.git {
+            return git.has_head(host);
+        }
+        Ok(Root::open(Path::new("/"))?
+            .metadata(&self.host_dir(host)?.join("HEAD"))?
+            .is_some())
     }
     pub fn host_dir(&self, host: &str) -> Result<PathBuf> {
         identifier(host)?;
         Ok(self.path.join("hosts").join(host))
     }
     pub fn head(&self, host: &str) -> Result<String> {
+        if let Some(git) = &self.git {
+            return git.head(host);
+        }
         let path = self.host_dir(host)?.join("HEAD");
         let bytes = Root::open(Path::new("/"))?
             .read(&path, 128)
@@ -96,6 +132,9 @@ impl Store {
         Ok(id)
     }
     pub fn object(&self, hash: &str) -> Result<Vec<u8>> {
+        if let Some(git) = &self.git {
+            return git.object(hash);
+        }
         ensure!(is_digest(hash), "invalid object hash");
         let bytes = Root::open(Path::new("/"))?
             .read(&self.path.join("objects").join(hash), 1024 * 1024 * 1024)?;
@@ -103,6 +142,9 @@ impl Store {
         Ok(bytes)
     }
     pub fn put_object(&self, bytes: &[u8]) -> Result<()> {
+        if let Some(git) = &self.git {
+            return git.put_object(bytes);
+        }
         let path = self.path.join("objects").join(digest(bytes));
         if path.exists() {
             self.object(&digest(bytes))?;
@@ -112,6 +154,9 @@ impl Store {
         Ok(())
     }
     pub fn save(&self, snapshot: &Snapshot) -> Result<String> {
+        if let Some(git) = &self.git {
+            return git.save(snapshot);
+        }
         let bytes = serde_json::to_vec_pretty(snapshot)?;
         let id = digest(&bytes);
         let host = self.host_dir(&snapshot.host)?;
@@ -120,6 +165,9 @@ impl Store {
         Ok(id)
     }
     pub fn load(&self, host: &str, id: &str) -> Result<Snapshot> {
+        if let Some(git) = &self.git {
+            return git.load(host, id);
+        }
         ensure!(is_digest(id), "invalid snapshot id");
         let path = self
             .host_dir(host)?
