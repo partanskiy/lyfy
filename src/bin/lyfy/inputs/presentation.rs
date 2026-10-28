@@ -24,7 +24,11 @@ impl Lint {
     pub fn observe(&mut self, observation: Observation<'_>) {
         match observation {
             Observation::CheckStarted(name) => {
-                *self.progress.stage.lock().unwrap() = Some((name, Instant::now()));
+                *self.progress.stage.lock().unwrap() = Some(ActiveCheck {
+                    name,
+                    started: Instant::now(),
+                    progress: None,
+                });
                 let _ = writeln!(io::stderr().lock(), "lyfy: checking {name}...");
             }
             Observation::CheckFinished { name, elapsed } => {
@@ -34,6 +38,11 @@ impl Lint {
                     "lyfy: finished {name} ({:.1}s)",
                     elapsed.as_secs_f64()
                 );
+            }
+            Observation::Progress { completed, total } => {
+                if let Some(check) = self.progress.stage.lock().unwrap().as_mut() {
+                    check.progress = Some((completed, total));
+                }
             }
             Observation::Finding(finding) if !self.json => {
                 let mut out = io::stdout().lock();
@@ -86,7 +95,12 @@ fn safe(text: &str) -> String {
         .collect()
 }
 
-type Stage = Arc<Mutex<Option<(&'static str, Instant)>>>;
+struct ActiveCheck {
+    name: &'static str,
+    started: Instant,
+    progress: Option<(usize, usize)>,
+}
+type Stage = Arc<Mutex<Option<ActiveCheck>>>;
 
 struct Progress {
     stage: Stage,
@@ -104,11 +118,17 @@ impl Progress {
                 while receiver.recv_timeout(Duration::from_secs(2))
                     == Err(mpsc::RecvTimeoutError::Timeout)
                 {
-                    if let Some((name, started)) = *stage.lock().unwrap() {
+                    if let Some(check) = stage.lock().unwrap().as_ref() {
                         let _ = writeln!(
                             io::stderr().lock(),
-                            "lyfy: still checking {name} ({:.0}s)",
-                            started.elapsed().as_secs_f64()
+                            "lyfy: still checking {} ({:.0}s){}",
+                            check.name,
+                            check.started.elapsed().as_secs_f64(),
+                            check
+                                .progress
+                                .map_or(String::new(), |(completed, total)| format!(
+                                    "; {completed}/{total} packages"
+                                ))
                         );
                     }
                 }
