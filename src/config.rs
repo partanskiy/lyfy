@@ -22,6 +22,7 @@ pub struct Config {
     pub ownership_roots: Vec<String>,
     pub require_uki: bool,
     pub check_packages: bool,
+    pub install_packages: bool,
     pub overwrite: bool,
     pub prune: bool,
     pub max_file_bytes: u64,
@@ -84,6 +85,7 @@ impl Default for Config {
             ownership_roots: vec!["/usr/bin".into(), "/usr/lib".into(), "/usr/share".into()],
             require_uki: true,
             check_packages: true,
+            install_packages: false,
             overwrite: false,
             prune: false,
             max_file_bytes: 16 * 1024 * 1024,
@@ -144,6 +146,7 @@ impl Config {
             ownership_roots,
             require_uki,
             check_packages,
+            install_packages,
             overwrite,
             prune,
             max_file_bytes,
@@ -176,6 +179,10 @@ impl Config {
             "format must be text or json"
         );
         ensure!(self.max_file_bytes > 0, "max_file_bytes must be positive");
+        ensure!(
+            self.data_dir != self.state_dir,
+            "data_dir and state_dir must differ"
+        );
         for path in self
             .include
             .iter()
@@ -221,10 +228,16 @@ impl Config {
         Ok(format!("{prefix}/{relative}"))
     }
 
-    pub fn from_key(&self, key: &str) -> Result<PathBuf> {
+    pub fn path_for_key(&self, key: &str) -> Result<PathBuf> {
         let (prefix, relative) = key.split_once('/').context("invalid target key")?;
         ensure!(!relative.is_empty(), "empty target");
         let rel = Path::new(relative);
+        ensure!(
+            relative
+                .split('/')
+                .all(|p| !p.is_empty() && p != "." && p != ".."),
+            "unsafe target key"
+        );
         ensure!(
             rel.components().all(|c| matches!(c, Component::Normal(_))),
             "unsafe target key"
