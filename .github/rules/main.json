@@ -19,6 +19,7 @@
     {"type": "required_status_checks", "parameters": {
       "strict_required_status_checks_policy": true,
       "required_status_checks": [
+        {"context": "architecture", "integration_id": 15368},
         {"context": "rustfmt", "integration_id": 15368},
         {"context": "clippy", "integration_id": 15368},
         {"context": "test", "integration_id": 15368},
