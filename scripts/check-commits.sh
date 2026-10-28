@@ -33,7 +33,9 @@ case "${1:-}" in
     --staged) check_size < <(git diff --cached --numstat -M) ;;
     --range)
         temp=$(mktemp)
-        trap 'rm -f "$temp"' EXIT
+        commits=$(mktemp)
+        trap 'rm -f "$temp" "$commits"' EXIT
+        git rev-list --reverse "$2" > "$commits"
         while IFS= read -r sha; do
             parents=$(git show -s --format=%P "$sha")
             if [[ "$parents" == *' '* ]]; then
@@ -43,7 +45,7 @@ case "${1:-}" in
             git show -s --format=%s "$sha" > "$temp"
             check_message "$temp"
             check_size < <(git diff-tree --root --no-commit-id --numstat -r -M "$sha")
-        done < <(git rev-list --reverse "$2")
+        done < "$commits"
         ;;
     *) echo 'Usage: check-commits.sh --message FILE | --staged | --range BASE..HEAD' >&2; exit 2 ;;
 esac
