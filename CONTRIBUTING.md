@@ -47,9 +47,10 @@ server configuration.
 ```sh
 python3 scripts/check-architecture.py
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-cargo test --workspace --all-features --locked
-cargo build --workspace --locked --release
+cargo clippy --all-targets --all-features --locked -- -D warnings
+cargo test --all-features --locked
+cargo build --locked --release
+cargo test --lib --test api --no-default-features --locked
 bash scripts/check-commits.sh --range origin/main..HEAD
 ```
 
