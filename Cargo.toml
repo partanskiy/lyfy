@@ -7,6 +7,9 @@ description = "Declarative system maintenance for Arch Linux"
 repository = "https://github.com/partanskiy/lyfy"
 license = "MIT"
 
+[package.metadata.lyfy]
+binary-license = "GPL-3.0-only"
+
 [dependencies]
 alpm = { version = "5.0.2", features = ["mtree"] }
 libarchive = "0.1.1"
@@ -49,4 +52,8 @@ required-features = ["cli"]
 
 [[test]]
 name = "git"
+required-features = ["cli"]
+
+[[test]]
+name = "native"
 required-features = ["cli"]
