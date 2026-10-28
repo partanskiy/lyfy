@@ -10,6 +10,8 @@
 - Use small Conventional Commits. No merge, fixup, squash, amend or release-only exceptions.
 - A commit changes at most 300 lines and 12 files, excluding generated Cargo.lock.
 - Releases tag existing main commits. Never require a dedicated release commit.
+- The user authorizes merging green PRs by rebase and publishing releases without another approval.
+- Release only for Arch Linux x86_64 (amd64). The current distribution target is AUR package lyfy.
 - All configuration fields need a snake_case flag and LYFY_UPPER_CASE environment variable.
 - Preserve flag > environment > TOML > default precedence.
 - Store concrete files and host overlays. Do not introduce configuration templates.

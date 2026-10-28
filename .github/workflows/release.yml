@@ -14,14 +14,20 @@ jobs:
       contents: write
     env:
       RELEASE_TAG: ${{ github.ref_name }}
+      CARGO_BUILD_TARGET: x86_64-unknown-linux-gnu
+    outputs:
+      version: ${{ steps.release.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Validate the selected release commit
+        id: release
         run: |
-          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          test "$(uname -m)" = x86_64
           git merge-base --is-ancestor HEAD origin/main
+          echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -34,11 +40,17 @@ jobs:
           cargo test --all-features --locked
           cargo test --lib --test api --no-default-features --locked
           LYFY_BUILD_VERSION="${RELEASE_TAG#v}" cargo build --locked --release
-          test "$(target/release/lyfy --version)" = "lyfy ${RELEASE_TAG#v}"
+          test "$(target/x86_64-unknown-linux-gnu/release/lyfy --version)" = "lyfy ${RELEASE_TAG#v}"
+          python3 scripts/license-notices.py target/THIRD_PARTY_LICENSES.txt
       - name: Create archive
         run: |
           mkdir -p dist
-          tar -C target/release -czf "dist/lyfy-$RELEASE_TAG-x86_64-unknown-linux-gnu.tar.gz" lyfy
+          tar -czf "dist/lyfy-$RELEASE_TAG-x86_64-unknown-linux-gnu.tar.gz" \
+            -C target/x86_64-unknown-linux-gnu/release lyfy \
+            -C "$GITHUB_WORKSPACE" LICENSE README.md ARCHITECTURE.md docs examples \
+            -C "$GITHUB_WORKSPACE/target" THIRD_PARTY_LICENSES.txt
+          git archive --format=tar --prefix="lyfy-${RELEASE_TAG#v}/" HEAD | \
+            gzip -n > "dist/lyfy-$RELEASE_TAG-source.tar.gz"
       - name: Create checksums
         working-directory: dist
         run: sha256sum *.tar.gz > SHA256SUMS
@@ -46,3 +58,35 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$RELEASE_TAG" dist/* --verify-tag --generate-notes --title "lyfy $RELEASE_TAG"
+
+  aur:
+    name: AUR lyfy (x86_64)
+    needs: publish
+    runs-on: ubuntu-24.04
+    container:
+      image: archlinux:base-devel
+    env:
+      VERSION: ${{ needs.publish.outputs.version }}
+    steps:
+      - name: Install pacman-managed packaging dependencies
+        run: pacman -Syu --noconfirm --needed rust python git systemd curl openssh
+      - uses: actions/checkout@v4
+      - name: Download and verify the released source
+        run: |
+          install -d -m755 -o nobody -g nobody /tmp/lyfy-aur
+          cd /tmp/lyfy-aur
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION"
+          curl --fail --location --retry 3 "$base/lyfy-v$VERSION-source.tar.gz" -o source.tar.gz
+          curl --fail --location --retry 3 "$base/SHA256SUMS" -o SHA256SUMS
+          mv source.tar.gz "lyfy-v$VERSION-source.tar.gz"
+          sha256sum --check --ignore-missing SHA256SUMS
+      - name: Render and test the exact published recipe
+        run: |
+          runuser -u nobody -- python3 scripts/render-aur-package.py "$VERSION" \
+            "/tmp/lyfy-aur/lyfy-v$VERSION-source.tar.gz" /tmp/lyfy-aur/package
+          runuser -u nobody -- env CARGO_HOME=/tmp/lyfy-aur/cargo \
+            bash -c 'cd /tmp/lyfy-aur/package && makepkg --noconfirm --cleanbuild'
+      - name: Publish the tested recipe to AUR
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: bash scripts/publish-aur.sh "$VERSION" /tmp/lyfy-aur/package
