@@ -1,5 +1,6 @@
-use super::Report;
-use crate::{config::Config, fs::Root, packages, process};
+use crate::domain::config::Config;
+use crate::domain::diagnostics::Report;
+use crate::infrastructure::{filesystem::Root, pacman as packages, process};
 use anyhow::{Result, ensure};
 use std::path::Path;
 use walkdir::WalkDir;
