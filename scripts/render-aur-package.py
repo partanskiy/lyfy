@@ -24,7 +24,8 @@ archive = args.archive.resolve(strict=True)
 url = f"https://github.com/partanskiy/lyfy/releases/download/v{args.version}/lyfy-v{args.version}-source.tar.gz"
 if args.local_source:
     url = archive.as_uri()
-checksum = hashlib.file_digest(archive.open("rb"), "sha256").hexdigest()
+with archive.open("rb") as source:
+    checksum = hashlib.file_digest(source, "sha256").hexdigest()
 text = (root / "packaging/aur/PKGBUILD.in").read_text()
 for key, value in {"VERSION": args.version, "LICENSE": license_id,
                    "SOURCE_URL": url, "SOURCE_SHA256": checksum}.items():

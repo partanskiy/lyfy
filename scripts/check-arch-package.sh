@@ -13,7 +13,7 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 mkdir -p "$workdir"
 workdir=$(cd "$workdir" && pwd)
 archive="$workdir/lyfy-v$version-source.tar.gz"
-git -C "$repo_root" archive --format=tar --prefix="lyfy-$version/" HEAD | gzip -n > "$archive"
+git -c safe.directory="$repo_root" -C "$repo_root" archive --format=tar --prefix="lyfy-$version/" HEAD | gzip -n > "$archive"
 python3 "$repo_root/scripts/render-aur-package.py" "$version" "$archive" "$workdir/package" --local-source
 (
   cd "$workdir/package"
