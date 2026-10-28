@@ -6,7 +6,8 @@ use anyhow::{Context as _, Result, ensure};
 use walkdir::WalkDir;
 
 pub fn scan(context: &Context) -> Result<Tree> {
-    let config = &context.config;
+    let scoped = crate::services::packages::file_scope(&context.config)?;
+    let config = &scoped;
     let store = &context.repository;
     let root = Root::open(&config.root)?;
     let mut current = Tree::new();
