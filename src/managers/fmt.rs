@@ -6,10 +6,12 @@ use anyhow::Result;
 pub fn run(context: &Context, write: bool) -> Result<Formatted> {
     let config = &context.config;
     let _locks = write.then(|| session::state_lock(config)).transpose()?;
-    let report = inspection::run(config)?;
+    let mut report = inspection::run(config)?;
     let plan = remediation::plan(config, &report)?;
     let transaction = if write && !plan.changes.is_empty() {
-        Some(transactions::write(context, &plan, false)?)
+        let transaction = transactions::write(context, &plan, false)?;
+        remediation::verify(config, &mut report, &plan)?;
+        Some(transaction)
     } else {
         None
     };

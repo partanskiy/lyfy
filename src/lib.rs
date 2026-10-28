@@ -66,26 +66,23 @@ pub fn execute_observed(
     observer: &mut dyn FnMut(Observation<'_>),
 ) -> Result<Outcome> {
     context.repository.begin();
-    let (data, failed) = match request {
+    let (data, exit_code) = match request {
         Request::Lint => {
             let report = managers::lint::run(context, observer)?;
-            let failed = !report.findings.is_empty();
+            let failed = report.exit_code();
             (Data::Lint(report), failed)
         }
         Request::Fmt { write } => {
             let result = managers::fmt::run(context, write)?;
-            let failed = result.report.findings.iter().any(|f| !write || !f.fixable);
+            let failed = result.report.exit_code();
             (Data::Fmt(result), failed)
         }
-        Request::Save => (Data::Save(managers::save::run(context)?), false),
+        Request::Save => (Data::Save(managers::save::run(context)?), 0),
         Request::Apply { write } => {
             let result = managers::apply::run(context, write)?;
             let failed = result.plan.changes.iter().any(|c| c.conflict.is_some());
-            (Data::Apply(result), failed)
+            (Data::Apply(result), u8::from(failed))
         }
     };
-    Ok(Outcome {
-        data,
-        exit_code: u8::from(failed),
-    })
+    Ok(Outcome { data, exit_code })
 }

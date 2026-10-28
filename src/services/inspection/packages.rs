@@ -91,7 +91,13 @@ fn inspect_package(
         .into_iter()
         .map(|path| (path, None))
         .collect();
-    if let Some(metadata) = database.metadata(name)? {
+    if report
+        .report
+        .disabled_rules
+        .contains(&RuleId::PackageMetadata)
+    {
+        // Presence checks do not require mtree observations.
+    } else if let Some(metadata) = database.metadata(name)? {
         for file in metadata {
             files.insert(file.path.clone(), Some(file));
         }
