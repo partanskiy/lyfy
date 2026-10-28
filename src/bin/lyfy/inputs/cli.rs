@@ -1,3 +1,4 @@
+use super::privileges::Elevation;
 use clap::{Args, Parser, Subcommand};
 use serde::Serialize;
 use std::path::PathBuf;
@@ -67,9 +68,9 @@ pub struct Options {
 pub enum Command {
     /// Inspect the Arch policy without changing the system.
     Lint {
-        /// Request sudo for this read-only scan, preserving resolved user settings.
-        #[arg(long)]
-        elevate: bool,
+        /// Sudo policy for read-only lint. Bare --elevate means required.
+        #[arg(long, value_enum, default_value = "auto", default_missing_value = "required", num_args = 0..=1, require_equals = true)]
+        elevate: Elevation,
     },
     /// Save concrete file changes and a package inventory for this host.
     Save,

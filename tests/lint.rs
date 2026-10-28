@@ -184,3 +184,31 @@ fn empty_package_file_lists_are_valid_but_malformed_records_are_not() {
     let value: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(value["findings"][0]["rule"], "scan.incomplete");
 }
+
+#[test]
+fn elevation_policy_cannot_be_supplied_by_config_or_environment() {
+    let f = Fixture::new();
+    let output = f
+        .command()
+        .env("LYFY_ELEVATE", "required")
+        .args(["lint", "--elevate=never"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(serde_json::from_slice::<Value>(&output.stdout).is_ok());
+    assert!(
+        !String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("requesting sudo")
+    );
+    let mut text = fs::read_to_string(&f.config).unwrap();
+    text.push_str("\nelevate = 'required'\n");
+    fs::write(&f.config, text).unwrap();
+    let output = f.run(&["lint"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("unknown configuration field: elevate")
+    );
+}

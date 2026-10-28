@@ -43,9 +43,13 @@ The public `lyfy::Request` enum and the CLI each contain exactly:
 A command is an operation, not a boolean setting, configuration key, flag,
 plugin name or dynamically registered handler. The `--write` flag grants
 execution permission to an existing fmt/apply request. It cannot be enabled
-by configuration or environment variables. Likewise, `lint --elevate` is an
-explicit launch permission owned by inputs. It invokes sudo for a read-only
-lint with the caller's resolved settings; it is never a core configuration key.
+by configuration or environment variables. Lint's sudo policy is owned by
+inputs: `--elevate=auto` is the default, requesting authentication when stdin
+and stderr are terminals and the target root is `/`. Bare `--elevate` requires
+sudo regardless of those conditions; `--elevate=never` disables the request.
+The child runs only read-only lint with the caller's resolved settings and
+`--elevate=never`. The policy has no configuration key or ENV override; the
+library never decides to elevate or invokes authentication itself.
 Adding a fifth command requires
 a discussion; helper code must not become an extra command implicitly.
 

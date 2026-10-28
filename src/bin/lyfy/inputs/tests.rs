@@ -44,13 +44,30 @@ fn input_configuration_is_separate_from_business_settings() {
 }
 
 #[test]
-fn elevation_is_an_explicit_lint_permission_only() {
+fn elevation_is_a_lint_launch_policy_only() {
     assert!(matches!(
         Cli::try_parse_from(["lyfy", "lint", "--elevate"])
             .unwrap()
             .command,
-        super::cli::Command::Lint { elevate: true }
+        super::cli::Command::Lint {
+            elevate: super::privileges::Elevation::Required
+        }
     ));
+    assert!(matches!(
+        Cli::try_parse_from(["lyfy", "lint"]).unwrap().command,
+        super::cli::Command::Lint {
+            elevate: super::privileges::Elevation::Auto
+        }
+    ));
+    assert!(matches!(
+        Cli::try_parse_from(["lyfy", "lint", "--elevate=never"])
+            .unwrap()
+            .command,
+        super::cli::Command::Lint {
+            elevate: super::privileges::Elevation::Never
+        }
+    ));
+    assert!(Cli::try_parse_from(["lyfy", "lint", "--elevate=invalid"]).is_err());
     for operation in ["save", "fmt", "apply"] {
         assert!(Cli::try_parse_from(["lyfy", operation, "--elevate"]).is_err());
     }
