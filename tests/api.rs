@@ -26,6 +26,8 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
         overwrite: false,
         prune: false,
         max_file_bytes: 1024,
+        disabled_rules: vec![],
+        fail_on: lyfy::domain::rules::Severity::Warning,
     };
     let context = Context::new(config).unwrap();
     let saved = execute(&context, Request::Save).unwrap();

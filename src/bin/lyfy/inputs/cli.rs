@@ -62,6 +62,15 @@ pub struct Options {
     pub max_file_bytes: Option<u64>,
     #[arg(long, env = "LYFY_FORMAT", global = true)]
     pub format: Option<String>,
+    #[arg(
+        long,
+        env = "LYFY_DISABLED_RULES",
+        value_delimiter = ',',
+        global = true
+    )]
+    pub disabled_rules: Option<Vec<lyfy::domain::rules::RuleId>>,
+    #[arg(long, env = "LYFY_FAIL_ON", global = true)]
+    pub fail_on: Option<lyfy::domain::rules::Severity>,
 }
 
 #[derive(Debug, Subcommand)]
