@@ -1,42 +1,13 @@
-use crate::{
-    config::Config,
-    fs::Root,
-    model::{Content, Node, Tree, digest, observe},
-    packages::{self, PackagePlan},
-    store::{Store, read_json},
-};
+use crate::domain::config::Config;
+use crate::domain::packages;
+use crate::domain::plan::{Change, Plan, Receipt};
+use crate::domain::state::{Content, Node, Tree, digest};
+use crate::infrastructure::filesystem::Root;
+use crate::infrastructure::pacman;
+use crate::infrastructure::store::{Store, read_json};
+use crate::services::files::observe;
 use anyhow::{Result, ensure};
-use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, path::PathBuf};
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Change {
-    pub key: String,
-    pub before: Option<Node>,
-    pub after: Option<Node>,
-    pub conflict: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Plan {
-    pub host: String,
-    pub snapshot: String,
-    pub changes: Vec<Change>,
-    pub packages: Option<PackagePlan>,
-    #[serde(skip)]
-    pub desired: Tree,
-    #[serde(skip)]
-    pub package_desired: Option<Vec<packages::Package>>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Receipt {
-    pub root: PathBuf,
-    pub home_dir: PathBuf,
-    pub host: String,
-    pub tree: Tree,
-}
 
 pub fn receipt_path(config: &Config) -> PathBuf {
     let context = format!(
@@ -51,7 +22,8 @@ pub fn receipt_path(config: &Config) -> PathBuf {
         .join(format!("{}.json", digest(context.as_bytes())))
 }
 
-pub fn build(config: &Config, store: &Store) -> Result<Plan> {
+pub fn build(config: &Config) -> Result<Plan> {
+    let store = Store::new(config.data_dir.clone());
     let id = if config.snapshot == "latest" {
         store.head(&config.host)?
     } else {
@@ -156,7 +128,7 @@ pub fn build(config: &Config, store: &Store) -> Result<Plan> {
         snapshot
             .packages
             .as_ref()
-            .map(|p| packages::inventory(config).and_then(|current| packages::plan(p, &current)))
+            .map(|p| pacman::inventory(config).and_then(|current| packages::plan(p, &current)))
             .transpose()?
     } else {
         None
@@ -165,6 +137,7 @@ pub fn build(config: &Config, store: &Store) -> Result<Plan> {
         host: config.host.clone(),
         snapshot: id,
         changes,
+        guards: vec![],
         packages: package_plan,
         desired,
         package_desired: snapshot.packages,
