@@ -1,5 +1,7 @@
 //! Descriptor-relative access: parent symlinks cannot redirect writes out of root.
 mod hash;
+mod identity;
+pub use identity::IdentityView;
 mod write;
 use anyhow::{Context, Result, ensure};
 use std::{
