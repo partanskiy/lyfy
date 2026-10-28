@@ -3,6 +3,7 @@ use super::{
     configuration,
 };
 use clap::CommandFactory;
+use clap::Parser;
 use serde_json::Value;
 
 #[test]
@@ -39,5 +40,32 @@ fn input_configuration_is_separate_from_business_settings() {
             .unwrap()
             .values()
             .any(|v| matches!(v, Value::Object(_)))
+    );
+}
+
+#[test]
+fn elevation_is_an_explicit_lint_permission_only() {
+    assert!(matches!(
+        Cli::try_parse_from(["lyfy", "lint", "--elevate"])
+            .unwrap()
+            .command,
+        super::cli::Command::Lint { elevate: true }
+    ));
+    for operation in ["save", "fmt", "apply"] {
+        assert!(Cli::try_parse_from(["lyfy", operation, "--elevate"]).is_err());
+    }
+    let command = Cli::command();
+    let flag = command
+        .find_subcommand("lint")
+        .unwrap()
+        .get_arguments()
+        .find(|arg| arg.get_id() == "elevate")
+        .unwrap();
+    assert!(flag.get_env().is_none());
+    assert!(
+        serde_json::to_value(Options::default())
+            .unwrap()
+            .get("elevate")
+            .is_none()
     );
 }
