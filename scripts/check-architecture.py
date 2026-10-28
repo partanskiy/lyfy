@@ -54,7 +54,7 @@ for path in CORE.rglob("*.rs"):
         error(path, "cross-layer dependencies must use explicit crate::layer paths")
     if "super::super::" in text or "extern crate" in text:
         error(path, "relative crate aliases are forbidden")
-    if re.search(r"\bcrate::execute\b", text):
+    if re.search(r"\bcrate::execute(?:_observed)?\b", text):
         error(path, "shared code must not invoke the application dispatcher")
     if layer == "services" and relative.name != "mod.rs":
         source = relative.parts[1].removesuffix(".rs")
