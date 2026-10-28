@@ -30,7 +30,7 @@ check_size() {
 
 case "${1:-}" in
     --message) check_message "$2" ;;
-    --staged) check_size < <(git diff --cached --numstat --no-renames) ;;
+    --staged) check_size < <(git diff --cached --numstat -M) ;;
     --range)
         temp=$(mktemp)
         trap 'rm -f "$temp"' EXIT
@@ -42,7 +42,7 @@ case "${1:-}" in
             fi
             git show -s --format=%s "$sha" > "$temp"
             check_message "$temp"
-            check_size < <(git diff-tree --root --no-commit-id --numstat -r --no-renames "$sha")
+            check_size < <(git diff-tree --root --no-commit-id --numstat -r -M "$sha")
         done < <(git rev-list --reverse "$2")
         ;;
     *) echo 'Usage: check-commits.sh --message FILE | --staged | --range BASE..HEAD' >&2; exit 2 ;;
