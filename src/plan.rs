@@ -1,0 +1,172 @@
+use crate::{
+    config::Config,
+    fs::Root,
+    model::{Content, Node, Tree, digest, observe},
+    packages::{self, PackagePlan},
+    store::{Store, read_json},
+};
+use anyhow::{Result, ensure};
+use serde::{Deserialize, Serialize};
+use std::{collections::BTreeSet, path::PathBuf};
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Change {
+    pub key: String,
+    pub before: Option<Node>,
+    pub after: Option<Node>,
+    pub conflict: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Plan {
+    pub host: String,
+    pub snapshot: String,
+    pub changes: Vec<Change>,
+    pub packages: Option<PackagePlan>,
+    #[serde(skip)]
+    pub desired: Tree,
+    #[serde(skip)]
+    pub package_desired: Option<Vec<packages::Package>>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Receipt {
+    pub root: PathBuf,
+    pub home_dir: PathBuf,
+    pub host: String,
+    pub tree: Tree,
+}
+
+pub fn receipt_path(config: &Config) -> PathBuf {
+    let context = format!(
+        "{}\n{}\n{}",
+        config.root.display(),
+        config.home_dir.display(),
+        config.host
+    );
+    config
+        .state_dir
+        .join("receipts")
+        .join(format!("{}.json", digest(context.as_bytes())))
+}
+
+pub fn build(config: &Config, store: &Store) -> Result<Plan> {
+    let id = if config.snapshot == "latest" {
+        store.head(&config.host)?
+    } else {
+        config.snapshot.clone()
+    };
+    let (snapshot, tree) = store.effective(&config.host, &id)?;
+    let root = Root::open(&config.root)?;
+    let receipt_file = receipt_path(config);
+    let previous: Tree = if receipt_file.try_exists()? {
+        let receipt: Receipt = read_json(&receipt_file)?;
+        ensure!(
+            receipt.root == config.root
+                && receipt.home_dir == config.home_dir
+                && receipt.host == config.host,
+            "receipt context mismatch"
+        );
+        receipt.tree
+    } else {
+        Tree::new()
+    };
+    let mut desired = Tree::new();
+    for (key, node) in tree {
+        let path = config.path_for_key(&key)?;
+        ensure!(config.key(&path)? == key, "noncanonical target namespace");
+        if config.managed(&path) {
+            if let Content::File { sha256 } = &node.content {
+                ensure!(
+                    store.object(sha256)?.len() as u64 <= config.max_file_bytes,
+                    "object exceeds max_file_bytes"
+                );
+            }
+            desired.insert(key, node);
+        }
+    }
+    let mut keys: BTreeSet<String> = desired.keys().chain(previous.keys()).cloned().collect();
+    keys.extend(store.tombstones(&config.host, &id)?);
+    let mut changes = vec![];
+    for key in keys {
+        let path = config.path_for_key(&key)?;
+        ensure!(config.key(&path)? == key, "noncanonical target namespace");
+        if !config.managed(&path) {
+            continue;
+        }
+        let before = observe(config, &root, &path)?.map(|(node, _)| node);
+        let after = desired.get(&key).cloned();
+        if before == after {
+            continue;
+        }
+        let mut conflict = None;
+        if after.is_none() && !config.prune {
+            conflict = Some("deletion requires prune = true".into());
+        }
+        if let (Some(a), Some(b)) = (&before, &after)
+            && a.directory() != b.directory()
+        {
+            conflict = Some("directory type changes require manual intervention".into());
+        }
+        if !config.overwrite && before.as_ref() != previous.get(&key) {
+            conflict = Some(
+                "local changes or an untracked existing target; review before overwrite = true"
+                    .into(),
+            );
+        }
+        // A manifest must not place children under a managed file or symlink.
+        let mut parent = path.parent();
+        while let Some(path) = parent {
+            if let Ok(key) = config.key(path) {
+                ensure!(
+                    !desired.get(&key).is_some_and(|n| !n.directory()),
+                    "manifest has a non-directory parent"
+                );
+            }
+            parent = path.parent();
+        }
+        changes.push(Change {
+            key,
+            before,
+            after,
+            conflict,
+        });
+    }
+    changes.sort_by_key(|c| {
+        let depth = c.key.matches('/').count();
+        let group = if c.after.as_ref().is_some_and(Node::directory) {
+            0
+        } else if c.after.is_some() {
+            1
+        } else {
+            2
+        };
+        (
+            group,
+            if group == 2 {
+                usize::MAX - depth
+            } else {
+                depth
+            },
+            c.key.clone(),
+        )
+    });
+    let package_plan = if config.check_packages {
+        snapshot
+            .packages
+            .as_ref()
+            .map(|p| packages::inventory(config).and_then(|current| packages::plan(p, &current)))
+            .transpose()?
+    } else {
+        None
+    };
+    Ok(Plan {
+        host: config.host.clone(),
+        snapshot: id,
+        changes,
+        packages: package_plan,
+        desired,
+        package_desired: snapshot.packages,
+    })
+}
