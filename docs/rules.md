@@ -29,8 +29,11 @@ Permission denials do not imply broken system configuration. Inspection keeps
 walking accessible paths and aggregates denied paths/checks into one coverage
 finding, listing at most 100 entries and the total count. Other failures remain
 `scan.incomplete` errors. Both leave a nonzero lint result. For protected paths,
-use `lyfy lint --elevate`; sudo authenticates and the child retains resolved
-user settings. Root access cannot bypass every access policy or missing mount.
+interactive `lyfy lint` requests sudo automatically for root = /; the child
+retains resolved user settings. Use `--elevate=never` to disable the request,
+or bare `--elevate` to request it for a noninteractive launch or another root.
+Auto mode requires terminal stdin and stderr. Root access cannot bypass every
+access policy or missing mount.
 
 Lint reports each check's start, finish and duration on stderr. Text findings
 are printed immediately after their check discovers them. Individual external

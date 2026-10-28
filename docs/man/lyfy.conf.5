@@ -42,7 +42,9 @@ List overrides are comma-separated and replace the whole lower-priority list.
 is execution permission for apply/fmt, not a setting.
 It cannot be supplied through TOML or ENV.
 .B \-\-elevate
-is likewise an explicit launch permission for lint only, not a setting.
+is a lint launch policy, not a setting, and has no ENV equivalent.
+Its default auto mode requests sudo for interactive scans of the running
+system; never disables the request and required forces it.
 It preserves resolved user settings when invoking sudo for a protected scan.
 .SH SETTINGS
 .TP
