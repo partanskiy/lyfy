@@ -4,7 +4,7 @@ use anyhow::{Result, ensure};
 use clap::Parser;
 use inputs::{
     cli::{Cli, Command},
-    configuration, privileges,
+    configuration, presentation, privileges,
 };
 use lyfy::Context;
 use std::process::ExitCode;
@@ -25,6 +25,17 @@ fn run() -> Result<u8> {
         "interactive package transactions require format = text"
     );
     let context = Context::new(launch.config)?;
+    if matches!(request, lyfy::Request::Lint) {
+        let mut display = presentation::Lint::new(launch.format == "json");
+        let outcome =
+            lyfy::execute_observed(&context, request, &mut |event| display.observe(event))?;
+        if launch.format == "json" {
+            println!("{}", serde_json::to_string_pretty(&outcome.data)?);
+        } else if let lyfy::Data::Lint(report) = &outcome.data {
+            display.summary(report);
+        }
+        return Ok(outcome.exit_code);
+    }
     let outcome = lyfy::execute(&context, request)?;
     let text = if launch.format == "json" {
         serde_json::to_string_pretty(&outcome.data)?
