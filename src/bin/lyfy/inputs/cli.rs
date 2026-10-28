@@ -27,6 +27,8 @@ pub struct Options {
     pub data_dir: Option<PathBuf>,
     #[arg(long, env = "LYFY_STATE_DIR", global = true)]
     pub state_dir: Option<PathBuf>,
+    #[arg(long, env = "LYFY_STORAGE_FORMAT", global = true)]
+    pub storage_format: Option<String>,
     #[arg(long, env = "LYFY_HOST", global = true)]
     pub host: Option<String>,
     #[arg(long, env = "LYFY_BASE_HOST", global = true)]

@@ -10,6 +10,7 @@ pub struct Config {
     pub home_dir: PathBuf,
     pub data_dir: PathBuf,
     pub state_dir: PathBuf,
+    pub storage_format: String,
     pub host: String,
     pub base_host: Option<String>,
     pub snapshot: String,
@@ -27,6 +28,10 @@ pub struct Config {
 impl Config {
     pub fn validate(&self) -> Result<()> {
         ensure!(self.system == "arch", "only system = arch is supported");
+        ensure!(
+            ["git", "directory"].contains(&self.storage_format.as_str()),
+            "storage_format must be git or directory"
+        );
         for path in [&self.root, &self.home_dir, &self.data_dir, &self.state_dir] {
             absolute(path)?;
         }
@@ -36,7 +41,7 @@ impl Config {
             ensure!(host != &self.host, "base_host must differ from host");
         }
         ensure!(
-            self.snapshot == "latest" || is_digest(&self.snapshot),
+            self.snapshot == "latest" || is_revision(&self.snapshot),
             "invalid snapshot id"
         );
         ensure!(self.max_file_bytes > 0, "max_file_bytes must be positive");
@@ -174,6 +179,13 @@ pub fn identifier(value: &str) -> Result<()> {
 
 pub fn is_digest(value: &str) -> bool {
     value.len() == 64
+        && value
+            .bytes()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+}
+
+pub fn is_revision(value: &str) -> bool {
+    [40, 64].contains(&value.len())
         && value
             .bytes()
             .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())

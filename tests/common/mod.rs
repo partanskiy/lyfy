@@ -33,6 +33,12 @@ impl Fixture {
         .unwrap();
         fs::write(root.join("home/test/.config/app.conf"), "user\n").unwrap();
         fs::write(&config,format!("root = {:?}\nhome_dir = '/home/test'\ndata_dir = {:?}\nstate_dir = {:?}\nhost = 'laptop'\ninclude = ['/etc', '~/.config']\ncheck_packages = false\nrequire_uki = false\n",root,data,state)).unwrap();
+        use std::io::Write;
+        writeln!(
+            fs::OpenOptions::new().append(true).open(&config).unwrap(),
+            "storage_format = 'directory'"
+        )
+        .unwrap();
         Self {
             temp,
             root,
