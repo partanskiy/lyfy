@@ -15,7 +15,7 @@
 - Release only for Arch Linux x86_64 (amd64). The current distribution target is AUR package lyfy.
 - AUR builds must not invoke Python or require it as a make dependency. Ship pre-generated notices in release source archives and static man pages in packages.
 - Use pkgname/pkgver variables in PKGBUILD paths and source URLs.
-- License: MIT, explicitly selected by the user.
+- Own source license: MIT. The user explicitly approved GPL dependencies and GPL terms for linked builds on 2026-10-28. Combined binaries with alpm bindings/libalpm follow GPL-3.0-only; preserve source MIT and ship corresponding dependency sources and notices.
 - The user explicitly authorizes the existing AUR credential in the lyfy GitHub Actions secret for automatic AUR publication. Never expose its contents.
 - All configuration fields need a snake_case flag and LYFY_UPPER_CASE environment variable.
 - Preserve flag > environment > TOML > default precedence.
