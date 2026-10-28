@@ -57,13 +57,15 @@ pub fn pacman(report: &mut Run<'_>) {
             _ => "pacman -Qkk (package metadata)",
         };
         report.check(name, |report| {
-            let output = process::run("/usr/bin/pacman", &args)?;
-            let denied = report.denied_output(name, &output.stderr);
-            let other_warnings = output
-                .stderr
-                .lines()
-                .any(|line| !line.trim().is_empty() && !line.contains("Permission denied"));
-            if other_warnings || (output.code != 0 && !denied) {
+            let output = process::check("/usr/bin/pacman", &args, "Permission denied")?;
+            let denied = output.matching_count > 0;
+            if denied {
+                report.denied(&format!(
+                    "{name}: {} access-denied messages; example: {}",
+                    output.matching_count, output.matching_samples[0]
+                ));
+            }
+            if output.other_stderr || (output.code != 0 && !denied) {
                 report.add(
                     rule,
                     vec![],
