@@ -1,50 +1,15 @@
-use crate::{
-    apply,
-    config::Config,
-    fs::Root,
-    lint::{self, Report},
-    model::observe,
-    plan::{Change, Plan},
-    store::Store,
-};
-use anyhow::{Context, Result, ensure};
-use serde::Serialize;
+use crate::Context;
+use crate::domain::results::Formatted;
+use crate::services::{inspection, remediation, session, transactions};
+use anyhow::Result;
 
-#[derive(Serialize)]
-pub struct Formatted {
-    pub report: Report,
-    pub plan: Plan,
-    pub transaction: Option<std::path::PathBuf>,
-}
-
-pub fn run(config: &Config, store: &Store, write: bool) -> Result<Formatted> {
-    let report = lint::run(config)?;
-    let root = Root::open(&config.root)?;
-    let mut changes = vec![];
-    for finding in report.findings.iter().filter(|f| f.fixable) {
-        let path = std::path::Path::new(&finding.paths[0]);
-        ensure!(
-            lint::identical_pacnew(config, &root, path)?,
-            "pacnew changed after lint"
-        );
-        let (node, _) = observe(config, &root, path)?.context("pacnew disappeared")?;
-        changes.push(Change {
-            key: config.key(path)?,
-            before: Some(node),
-            after: None,
-            conflict: None,
-        });
-    }
-    let plan = Plan {
-        host: config.host.clone(),
-        snapshot: "fmt".into(),
-        changes,
-        packages: None,
-        desired: Default::default(),
-        package_desired: None,
-    };
+pub fn run(context: &Context, write: bool) -> Result<Formatted> {
+    let config = &context.config;
+    let _locks = write.then(|| session::lock(config)).transpose()?;
+    let report = inspection::run(config)?;
+    let plan = remediation::plan(config, &report)?;
     let transaction = if write && !plan.changes.is_empty() {
-        Some(apply::write(config, store, &plan, false)?)
+        Some(transactions::write(config, &plan, false)?)
     } else {
         None
     };
