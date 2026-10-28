@@ -36,6 +36,10 @@ The supported target system is Arch Linux. Tests run against temporary Linux
 directory trees and do not change the developer's real system. No daemon or
 Docker service is needed.
 
+Current releases support x86_64 (amd64) only and are distributed as the AUR
+source package `lyfy`. See [RELEASING.md](RELEASING.md) for release automation,
+package checks and credential handling.
+
 ## Four commands
 
 ```sh
