@@ -66,7 +66,11 @@ pub struct Options {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Inspect the Arch policy without changing the system.
-    Lint,
+    Lint {
+        /// Request sudo for this read-only scan, preserving resolved user settings.
+        #[arg(long)]
+        elevate: bool,
+    },
     /// Save concrete file changes and a package inventory for this host.
     Save,
     /// Plan reconciliation with a saved host snapshot.
@@ -85,7 +89,7 @@ pub enum Command {
 impl From<Command> for lyfy::Request {
     fn from(command: Command) -> Self {
         match command {
-            Command::Lint => Self::Lint,
+            Command::Lint { .. } => Self::Lint,
             Command::Save => Self::Save,
             Command::Fmt { write } => Self::Fmt { write },
             Command::Apply { write } => Self::Apply { write },
