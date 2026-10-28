@@ -61,6 +61,9 @@ pub fn save(config: &Config, store: &Store) -> Result<Saved> {
         for entry in walker {
             let entry = entry.context("incomplete scan; snapshot was not committed")?;
             let logical = std::path::Path::new("/").join(entry.path().strip_prefix(&config.root)?);
+            if logical == config.home_dir || logical == std::path::Path::new("/") {
+                continue;
+            }
             let key = config.key(&logical)?;
             if current.contains_key(&key) {
                 continue;
@@ -76,7 +79,7 @@ pub fn save(config: &Config, store: &Store) -> Result<Saved> {
     // A second observation catches ordinary edits during capture. This is not a filesystem freeze.
     for (key, node) in &current {
         ensure!(
-            observe(config, &root, &config.from_key(key)?)?
+            observe(config, &root, &config.path_for_key(key)?)?
                 .map(|(n, _)| n)
                 .as_ref()
                 == Some(node),
@@ -90,8 +93,24 @@ pub fn save(config: &Config, store: &Store) -> Result<Saved> {
         }
     }
     for key in base_tree.keys() {
-        if config.managed(&config.from_key(key)?) && !current.contains_key(key) {
+        if config.managed(&config.path_for_key(key)?) && !current.contains_key(key) {
             changes.insert(key.clone(), None);
+        }
+    }
+    let head_path = store.host_dir(&config.host)?.join("HEAD");
+    if Root::open(std::path::Path::new("/"))?
+        .metadata(&head_path)?
+        .is_some()
+    {
+        let previous = store.head(&config.host)?;
+        let (_, previous_tree) = store.effective(&config.host, &previous)?;
+        let mut previous_keys: std::collections::BTreeSet<_> =
+            previous_tree.keys().cloned().collect();
+        previous_keys.extend(store.tombstones(&config.host, &previous)?);
+        for key in previous_keys {
+            if config.managed(&config.path_for_key(&key)?) && !current.contains_key(&key) {
+                changes.insert(key, None);
+            }
         }
     }
     let deletions = changes.values().filter(|n| n.is_none()).count();

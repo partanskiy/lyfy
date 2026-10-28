@@ -142,6 +142,31 @@ impl Store {
     pub fn effective(&self, host: &str, id: &str) -> Result<(Snapshot, Tree)> {
         self.resolve(host, id, 0)
     }
+    pub fn tombstones(&self, host: &str, id: &str) -> Result<std::collections::BTreeSet<String>> {
+        self.deleted(host, id, 0)
+    }
+    fn deleted(
+        &self,
+        host: &str,
+        id: &str,
+        depth: usize,
+    ) -> Result<std::collections::BTreeSet<String>> {
+        ensure!(depth < 32, "base chain exceeds 32 snapshots");
+        let snapshot = self.load(host, id)?;
+        let mut deleted = if let Some(base) = snapshot.base {
+            self.deleted(&base.host, &base.id, depth + 1)?
+        } else {
+            Default::default()
+        };
+        for (key, node) in snapshot.changes {
+            if node.is_none() {
+                deleted.insert(key);
+            } else {
+                deleted.remove(&key);
+            }
+        }
+        Ok(deleted)
+    }
     fn resolve(&self, host: &str, id: &str, depth: usize) -> Result<(Snapshot, Tree)> {
         ensure!(depth < 32, "base chain exceeds 32 snapshots");
         let snapshot = self.load(host, id)?;
