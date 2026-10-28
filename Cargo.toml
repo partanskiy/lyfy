@@ -41,3 +41,7 @@ required-features = ["cli"]
 [[test]]
 name = "state"
 required-features = ["cli"]
+
+[[test]]
+name = "git"
+required-features = ["cli"]
