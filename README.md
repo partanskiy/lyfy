@@ -27,6 +27,10 @@ cargo build --locked --release
 target/release/lyfy --help
 ```
 
+Installed packages include `man lyfy` for commands and `man lyfy.conf` for
+configuration, environment variables and XDG paths. Static manual sources live
+in [docs/man](docs/man).
+
 Library without CLI parsing dependencies:
 
 ```sh
