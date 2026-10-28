@@ -26,8 +26,10 @@ builds the library without input libraries. A future input adapts to the same
 library API; it does not become a new layer inside the library.
 
 There is no output layer, transport layer, server, RPC protocol or event bus.
-Ordinary return values are sufficient for the calling program. Rendering a
-result in the executable does not create an application subsystem.
+Results remain ordinary return values. An optional synchronous, per-call
+inspection observer exposes check timing, findings and coverage to the caller.
+It cannot dispatch commands. Rendering feedback in the executable does not
+create an application subsystem; the library never renders or elevates.
 
 ## Exactly four commands
 
@@ -41,7 +43,10 @@ The public `lyfy::Request` enum and the CLI each contain exactly:
 A command is an operation, not a boolean setting, configuration key, flag,
 plugin name or dynamically registered handler. The `--write` flag grants
 execution permission to an existing fmt/apply request. It cannot be enabled
-by configuration or environment variables. Adding a fifth command requires
+by configuration or environment variables. Likewise, `lint --elevate` is an
+explicit launch permission owned by inputs. It invokes sudo for a read-only
+lint with the caller's resolved settings; it is never a core configuration key.
+Adding a fifth command requires
 a discussion; helper code must not become an extra command implicitly.
 
 ## Library layers
@@ -74,7 +79,7 @@ The library contains exactly four layer directories beside the separate `bin/` t
 `lib.rs` composes the context and dispatches requests to managers. It is the
 only module allowed to reference the managers as a group. Managers are private
 implementation details; the stable entry points are `Context`, `Request` and
-`execute`, with typed result data.
+`execute` (or `execute_observed` for inspection feedback), with typed result data.
 
 ## Manager boundaries
 

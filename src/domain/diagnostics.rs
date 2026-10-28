@@ -101,6 +101,13 @@ pub const RULES: &[Rule] = &[
         remedy: "Resolve access, missing tools or unsupported state and repeat lint",
         automatic: false,
     },
+    Rule {
+        id: "scan.access_denied",
+        severity: "warning",
+        description: "Some requested paths or checks were inaccessible",
+        remedy: "Run lyfy lint --elevate for protected system checks; inspect access policy if already root",
+        automatic: false,
+    },
 ];
 
 #[derive(Debug, Serialize)]
