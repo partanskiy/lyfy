@@ -1,5 +1,5 @@
-use super::Report;
-use crate::process;
+use crate::domain::diagnostics::Report;
+use crate::infrastructure::process;
 use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 
@@ -28,7 +28,8 @@ pub fn inspect(value: &Value, report: &mut Report) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::domain::diagnostics::Report;
+    use crate::services::inspection::boot::inspect;
     #[test]
     fn uki_policy_distinguishes_type1_type2_and_firmware_entries() {
         let mut report = Report::default();

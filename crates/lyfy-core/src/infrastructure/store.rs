@@ -1,8 +1,6 @@
-use crate::{
-    config::{absolute, identifier, is_digest},
-    fs::Root,
-    model::{Snapshot, Tree, digest},
-};
+use crate::domain::config::{absolute, identifier, is_digest};
+use crate::domain::state::{Snapshot, Tree, digest};
+use crate::infrastructure::filesystem::Root;
 use anyhow::{Context, Result, ensure};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
