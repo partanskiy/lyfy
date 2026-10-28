@@ -80,7 +80,7 @@ pub enum Command {
     },
 }
 
-impl From<Command> for lyfy_core::Request {
+impl From<Command> for lyfy::Request {
     fn from(command: Command) -> Self {
         match command {
             Command::Lint => Self::Lint,

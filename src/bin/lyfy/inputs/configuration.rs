@@ -1,6 +1,6 @@
 use super::cli::Options;
 use anyhow::{Context, Result, ensure};
-use lyfy_core::Config;
+use lyfy::Config;
 use serde_json::Value;
 use std::{env, fs, path::PathBuf};
 
