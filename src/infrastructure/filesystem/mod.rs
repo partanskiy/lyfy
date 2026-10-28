@@ -1,4 +1,5 @@
 //! Descriptor-relative access: parent symlinks cannot redirect writes out of root.
+mod hash;
 mod write;
 use anyhow::{Context, Result, ensure};
 use std::{
