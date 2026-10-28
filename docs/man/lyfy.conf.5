@@ -58,7 +58,7 @@ is supported; it is the default.
 Absolute physical root of the managed filesystem tree.
 The default is
 .IR / .
-Runtime checks of the running kernel, EFI, systemd and host pacman commands
+Runtime checks of the running kernel, EFI and systemd
 are skipped explicitly for an alternative root.
 .TP
 .B home_dir
@@ -135,7 +135,8 @@ This is a lyfy policy rather than an Arch Linux requirement.
 .B check_packages
 Capture, compare and inspect package state.
 The default is true.
-Offline package inventories have unknown native/foreign classification.
+Classification uses configured sync repositories in the target pacman.conf.
+It is unknown when no target pacman.conf is available.
 .TP
 .B install_packages
 Allow supported package restoration during apply with

@@ -40,11 +40,15 @@ does not have to match the tag.
 
 1. Verify the tag points to a commit reachable from main and the build runs on
    x86_64. Rerun architecture, formatting, clippy, CLI and library tests.
-2. Build `x86_64-unknown-linux-gnu`. Collect exact license/notice texts from
-   locked Cargo dependency sources, without installing Python packages.
+2. Build `x86_64-unknown-linux-gnu` inside Arch against libalpm 16 and libarchive.
+   Collect dependency notices and canonical missing GPL/Apache texts from
+   Arch's licenses package, without installing Python packages.
 3. Publish a GitHub release with a binary/documentation/license archive, a
    source archive and SHA256SUMS. Both archives include the already generated
-   dependency license notices as a plain text file.
+   dependency license notices as a plain text file and DISTRIBUTION.md.
+   The source archive vendors locked Rust sources with an offline Cargo
+   configuration and includes corresponding pacman/libalpm sources and exact
+   Arch packaging materials. Scripts never execute the collected PKGBUILD.
 4. Download and verify the source archive in an Arch Linux build environment.
    Render the actual PKGBUILD and .SRCINFO, then run makepkg as an unprivileged
    user against that published source and its fixed checksum.
@@ -56,8 +60,8 @@ package without installing it on the developer's laptop. The package includes
 only /usr/bin/lyfy, man pages, documentation, an example configuration and licenses. It
 does not write user configuration, install a service or run a system mutation.
 
-The source recipe fetches locked Rust dependencies in prepare(), then builds
-and tests offline with --frozen. Runtime dependencies are managed by pacman.
+The source recipe uses vendored Rust dependencies and builds/tests offline with
+--frozen. Runtime native libraries and ABI dependencies are managed by pacman.
 The AUR recipe does not require or invoke Python. Notice generation and recipe
 rendering happen in the maintainer's release/check pipeline before makepkg;
 the package only installs the resulting license text. Neither the PKGBUILD
@@ -89,15 +93,15 @@ publication instead.
 ## Local packaging check
 
 For the maintainer's packaging check, install Arch base-devel, cargo, python,
-git, groff and runtime dependencies. Python is used by the check tooling, not
+git, groff, pkgconf, libarchive, licenses and runtime dependencies. Python is used by the check tooling, not
 by the AUR build:
 
 ```sh
 bash scripts/check-arch-package.sh 26.10.0 /tmp/lyfy-package-check
 ```
 
-The helper adds pre-generated notices to the current committed source archive
-and renders the same variable-based recipe used in AUR. It preloads the local
+The helper creates a source archive with notices, vendored Rust sources and
+native sources, then renders the variable-based recipe used in AUR. It preloads the local
 source archive into makepkg's cache instead of replacing the production URL.
 It renders the manuals, builds the package, extracts it in the work directory
 and verifies its version, man pages, license notices and installed paths.

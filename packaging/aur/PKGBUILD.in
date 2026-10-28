@@ -18,7 +18,8 @@ sha256sums=('@SOURCE_SHA256@')
 prepare() {
   cd "$srcdir/$pkgname-$pkgver" || return
   export RUSTUP_TOOLCHAIN=stable
-  cargo fetch --locked --target x86_64-unknown-linux-gnu
+  test -s .cargo/config.toml && test -d vendor && test -s native-sources/VERSIONS || return 1
+  cargo fetch --frozen --target x86_64-unknown-linux-gnu
 }
 
 build() {

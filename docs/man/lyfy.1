@@ -49,6 +49,9 @@ missing package files, package metadata drift, files without a package owner,
 orphan dependencies, running kernel state, the configured UKI policy and
 failed systemd units.
 Incomplete and skipped checks are reported explicitly.
+Read-only package operations use dynamically linked libalpm directly.
+File checks compare package mtree metadata and stream SHA-256 reads.
+JSON package findings include typed evidence for changed fields.
 Text findings are printed as checks run.
 Check progress and durations go to stderr, with periodic elapsed-time updates
 when stderr is a terminal.
@@ -210,10 +213,12 @@ Findings, conflicts or pending fmt fixes remain.
 .B 2
 An operational or configuration error prevented completion.
 .SH LIMITATIONS
-External checks have a 120-second time limit.
+External tool queries have a 120-second time limit.
 Timeouts remain explicit incomplete checks.
-Large pacman diagnostic streams are drained with bounded samples rather than
-retained as complete output archives.
+Native package checks stream file contents with bounded memory and report
+package progress; full SHA-256 inspection can take several minutes.
+UID/GID checks in a user namespace with shifted or incomplete identity mappings
+are reported as incomplete rather than as changed system ownership.
 .PP
 Individual file replacements are atomic; a multi-file operation is not one
 atomic filesystem transaction.

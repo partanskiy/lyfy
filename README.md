@@ -1,6 +1,7 @@
 # lyfy
 
-Licensed under [MIT](LICENSE).
+Own source is licensed under [MIT](LICENSE). Linked builds follow GPL-3.0-only;
+see [distribution terms](DISTRIBUTION.md) for the approved native dependencies.
 
 Declarative system maintenance for Arch Linux: inspect the system, capture its
 concrete configuration, reconcile host state and apply supported policy fixes.
@@ -21,6 +22,10 @@ There is no output layer. See the mandatory [architecture contract](ARCHITECTURE
 and [contribution rules](CONTRIBUTING.md).
 
 ## Build
+
+Arch builds require Rust/Cargo, pkgconf, pacman/libalpm 16 and libarchive.
+The executable dynamically links the native libraries; they remain managed
+by pacman. Build and release CI use Arch environments for the matching ABI.
 
 ```sh
 cargo build --locked --release
@@ -73,6 +78,13 @@ lyfy fmt
 `apply` and `fmt` are previews unless `--write` is present. Execution permission
 is not a configuration value and cannot be supplied by ENV. There are no
 hidden config, rules, init or package-management commands.
+
+Package inventory and inspection use dynamically linked libalpm, including
+dependency/conflict checks, ownership and orphan detection. File checks compare
+mtree metadata and stream SHA-256 reads with bounded memory. JSON findings
+carry typed `evidence` for changed fields such as `mode`, `mtime` and `sha256`.
+The interactive package installation transaction in apply still uses pacman;
+read-only package operations never invoke its CLI.
 
 Interactive `lyfy lint` requests sudo automatically when scanning the running
 system (`root = /`) as a non-root user, with both stdin and stderr connected
@@ -160,7 +172,8 @@ nonrecursive and fails if unknown contents remain. Untracked files are retained.
 
 Snapshots record all installed package names, versions, explicit/dependency
 reasons and native/foreign classification. Offline inventories have unknown
-classification. Foreign does not imply AUR.
+classification when no target pacman.conf is available. Otherwise classification
+uses the target's configured sync repositories. Foreign does not imply AUR.
 
 Native restoration is a separate opt-in:
 
