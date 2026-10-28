@@ -1,5 +1,10 @@
 # Project instructions
 
+- Read ARCHITECTURE.md first and enforce its layer boundaries.
+- The core is a separate library; inputs own CLI, ENV and TOML configuration.
+- Keep exactly four independent managers: lint, fmt, save, apply.
+- Managers must never import or invoke one another; share named services.
+- Do not add an outputs layer or a fifth command without an architecture discussion.
 - Target Arch Linux only. Never mutate the developer's host during tests.
 - Keep main protected; use topic branches and pull requests, rebase merge only.
 - Use small Conventional Commits. No merge, fixup, squash, amend or release-only exceptions.
@@ -10,4 +15,4 @@
 - Store concrete files and host overlays. Do not introduce configuration templates.
 - Keep secrets out of fixtures, output, Git and documentation.
 - Use ASCII punctuation in prose and comments.
-- Run rustfmt, clippy, tests, release build and commit validation before opening a PR.
+- Run architecture checks, rustfmt, clippy, workspace tests, release build and commit validation before opening a PR.
