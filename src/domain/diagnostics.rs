@@ -117,6 +117,8 @@ pub struct Finding {
     pub paths: Vec<String>,
     pub detail: String,
     pub fixable: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub evidence: Vec<crate::domain::package_files::PackageEvidence>,
 }
 #[derive(Debug, Default, Serialize)]
 pub struct Report {
@@ -142,6 +144,7 @@ impl Report {
             paths,
             detail: detail.into(),
             fixable,
+            evidence: Vec::new(),
         });
     }
     pub fn failed(&mut self, check: &str, error: anyhow::Error) {
