@@ -1,72 +1,76 @@
 mod arch;
 mod boot;
+mod run;
 use crate::domain::config::Config;
 use crate::domain::diagnostics::Report;
+use crate::domain::observation::Observation;
 use crate::infrastructure::filesystem::Root;
+use crate::services::inspection::run::Run;
 use anyhow::Result;
 use std::path::Path;
 use walkdir::WalkDir;
 
 pub fn run(config: &Config) -> Result<Report> {
+    run_observed(config, &mut |_| {})
+}
+
+pub fn run_observed(config: &Config, observer: &mut dyn FnMut(Observation<'_>)) -> Result<Report> {
     let root = Root::open(&config.root)?;
-    let mut report = Report::default();
-    let os = root
-        .read(Path::new("/etc/os-release"), 65536)
-        .or_else(|_| root.read(Path::new("/usr/lib/os-release"), 65536));
-    match os {
-        Ok(bytes) => {
-            let text = String::from_utf8_lossy(&bytes);
-            if !text.lines().any(|s| s == "ID=arch" || s == "ID=\"arch\"") {
-                report.add("arch.os_release", vec![], "Expected ID=arch", false);
+    let mut report = Run::new(observer);
+    report.check("Arch identity", |report| {
+        let os = root
+            .read(Path::new("/etc/os-release"), 65536)
+            .or_else(|_| root.read(Path::new("/usr/lib/os-release"), 65536));
+        match os {
+            Ok(bytes) => {
+                let text = String::from_utf8_lossy(&bytes);
+                if !text.lines().any(|s| s == "ID=arch" || s == "ID=\"arch\"") {
+                    report.add("arch.os_release", vec![], "Expected ID=arch", false);
+                }
             }
+            Err(e) => return Err(e),
         }
-        Err(e) => report.failed("os-release", e),
-    }
-    scan_pacfiles(config, &root, &mut report);
-    if root
-        .metadata(Path::new("/var/lib/pacman/db.lck"))?
-        .is_some()
-    {
-        report.add(
-            "arch.database_lock",
-            vec!["/var/lib/pacman/db.lck".into()],
-            "Do not remove a lock from an active transaction",
-            false,
-        );
-    }
+        Ok(())
+    });
+    report.check("/etc pacnew and pacsave", |report| {
+        scan_pacfiles(config, &root, report);
+        Ok(())
+    });
+    report.check("pacman database lock", |report| {
+        if root
+            .metadata(Path::new("/var/lib/pacman/db.lck"))?
+            .is_some()
+        {
+            report.add(
+                "arch.database_lock",
+                vec!["/var/lib/pacman/db.lck".into()],
+                "Do not remove a lock from an active transaction",
+                false,
+            );
+        }
+        Ok(())
+    });
     if config.check_packages {
-        if let Err(e) = arch::unowned(config, &mut report) {
-            report.failed("package ownership", e);
-        }
+        report.check("package ownership", |report| arch::unowned(config, report));
     } else {
-        report
-            .skipped
-            .push("package checks disabled by check_packages = false".into());
+        report.skipped("package checks disabled by check_packages = false");
     }
     if config.root == Path::new("/") {
         if config.check_packages {
             arch::pacman(&mut report);
         }
-        if let Err(e) = arch::kernel(&root, &mut report) {
-            report.failed("running kernel", e);
-        }
-        if let Err(e) = arch::systemd(&mut report) {
-            report.failed("systemd units", e);
-        }
-        if config.require_uki
-            && let Err(e) = boot::check(&mut report)
-        {
-            report.failed("boot entries", e);
+        report.check("running kernel", |report| arch::kernel(&root, report));
+        report.check("systemd units", arch::systemd);
+        if config.require_uki {
+            report.check("boot entries", boot::check);
         }
     } else {
-        report
-            .skipped
-            .push("runtime checks (pacman commands, kernel, EFI, systemd) require root = /".into());
+        report.skipped("runtime checks (pacman commands, kernel, EFI, systemd) require root = /");
     }
-    Ok(report)
+    Ok(report.finish())
 }
 
-fn scan_pacfiles(config: &Config, root: &Root, report: &mut Report) {
+fn scan_pacfiles(config: &Config, root: &Root, report: &mut Run<'_>) {
     for entry in WalkDir::new(config.physical(Path::new("/etc")))
         .follow_links(false)
         .follow_root_links(false)
@@ -105,7 +109,7 @@ fn scan_pacfiles(config: &Config, root: &Root, report: &mut Report) {
                 );
             }
             Ok(_) => (),
-            Err(e) => report.failed("/etc traversal", e.into()),
+            Err(e) => report.walk_failed("/etc traversal", e),
         }
     }
 }
