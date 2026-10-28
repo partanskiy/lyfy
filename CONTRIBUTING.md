@@ -75,3 +75,8 @@ builds the executable and publishes a GitHub release with an archive and
 checksum. The version tag sets the built CLI version through LYFY_BUILD_VERSION.
 Cargo's package version remains development metadata and does not force a
 special release commit. Release tags are immutable by convention.
+
+Current distribution is the AUR source package lyfy, x86_64 only. The maintainer
+agent may merge green PRs by rebase and publish releases. See
+[RELEASING.md](RELEASING.md) for packaging validation and the explicit credential
+boundary for optional GitHub-hosted AUR publication.
