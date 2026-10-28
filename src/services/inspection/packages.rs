@@ -1,6 +1,6 @@
 use crate::domain::{
     config::Config,
-    package_files::{DatabaseIssue, PackageFile},
+    package_files::{DatabaseIssue, FileDifference, PackageEvidence, PackageFile},
 };
 use crate::infrastructure::{filesystem::Root, pacman::Database};
 use crate::services::inspection::{arch, run::Run};
@@ -103,15 +103,12 @@ fn inspect_package(
                 Ok(fields) if !fields.is_empty() => {
                     difference_count += 1;
                     if differences.len() < 100 {
-                        differences.push(format!(
-                            "{path}: {}{}",
-                            fields.join(", "),
-                            if expected.backup {
-                                " (backup configuration; review intentional edits)"
-                            } else {
-                                ""
-                            }
-                        ));
+                        differences.push(PackageEvidence {
+                            package: name.into(),
+                            path,
+                            differences: fields,
+                            backup_configuration: expected.backup,
+                        });
                     }
                 }
                 Err(error) => report.failed(&path, error),
@@ -128,49 +125,58 @@ fn inspect_package(
         );
     }
     if difference_count > 0 {
-        report.add(
+        report.add_evidence(
             "arch.package_metadata",
-            differences,
+            differences
+                .iter()
+                .map(|evidence| evidence.path.clone())
+                .collect(),
             format!("{name}: {difference_count} changed files; at most 100 listed"),
             false,
+            differences,
         );
     }
     Ok(())
 }
 
-fn compare(root: &Root, expected: &PackageFile, actual: &libc::stat) -> Result<Vec<&'static str>> {
+fn compare(
+    root: &Root,
+    expected: &PackageFile,
+    actual: &libc::stat,
+) -> Result<Vec<FileDifference>> {
+    use FileDifference::*;
     let kind = expected.mode & libc::S_IFMT;
     if actual.st_mode & libc::S_IFMT != kind {
-        return Ok(vec!["type"]);
+        return Ok(vec![Type]);
     }
     let mut fields = Vec::new();
     if actual.st_mode & 0o7777 != expected.mode & 0o7777 {
-        fields.push("mode");
+        fields.push(Mode);
     }
     if i64::from(actual.st_uid) != expected.uid {
-        fields.push("uid");
+        fields.push(Uid);
     }
     if i64::from(actual.st_gid) != expected.gid {
-        fields.push("gid");
+        fields.push(Gid);
     }
     if kind != libc::S_IFDIR && expected.mtime.is_some_and(|value| value != actual.st_mtime) {
-        fields.push("mtime");
+        fields.push(Mtime);
     }
     if kind == libc::S_IFLNK
         && expected.link.as_deref() != Some(&root.read_link(Path::new(&expected.path))?)
     {
-        fields.push("link target");
+        fields.push(LinkTarget);
     }
     if kind == libc::S_IFREG {
         if expected
             .size
             .is_some_and(|value| Some(value) != u64::try_from(actual.st_size).ok())
         {
-            fields.push("size");
+            fields.push(Size);
         } else if let Some(digest) = expected.sha256
             && root.sha256(Path::new(&expected.path))? != digest
         {
-            fields.push("sha256");
+            fields.push(Sha256);
         }
     }
     Ok(fields)

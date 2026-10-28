@@ -114,11 +114,14 @@ fn mtree_checks_content_even_when_size_and_timestamp_match() {
             .unwrap()
             .iter()
             .any(|finding| finding["rule"] == "arch.package_metadata"
-                && finding["paths"]
+                && finding["evidence"]
                     .as_array()
                     .unwrap()
                     .iter()
-                    .any(|path| path.as_str().unwrap().contains("sha256")))
+                    .any(|evidence| evidence["differences"]
+                        .as_array()
+                        .unwrap()
+                        .contains(&Value::from("sha256"))))
     );
     fs::remove_file(f.root.join("etc/example.conf")).unwrap();
     assert!(has(&lint(&f), "arch.package_files"));

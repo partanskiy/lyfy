@@ -37,7 +37,18 @@ impl<'a> Run<'a> {
         detail: impl Into<String>,
         fixable: bool,
     ) {
+        self.add_evidence(rule, paths, detail, fixable, Vec::new());
+    }
+    pub fn add_evidence(
+        &mut self,
+        rule: &str,
+        paths: Vec<String>,
+        detail: impl Into<String>,
+        fixable: bool,
+        evidence: Vec<crate::domain::package_files::PackageEvidence>,
+    ) {
         self.report.add(rule, paths, detail, fixable);
+        self.report.findings.last_mut().unwrap().evidence = evidence;
         (self.observer)(Observation::Finding(self.report.findings.last().unwrap()));
     }
     pub fn failed(&mut self, check: &str, error: anyhow::Error) {

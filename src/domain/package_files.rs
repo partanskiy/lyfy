@@ -11,6 +11,27 @@ pub struct PackageFile {
     pub backup: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FileDifference {
+    Type,
+    Mode,
+    Uid,
+    Gid,
+    Mtime,
+    LinkTarget,
+    Size,
+    Sha256,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct PackageEvidence {
+    pub package: String,
+    pub path: String,
+    pub differences: Vec<FileDifference>,
+    pub backup_configuration: bool,
+}
+
 #[derive(Debug)]
 pub enum DatabaseIssue {
     MissingDependency {

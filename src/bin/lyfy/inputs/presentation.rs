@@ -54,7 +54,26 @@ impl Lint {
                     safe(&finding.detail)
                 );
                 for path in &finding.paths {
-                    let _ = writeln!(out, "  {}", safe(path));
+                    if !finding
+                        .evidence
+                        .iter()
+                        .any(|evidence| &evidence.path == path)
+                    {
+                        let _ = writeln!(out, "  {}", safe(path));
+                    }
+                }
+                for evidence in &finding.evidence {
+                    let _ = writeln!(
+                        out,
+                        "  {}: {:?}{}",
+                        safe(&evidence.path),
+                        evidence.differences,
+                        if evidence.backup_configuration {
+                            " (backup configuration; review intentional edits)"
+                        } else {
+                            ""
+                        }
+                    );
                 }
                 let _ = out.flush();
             }
