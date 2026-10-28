@@ -87,6 +87,9 @@ impl<'a> Run<'a> {
         self.report.skipped.push(reason.into());
         (self.observer)(Observation::Skipped(reason));
     }
+    pub fn progress(&mut self, completed: usize, total: usize) {
+        (self.observer)(Observation::Progress { completed, total });
+    }
     pub fn finish(mut self) -> Report {
         if !self.denied.is_empty() {
             self.add("scan.access_denied",self.denied.iter().take(100).cloned().collect(),
