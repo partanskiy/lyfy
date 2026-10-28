@@ -19,9 +19,16 @@ for package in sorted(metadata["packages"], key=lambda p: (p["name"], p["version
     root = Path(package["manifest_path"]).parent
     notices = sorted(path for path in root.iterdir() if path.is_file()
                      and path.name.upper().startswith(("LICENSE", "LICENCE", "COPYING", "NOTICE", "UNLICENSE")))
+    # alpm's published crates declare GPL-3.0 but omit the workspace LICENSE.
+    # Arch's pacman-managed licenses package provides the canonical full text.
+    if not notices and package.get("license") in {"GPL-3.0", "GPL-3.0-only"}:
+        canonical = Path("/usr/share/licenses/spdx/GPL-3.0-only.txt")
+        if canonical.is_file():
+            notices = [canonical]
     if not notices:
         raise SystemExit(f"Missing license texts: {package['name']} {package['version']}")
     sections.append(f"\n{package['name']} {package['version']}\nSPDX: {package.get('license') or 'see license text'}\n")
+    sections.append("Authors: " + ", ".join(package.get("authors", [])) + "\n")
     for path in notices:
         sections.append(f"\n{path.name}\n\n{path.read_text()}\n")
 args.output.parent.mkdir(parents=True, exist_ok=True)

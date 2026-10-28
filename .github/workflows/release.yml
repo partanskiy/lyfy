@@ -21,7 +21,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
     steps:
       - name: Install native Arch build dependencies
-        run: pacman -Syu --noconfirm --needed rust python git pkgconf libarchive github-cli
+        run: pacman -Syu --noconfirm --needed rust python git pkgconf libarchive github-cli licenses
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
