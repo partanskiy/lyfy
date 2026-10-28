@@ -7,6 +7,7 @@ mod services;
 use anyhow::Result;
 pub use domain::config::Config;
 use domain::diagnostics::Report;
+use domain::observation::Observation;
 use domain::results::{Applied, Formatted, Saved};
 use serde::Serialize;
 
@@ -55,10 +56,19 @@ pub struct Outcome {
 
 /// The composition root is the only core module that dispatches to managers.
 pub fn execute(context: &Context, request: Request) -> Result<Outcome> {
+    execute_observed(context, request, &mut |_| {})
+}
+
+/// Optional synchronous inspection feedback. The library never renders or elevates.
+pub fn execute_observed(
+    context: &Context,
+    request: Request,
+    observer: &mut dyn FnMut(Observation<'_>),
+) -> Result<Outcome> {
     context.repository.begin();
     let (data, failed) = match request {
         Request::Lint => {
-            let report = managers::lint::run(context)?;
+            let report = managers::lint::run(context, observer)?;
             let failed = !report.findings.is_empty();
             (Data::Lint(report), failed)
         }
