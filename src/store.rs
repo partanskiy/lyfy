@@ -1,0 +1,162 @@
+use crate::{
+    config::{absolute, identifier, is_digest},
+    fs::Root,
+    model::{Snapshot, Tree, digest},
+};
+use anyhow::{Context, Result, ensure};
+use serde::{Serialize, de::DeserializeOwned};
+use std::{
+    fs::{File, OpenOptions},
+    os::{
+        fd::AsRawFd,
+        unix::fs::{MetadataExt, OpenOptionsExt},
+    },
+    path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+pub fn timestamp() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock before epoch")
+        .as_nanos()
+}
+
+pub fn private_dir(path: &Path) -> Result<()> {
+    absolute(path)?;
+    let root = Root::open(Path::new("/"))?;
+    if root.metadata(path)?.is_none() {
+        root.mkdir(path, 0o700, None)?;
+    }
+    let metadata = std::fs::symlink_metadata(path)?;
+    // SAFETY: geteuid has no pointer arguments or side effects.
+    ensure!(
+        metadata.is_dir()
+            && metadata.uid() == unsafe { libc::geteuid() }
+            && metadata.mode() & 0o077 == 0,
+        "private directory must be owned by current user and mode 0700: {}",
+        path.display()
+    );
+    Ok(())
+}
+
+pub struct Lock {
+    _file: File,
+}
+impl Lock {
+    pub fn acquire(directory: &Path) -> Result<Self> {
+        private_dir(directory)?;
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(directory.join("lock"))?;
+        // SAFETY: valid descriptor; the lock is held until File is dropped.
+        ensure!(
+            unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0,
+            "another lyfy process holds the repository/state lock"
+        );
+        Ok(Self { _file: file })
+    }
+}
+
+pub fn write_json(path: &Path, value: &impl Serialize) -> Result<()> {
+    write_bytes(path, &serde_json::to_vec_pretty(value)?)
+}
+
+pub fn write_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
+    private_dir(path.parent().context("missing parent")?)?;
+    Root::open(Path::new("/"))?.put(path, Some(bytes), None, 0o600, None)
+}
+
+pub fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T> {
+    let bytes = Root::open(Path::new("/"))?.read(path, 64 * 1024 * 1024)?;
+    serde_json::from_slice(&bytes).with_context(|| format!("invalid JSON in {}", path.display()))
+}
+
+pub struct Store {
+    pub path: PathBuf,
+}
+impl Store {
+    pub fn new(path: PathBuf) -> Self {
+        Self { path }
+    }
+    pub fn host_dir(&self, host: &str) -> Result<PathBuf> {
+        identifier(host)?;
+        Ok(self.path.join("hosts").join(host))
+    }
+    pub fn head(&self, host: &str) -> Result<String> {
+        let path = self.host_dir(host)?.join("HEAD");
+        let bytes = Root::open(Path::new("/"))?
+            .read(&path, 128)
+            .with_context(|| format!("no saved snapshot for host {host}"))?;
+        let id = String::from_utf8(bytes)?.trim().to_owned();
+        ensure!(is_digest(&id), "invalid snapshot HEAD");
+        Ok(id)
+    }
+    pub fn object(&self, hash: &str) -> Result<Vec<u8>> {
+        ensure!(is_digest(hash), "invalid object hash");
+        let bytes = Root::open(Path::new("/"))?
+            .read(&self.path.join("objects").join(hash), 1024 * 1024 * 1024)?;
+        ensure!(digest(&bytes) == hash, "corrupt object: {hash}");
+        Ok(bytes)
+    }
+    pub fn put_object(&self, bytes: &[u8]) -> Result<()> {
+        let path = self.path.join("objects").join(digest(bytes));
+        if path.exists() {
+            self.object(&digest(bytes))?;
+        } else {
+            write_bytes(&path, bytes)?;
+        }
+        Ok(())
+    }
+    pub fn save(&self, snapshot: &Snapshot) -> Result<String> {
+        let bytes = serde_json::to_vec_pretty(snapshot)?;
+        let id = digest(&bytes);
+        let host = self.host_dir(&snapshot.host)?;
+        write_bytes(&host.join("snapshots").join(format!("{id}.json")), &bytes)?;
+        write_bytes(&host.join("HEAD"), id.as_bytes())?;
+        Ok(id)
+    }
+    pub fn load(&self, host: &str, id: &str) -> Result<Snapshot> {
+        ensure!(is_digest(id), "invalid snapshot id");
+        let path = self
+            .host_dir(host)?
+            .join("snapshots")
+            .join(format!("{id}.json"));
+        let bytes = Root::open(Path::new("/"))?.read(&path, 64 * 1024 * 1024)?;
+        ensure!(digest(&bytes) == id, "corrupt snapshot manifest");
+        let snapshot: Snapshot = serde_json::from_slice(&bytes)?;
+        ensure!(
+            snapshot.schema == 1 && snapshot.system == "arch" && snapshot.host == host,
+            "unsupported or mismatched snapshot"
+        );
+        for node in snapshot.changes.values().flatten() {
+            node.validate()?;
+        }
+        Ok(snapshot)
+    }
+    pub fn effective(&self, host: &str, id: &str) -> Result<(Snapshot, Tree)> {
+        self.resolve(host, id, 0)
+    }
+    fn resolve(&self, host: &str, id: &str, depth: usize) -> Result<(Snapshot, Tree)> {
+        ensure!(depth < 32, "base chain exceeds 32 snapshots");
+        let snapshot = self.load(host, id)?;
+        let mut tree = if let Some(base) = &snapshot.base {
+            self.resolve(&base.host, &base.id, depth + 1)?.1
+        } else {
+            Tree::new()
+        };
+        for (key, node) in &snapshot.changes {
+            if let Some(node) = node {
+                tree.insert(key.clone(), node.clone());
+            } else {
+                tree.remove(key);
+            }
+        }
+        Ok((snapshot, tree))
+    }
+}
