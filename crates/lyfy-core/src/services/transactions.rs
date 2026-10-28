@@ -1,10 +1,10 @@
-use crate::{
-    config::Config,
-    fs::Root,
-    model::{Content, observe},
-    plan::{Change, Plan, Receipt, receipt_path},
-    store::{Store, timestamp, write_json},
-};
+use crate::domain::config::Config;
+use crate::domain::plan::{Change, Plan, Receipt};
+use crate::domain::state::Content;
+use crate::infrastructure::filesystem::Root;
+use crate::infrastructure::store::{Store, timestamp, write_json};
+use crate::services::files::observe;
+use crate::services::reconciliation::receipt_path;
 use anyhow::{Context, Result, ensure};
 use serde::Serialize;
 
@@ -20,22 +20,29 @@ struct Journal<'a> {
     status: &'a str,
 }
 
-pub fn write(
+pub fn write(config: &Config, plan: &Plan, record_receipt: bool) -> Result<std::path::PathBuf> {
+    let transaction = config
+        .state_dir
+        .join("transactions")
+        .join(timestamp().to_string());
+    execute(config, plan, record_receipt, &transaction)
+        .with_context(|| format!("transaction directory: {}", transaction.display()))?;
+    Ok(transaction)
+}
+
+fn execute(
     config: &Config,
-    store: &Store,
     plan: &Plan,
     record_receipt: bool,
-) -> Result<std::path::PathBuf> {
+    transaction: &std::path::Path,
+) -> Result<()> {
+    let store = Store::new(config.data_dir.clone());
     ensure!(
         plan.changes.iter().all(|c| c.conflict.is_none()),
         "plan contains conflicts; nothing was written"
     );
     let root = Root::open(&config.root)?;
-    let transaction = config
-        .state_dir
-        .join("transactions")
-        .join(timestamp().to_string());
-    let backup_store = Store::new(transaction.clone());
+    let backup_store = Store::new(transaction.to_path_buf());
     let mut journal = Journal {
         schema: 1,
         root: &config.root,
@@ -66,6 +73,16 @@ pub fn write(
         .metadata(&config.home_dir)?
         .context("destination home_dir must exist")?;
     for change in &plan.changes {
+        for guard in &plan.guards {
+            ensure!(
+                observe(config, &root, &config.path_for_key(&guard.key)?)?
+                    .map(|(n, _)| n)
+                    .as_ref()
+                    == Some(&guard.expected),
+                "plan precondition changed: {}",
+                guard.key
+            );
+        }
         let path = config.path_for_key(&change.key)?;
         let current = observe(config, &root, &path)?.map(|(n, _)| n);
         ensure!(
@@ -116,5 +133,5 @@ pub fn write(
     }
     journal.status = "complete";
     write_json(&transaction.join("journal.json"), &journal)?;
-    Ok(transaction)
+    Ok(())
 }
