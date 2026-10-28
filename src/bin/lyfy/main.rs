@@ -12,8 +12,8 @@ use std::process::ExitCode;
 fn run() -> Result<u8> {
     let cli = Cli::parse();
     let launch = configuration::resolve(cli.options)?;
-    if matches!(cli.command, Command::Lint { elevate: true })
-        && let Some(code) = privileges::elevate(&launch)?
+    if let Command::Lint { elevate } = cli.command
+        && let Some(code) = privileges::elevate(&launch, elevate)?
     {
         return Ok(code);
     }

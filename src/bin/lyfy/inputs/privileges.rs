@@ -1,12 +1,45 @@
 use super::configuration::Launch;
 use anyhow::{Context, Result};
-use std::{env, ffi::OsString, io::Write, path::Path, process::Command};
+use std::{
+    env,
+    ffi::OsString,
+    io::{self, IsTerminal, Write},
+    path::Path,
+    process::Command,
+};
 
-pub fn elevate(launch: &Launch) -> Result<Option<u8>> {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum Elevation {
+    /// Request sudo for an interactive scan of the running system.
+    Auto,
+    /// Scan with existing privileges, without requesting sudo.
+    Never,
+    /// Request sudo even when the scan is noninteractive or uses another root.
+    Required,
+}
+
+fn should_elevate(mode: Elevation, root: bool, interactive: bool, live_system: bool) -> bool {
+    !root
+        && match mode {
+            Elevation::Auto => interactive && live_system,
+            Elevation::Never => false,
+            Elevation::Required => true,
+        }
+}
+
+pub fn elevate(launch: &Launch, mode: Elevation) -> Result<Option<u8>> {
     // SAFETY: geteuid has no preconditions and does not modify process state.
-    if unsafe { libc::geteuid() } == 0 {
+    let root = unsafe { libc::geteuid() } == 0;
+    let interactive = io::stdin().is_terminal() && io::stderr().is_terminal();
+    if !should_elevate(
+        mode,
+        root,
+        interactive,
+        launch.config.root == Path::new("/"),
+    ) {
         return Ok(None);
     }
+    eprintln!("lyfy: requesting sudo for a protected read-only system scan");
     let settings = resolved_settings(launch)?;
     // NamedTempFile creates a private 0600 file, removed after sudo returns.
     let mut file = tempfile::NamedTempFile::new()?;
@@ -46,7 +79,8 @@ fn sudo_command(
         .arg(executable)
         .arg("--config_file")
         .arg(settings)
-        .arg("lint");
+        .arg("lint")
+        .arg("--elevate=never");
     // The file already contains flag > ENV > TOML. Avoid reapplying ENV in the child.
     for key in keys.filter(|key| key.as_encoded_bytes().starts_with(b"LYFY_")) {
         command.env_remove(key);
@@ -94,10 +128,41 @@ mod tests {
         assert_eq!(command.get_program(), "/usr/bin/sudo");
         assert_eq!(
             command.get_args().collect::<Vec<_>>(),
-            ["--", "/opt/lyfy", "--config_file", "/tmp/settings", "lint"]
+            [
+                "--",
+                "/opt/lyfy",
+                "--config_file",
+                "/tmp/settings",
+                "lint",
+                "--elevate=never"
+            ]
         );
         let environment: Vec<_> = command.get_envs().collect();
         assert_eq!(environment.len(), 2);
         assert!(environment.iter().all(|(_, value)| value.is_none()));
+    }
+
+    #[test]
+    fn automatic_requests_require_a_terminal_and_the_live_system() {
+        for root in [false, true] {
+            for interactive in [false, true] {
+                for live_system in [false, true] {
+                    assert_eq!(
+                        should_elevate(Elevation::Auto, root, interactive, live_system),
+                        !root && interactive && live_system
+                    );
+                    assert!(!should_elevate(
+                        Elevation::Never,
+                        root,
+                        interactive,
+                        live_system
+                    ));
+                    assert_eq!(
+                        should_elevate(Elevation::Required, root, interactive, live_system),
+                        !root
+                    );
+                }
+            }
+        }
     }
 }
