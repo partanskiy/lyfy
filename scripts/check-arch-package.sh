@@ -19,10 +19,8 @@ archive="$workdir/lyfy-v$version-source.tar.gz"
 (
   cd "$repo_root"
   cargo fetch --locked --target x86_64-unknown-linux-gnu
-  python3 scripts/license-notices.py "$workdir/THIRD_PARTY_LICENSES.txt"
 )
-git -c safe.directory="$repo_root" -C "$repo_root" archive --format=tar --prefix="lyfy-$version/" \
-  --add-file="$workdir/THIRD_PARTY_LICENSES.txt" HEAD | gzip -n > "$archive"
+bash "$repo_root/scripts/archive-source.sh" "$version" "$archive"
 python3 "$repo_root/scripts/render-aur-package.py" "$version" "$archive" "$workdir/package"
 if grep -Eq 'python[0-9]*|scripts/license-notices' "$workdir/package/PKGBUILD"; then
   echo 'The AUR recipe must not execute Python or depend on it.' >&2
