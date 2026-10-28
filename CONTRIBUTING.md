@@ -63,11 +63,15 @@ usable through the library API without CLI/environment configuration.
 A release is a version tag pointing at a selected existing main commit. No
 dedicated release commit, changelog commit or version-bump commit is required.
 Do not add a `release:` commit type.
+Versions use `YY.M.PATCH` calendar numbering, like synchrogit: `26.10.0`,
+`26.10.1`, then `26.11.0` in the next month. Month and patch have no padding.
+PATCH starts at 0 each month and advances for every release. Release tags do
+not have to match Cargo.toml's development metadata.
 
 ```sh
 git fetch origin main
-git tag -a v0.1.0 <selected-main-commit> -m 'lyfy v0.1.0'
-git push origin v0.1.0
+git tag -a v26.10.0 <selected-main-commit> -m 'lyfy v26.10.0'
+git push origin v26.10.0
 ```
 
 The release workflow verifies the tagged commit belongs to main, reruns checks,

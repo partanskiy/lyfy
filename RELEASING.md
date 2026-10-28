@@ -10,17 +10,28 @@ protection, required checks and small Conventional Commits remain mandatory.
 
 ## Choose a commit
 
+Versions follow synchrogit's calendar scheme, `YY.M.PATCH`, with no leading
+zero in the month or patch. For example, `26.10.0` is the first October 2026
+release and `26.10.1` is the next release that month. Start PATCH at 0 for a new
+month and increment it for each published release in that month, including
+feature releases. The version communicates release timing; compatibility
+changes must be explained in release notes. The first calendar release is
+`26.10.0`; previous `0.1.x` releases remain historical and immutable.
+
 All source and packaging changes go through a PR. After required checks pass,
 merge by rebase. Select an existing resulting main commit. A dedicated version
 bump, changelog or release commit is not required.
 
 ```sh
 git fetch origin main
-git tag -a v0.1.0 <selected-main-commit> -m 'lyfy v0.1.0'
-git push origin v0.1.0
+git tag -a v26.10.0 <selected-main-commit> -m 'lyfy v26.10.0'
+git push origin v26.10.0
 ```
 
-Only stable MAJOR.MINOR.PATCH tags currently publish. Release tags and published
+Only stable calendar tags currently publish. `scripts/check-version.sh` is the
+shared validator for the workflow and packaging/publication tools; it rejects
+padded months, invalid months, prereleases and legacy SemVer numbering.
+Release tags and published
 assets must not be rewritten. The version tag controls LYFY_BUILD_VERSION for
 both the downloadable binary and AUR builds; Cargo.toml's development version
 does not have to match the tag.
@@ -59,7 +70,7 @@ and publish the tested recipe with the local AUR identity:
 
 ```sh
 AUR_SSH_KEY_FILE=/absolute/path/to/aur-key \
-  bash scripts/publish-aur.sh 0.1.0 /absolute/path/to/rendered-package
+  bash scripts/publish-aur.sh 26.10.0 /absolute/path/to/rendered-package
 ```
 
 The private key stays on the local host; SSH uses it to authenticate directly
@@ -82,7 +93,7 @@ git, groff and runtime dependencies. Python is used by the check tooling, not
 by the AUR build:
 
 ```sh
-bash scripts/check-arch-package.sh 0.1.0 /tmp/lyfy-package-check
+bash scripts/check-arch-package.sh 26.10.0 /tmp/lyfy-package-check
 ```
 
 The helper adds pre-generated notices to the current committed source archive
