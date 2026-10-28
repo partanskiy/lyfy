@@ -12,13 +12,17 @@ use serde::Serialize;
 
 pub struct Context {
     config: Config,
+    repository: infrastructure::store::Store,
 }
 
 impl Context {
     pub fn new(config: Config) -> Result<Self> {
         config.validate()?;
         infrastructure::filesystem::Root::open(&config.root)?;
-        Ok(Self { config })
+        Ok(Self {
+            repository: infrastructure::store::Store::configured(&config),
+            config,
+        })
     }
 
     pub fn config(&self) -> &Config {
@@ -51,6 +55,7 @@ pub struct Outcome {
 
 /// The composition root is the only core module that dispatches to managers.
 pub fn execute(context: &Context, request: Request) -> Result<Outcome> {
+    context.repository.begin();
     let (data, failed) = match request {
         Request::Lint => {
             let report = managers::lint::run(context)?;

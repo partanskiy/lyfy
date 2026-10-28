@@ -88,7 +88,7 @@ There are exactly four flat manager modules: `lint.rs`, `fmt.rs`, `save.rs`,
 - A service never calls a manager or the dispatcher. Infrastructure never
   calls a service or manager. Domain code has no OS access.
 - Public functions take explicit inputs and return typed values or errors.
-  No global mutable context, ambient environment dependencies or hidden
+  No global mutable context, ambient launch-setting dependencies or hidden
   execution permission.
 
 For example, fmt and apply share the `transactions` service. fmt does not call
@@ -103,7 +103,7 @@ the lint command.
 | `remediation` | Convert automatically fixable findings to file changes |
 | `files` | Observe a concrete target node with bounded content reads |
 | `capture` | Walk managed scopes, verify observations and store content objects |
-| `snapshots` | Resolve pinned bases, read prior history and commit host snapshots |
+| `snapshots` | Resolve pinned bases, read prior history and commit host snapshots through the configured store |
 | `reconciliation` | Build a three-way file plan and a package comparison |
 | `transactions` | Preflight, back up preimages, write files, journal and record receipts |
 | `packages` | Expose inventory capture and supported package restoration |
@@ -114,7 +114,7 @@ Services are capabilities, not a collection of functions called `utils`,
 capability that owns the invariant. Add a new narrowly named capability only
 when its responsibility cannot be expressed by an existing one.
 
-Infrastructure has four adapters: `filesystem`, `store`, `process`, `pacman`.
+Infrastructure has five adapters: `filesystem`, `store`, `git`, `process`, `pacman`.
 They implement mechanisms. Policy decisions belong to domain or services.
 Do not add a trait and implementation pair for every concrete operation.
 Introduce an interface when a second implementation or a real testing need
@@ -127,8 +127,14 @@ requires it, while preserving the dependency direction.
 - A host snapshot is an overlay over an optional immutable, pinned base.
 - Editing a deployed file and saving creates a new host snapshot. It does not
   silently edit the common base or another host's state.
-- A content hash addresses each immutable object and manifest.
-- A mutable HEAD selects the latest snapshot for a host.
+- Git is the default storage format: concrete payload files and JSON metadata,
+  with Git revisions as snapshot identities. Ordinary commits and clones carry
+  all host state, including pinned common bases.
+- The optional directory backend uses content hashes and immutable manifests.
+- Reconciliation reads a selected committed revision, never uncommitted edits.
+- Save refuses a dirty Git repository and never pushes or merges implicitly.
+- The context owns one explicit repository session shared by named services;
+  managers cannot access its persistence implementation directly.
 - Exclusions apply to capture and reconciliation, including imported snapshots.
 - File execution uses backups, an explicit plan and a transaction journal.
 - Package transactions have separate semantics and are not filesystem rollback.

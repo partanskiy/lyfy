@@ -5,8 +5,8 @@ use anyhow::{Context as _, Result};
 
 pub fn run(context: &Context, write: bool) -> Result<Applied> {
     let config = &context.config;
-    let _locks = write.then(|| session::lock(config)).transpose()?;
-    let mut plan = reconciliation::build(config)?;
+    let _locks = write.then(|| session::lock(context)).transpose()?;
+    let mut plan = reconciliation::build(context)?;
     let mut transaction = None;
     if write && plan.changes.iter().all(|c| c.conflict.is_none()) {
         if config.install_packages {
@@ -16,9 +16,9 @@ pub fn run(context: &Context, write: bool) -> Result<Applied> {
                     .as_deref()
                     .context("snapshot has no package inventory")?,
             )?;
-            plan = reconciliation::build(config)?;
+            plan = reconciliation::build(context)?;
         }
-        transaction = Some(transactions::write(config, &plan, true)?);
+        transaction = Some(transactions::write(context, &plan, true)?);
     }
     Ok(Applied { plan, transaction })
 }

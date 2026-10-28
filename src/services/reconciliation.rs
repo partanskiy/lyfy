@@ -1,10 +1,11 @@
+use crate::Context;
 use crate::domain::config::Config;
 use crate::domain::packages;
 use crate::domain::plan::{Change, Plan, Receipt};
 use crate::domain::state::{Content, Node, Tree, digest};
 use crate::infrastructure::filesystem::Root;
 use crate::infrastructure::pacman;
-use crate::infrastructure::store::{Store, read_json};
+use crate::infrastructure::store::read_json;
 use crate::services::files::observe;
 use anyhow::{Result, ensure};
 use std::{collections::BTreeSet, path::PathBuf};
@@ -22,8 +23,9 @@ pub fn receipt_path(config: &Config) -> PathBuf {
         .join(format!("{}.json", digest(context.as_bytes())))
 }
 
-pub fn build(config: &Config) -> Result<Plan> {
-    let store = Store::new(config.data_dir.clone());
+pub fn build(context: &Context) -> Result<Plan> {
+    let config = &context.config;
+    let store = &context.repository;
     let id = if config.snapshot == "latest" {
         store.head(&config.host)?
     } else {
