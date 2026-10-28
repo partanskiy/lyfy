@@ -1,3 +1,4 @@
+use crate::domain::{checks::CheckId, rules::RuleId};
 use crate::domain::{
     config::Config,
     package_files::{DatabaseIssue, FileDifference, PackageEvidence, PackageFile},
@@ -10,15 +11,19 @@ use crate::services::inspection::{arch, run::Run};
 use anyhow::Result;
 use std::{collections::BTreeMap, path::Path};
 
-pub fn inspect(config: &Config, report: &mut Run<'_>) -> Result<()> {
-    let mut database = Database::open(config)?;
-    report.check("libalpm database consistency", |report| {
+pub fn inspect(config: &Config, report: &mut Run<'_>) {
+    let Some(mut database) = report.check(CheckId::PackageDatabase, |_| Database::open(config))
+    else {
+        return;
+    };
+    report.check(CheckId::DatabaseConsistency, |report| {
         for issue in database.issues()? {
-            let (paths, detail) = match issue {
+            let (rule, paths, detail) = match issue {
                 DatabaseIssue::MissingDependency {
                     package,
                     dependency,
                 } => (
+                    RuleId::MissingDependency,
                     vec![package],
                     format!("Unsatisfied dependency: {dependency}"),
                 ),
@@ -27,22 +32,24 @@ pub fn inspect(config: &Config, report: &mut Run<'_>) -> Result<()> {
                     other,
                     dependency,
                 } => (
+                    RuleId::PackageConflict,
                     vec![package, other],
                     format!("Package conflict: {dependency}"),
                 ),
                 DatabaseIssue::SharedFile { path, owners } => (
+                    RuleId::FileOwners,
                     vec![path],
                     format!("Multiple package owners: {}", owners.join(", ")),
                 ),
             };
-            report.add("arch.database", paths, detail, false);
+            report.add(rule, paths, detail, None);
         }
         Ok(())
     });
-    report.check("package ownership", |report| {
+    report.check(CheckId::Ownership, |report| {
         arch::unowned(config, &database, report)
     });
-    report.check("libalpm package files and mtree", |report| {
+    report.check(CheckId::PackageFiles, |report| {
         let root = Root::open(&config.root)?;
         let identity = IdentityView::read()?;
         let mut identity_warning = false;
@@ -62,14 +69,13 @@ pub fn inspect(config: &Config, report: &mut Run<'_>) -> Result<()> {
         }
         Ok(())
     });
-    report.check("libalpm orphan packages", |report| {
+    report.check(CheckId::Orphans, |report| {
         let names = database.orphans()?;
         if !names.is_empty() {
-            report.add("arch.orphans", names, "Review before removal", false);
+            report.add(RuleId::Orphans, names, "Review before removal", None);
         }
         Ok(())
     });
-    Ok(())
 }
 
 fn inspect_package(
@@ -90,7 +96,9 @@ fn inspect_package(
             files.insert(file.path.clone(), Some(file));
         }
     } else {
-        report.skipped(&format!("package {name}: no mtree metadata"));
+        if !files.is_empty() {
+            report.incomplete(format!("package {name}: no mtree metadata"));
+        }
     }
     let mut missing = Vec::new();
     let mut differences = Vec::new();
@@ -114,7 +122,7 @@ fn inspect_package(
         };
         if let Some(expected) = expected {
             if (!identity.uid || !identity.gid) && !*identity_warning {
-                report.add("scan.incomplete",vec![],"Package UID/GID checks require the host identity mapping; this user namespace changes or hides ownership IDs. Repeat outside the user namespace for full coverage.",false);
+                report.incomplete("Package UID/GID checks require the host identity mapping; this user namespace changes or hides ownership IDs. Repeat outside the user namespace for full coverage.");
                 *identity_warning = true;
             }
             match compare(root, &expected, &actual, identity) {
@@ -136,21 +144,21 @@ fn inspect_package(
     }
     if missing_count > 0 {
         report.add(
-            "arch.package_files",
+            RuleId::PackageFiles,
             missing,
             format!("{name}: {missing_count} missing files; at most 100 listed"),
-            false,
+            None,
         );
     }
     if difference_count > 0 {
         report.add_evidence(
-            "arch.package_metadata",
+            RuleId::PackageMetadata,
             differences
                 .iter()
                 .map(|evidence| evidence.path.clone())
                 .collect(),
             format!("{name}: {difference_count} changed files; at most 100 listed"),
-            false,
+            None,
             differences,
         );
     }

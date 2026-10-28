@@ -1,4 +1,5 @@
 use crate::domain::config::Config;
+use crate::domain::{checks::CheckId, rules::RuleId};
 use crate::infrastructure::{filesystem::Root, pacman::Database, process};
 use crate::services::inspection::run::Run;
 use anyhow::{Result, ensure};
@@ -36,10 +37,10 @@ pub fn unowned(config: &Config, database: &Database, report: &mut Run<'_>) -> Re
     }
     if count > 0 {
         report.add(
-            "arch.unowned_file",
+            RuleId::UnownedFile,
             unowned,
             format!("{count} unowned files; at most 100 paths displayed"),
-            false,
+            None,
         );
     }
     Ok(())
@@ -57,10 +58,10 @@ pub fn kernel(root: &Root, report: &mut Run<'_>) -> Result<()> {
     }
     if !installed.iter().any(|s| s == running) {
         report.add(
-            "arch.kernel_reboot",
+            RuleId::KernelReboot,
             installed,
             format!("Running release {running} has no installed vmlinuz"),
-            false,
+            None,
         );
     }
     Ok(())
@@ -74,14 +75,14 @@ pub fn systemd(report: &mut Run<'_>) -> Result<()> {
     ensure!(output.code == 0, "systemctl query failed");
     if !output.stdout.trim().is_empty() {
         report.add(
-            "systemd.failed_units",
+            RuleId::FailedUnits,
             output
                 .stdout
                 .lines()
                 .filter_map(|l| l.split_whitespace().next().map(str::to_owned))
                 .collect(),
             "Inspect units and journal before restarting services",
-            false,
+            None,
         );
     }
     Ok(())

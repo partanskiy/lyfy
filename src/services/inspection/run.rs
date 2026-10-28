@@ -185,7 +185,7 @@ impl<'a> Run<'a> {
         (self.observer)(Observation::Progress { completed, total });
     }
     pub fn finish(mut self) -> Report {
-        for (check, paths) in self.denied {
+        for (check, paths) in std::mem::take(&mut self.denied) {
             self.report.diagnostics.push(Diagnostic { code: DiagnosticCode::AccessDenied, check, detail: format!("{} inaccessible paths/checks; at most 100 listed. Repeat with lyfy lint --elevate for full coverage.", paths.len()), paths: paths.into_iter().take(100).collect() });
         }
         for &id in CheckId::ALL {
