@@ -1,4 +1,7 @@
-use crate::domain::diagnostics::Finding;
+use super::{
+    checks::{CheckId, CheckStatus},
+    diagnostics::{Diagnostic, Finding},
+};
 use std::time::Duration;
 
 /// Synchronous inspection feedback, rendered only by the calling input.
@@ -8,12 +11,14 @@ pub enum Observation<'a> {
         completed: usize,
         total: usize,
     },
-    CheckStarted(&'static str),
+    CheckStarted(CheckId),
     CheckFinished {
-        name: &'static str,
+        id: CheckId,
+        status: CheckStatus,
         elapsed: Duration,
     },
     Finding(&'a Finding),
+    Diagnostic(&'a Diagnostic),
     Skipped(&'a str),
     AccessDenied(&'a str),
 }

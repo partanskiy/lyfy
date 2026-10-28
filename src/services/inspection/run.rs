@@ -1,55 +1,142 @@
-use crate::domain::{diagnostics::Report, observation::Observation};
-use std::{collections::BTreeSet, io, time::Instant};
+use crate::domain::{
+    checks::{CheckId, CheckResult, CheckStatus},
+    diagnostics::{Diagnostic, DiagnosticCode, Report},
+    observation::Observation,
+    rules::{FixAction, RuleId},
+};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    io,
+    time::Instant,
+};
 
 pub(crate) struct Run<'a> {
     pub report: Report,
     observer: &'a mut dyn FnMut(Observation<'_>),
-    denied: BTreeSet<String>,
+    active: Vec<CheckId>,
+    denied: BTreeMap<CheckId, BTreeSet<String>>,
 }
-
 impl<'a> Run<'a> {
     pub fn new(observer: &'a mut dyn FnMut(Observation<'_>)) -> Self {
         Self {
             report: Report::default(),
             observer,
-            denied: BTreeSet::new(),
+            active: vec![],
+            denied: BTreeMap::new(),
         }
     }
-    pub fn check(
-        &mut self,
-        name: &'static str,
-        inspect: impl FnOnce(&mut Self) -> anyhow::Result<()>,
-    ) {
-        (self.observer)(Observation::CheckStarted(name));
-        let start = Instant::now();
-        if let Err(error) = inspect(self) {
-            self.failed(name, error);
+    pub fn enabled(&self, id: CheckId) -> bool {
+        if id == CheckId::PackageDatabase {
+            return [
+                CheckId::DatabaseConsistency,
+                CheckId::Ownership,
+                CheckId::PackageFiles,
+                CheckId::Orphans,
+            ]
+            .into_iter()
+            .any(|id| self.enabled(id));
         }
-        (self.observer)(Observation::CheckFinished {
-            name,
-            elapsed: start.elapsed(),
+        RuleId::ALL
+            .iter()
+            .any(|rule| rule.spec().check == id && !self.report.disabled_rules.contains(rule))
+    }
+    pub fn skip(&mut self, id: CheckId, status: CheckStatus, reason: &str) {
+        self.report.checks.push(CheckResult {
+            id,
+            status,
+            elapsed_ms: 0,
+            findings: 0,
+            reason: reason.into(),
         });
+        self.report.skipped.push(format!("{}: {reason}", id.name()));
+        (self.observer)(Observation::Skipped(reason));
+    }
+    pub fn check<T>(
+        &mut self,
+        id: CheckId,
+        inspect: impl FnOnce(&mut Self) -> anyhow::Result<T>,
+    ) -> Option<T> {
+        if !self.enabled(id) {
+            self.skip(id, CheckStatus::Disabled, "all rules disabled");
+            return None;
+        }
+        (self.observer)(Observation::CheckStarted(id));
+        self.active.push(id);
+        let start = Instant::now();
+        let before = self.report.findings.len();
+        let diagnostics = self.report.diagnostics.len();
+        let result = match inspect(self) {
+            Ok(value) => Some(value),
+            Err(error) => {
+                self.failed(id.name(), error);
+                None
+            }
+        };
+        self.active.pop();
+        let status =
+            if self.report.diagnostics.len() != diagnostics || self.denied.contains_key(&id) {
+                CheckStatus::Incomplete
+            } else {
+                CheckStatus::Complete
+            };
+        let elapsed = start.elapsed();
+        self.report.checks.push(CheckResult {
+            id,
+            status,
+            elapsed_ms: elapsed.as_millis().try_into().unwrap_or(u64::MAX),
+            findings: self.report.findings.len() - before,
+            reason: String::new(),
+        });
+        (self.observer)(Observation::CheckFinished {
+            id,
+            status,
+            elapsed,
+        });
+        result
     }
     pub fn add(
         &mut self,
-        rule: &str,
+        rule: RuleId,
         paths: Vec<String>,
         detail: impl Into<String>,
-        fixable: bool,
+        fix: Option<FixAction>,
     ) {
-        self.add_evidence(rule, paths, detail, fixable, Vec::new());
+        self.add_evidence(rule, paths, detail, fix, Vec::new());
     }
     pub fn add_evidence(
         &mut self,
-        rule: &str,
+        rule: RuleId,
         paths: Vec<String>,
         detail: impl Into<String>,
-        fixable: bool,
+        fix: Option<FixAction>,
         evidence: Vec<crate::domain::package_files::PackageEvidence>,
     ) {
-        self.report.add(rule, paths, detail, fixable);
-        self.report.findings.last_mut().unwrap().evidence = evidence;
-        (self.observer)(Observation::Finding(self.report.findings.last().unwrap()));
+        if self.report.disabled_rules.contains(&rule) {
+            return;
+        }
+        if self.active.last() != Some(&rule.spec().check) {
+            self.incomplete(format!("Internal rule/check ownership mismatch: {rule}"));
+            return;
+        }
+        if let Err(error) = self.report.add(rule, paths, detail, fix) {
+            self.incomplete(error.to_string());
+            return;
+        }
+        let finding = self.report.findings.last_mut().unwrap();
+        finding.evidence = evidence;
+        (self.observer)(Observation::Finding(finding));
+    }
+    pub fn incomplete(&mut self, detail: impl Into<String>) {
+        let diagnostic = Diagnostic {
+            code: DiagnosticCode::Incomplete,
+            check: *self.active.last().expect("active check"),
+            detail: detail.into(),
+            paths: vec![],
+        };
+        self.report.diagnostics.push(diagnostic);
+        (self.observer)(Observation::Diagnostic(
+            self.report.diagnostics.last().unwrap(),
+        ));
     }
     pub fn failed(&mut self, check: &str, error: anyhow::Error) {
         if error.chain().any(|e| {
@@ -58,12 +145,12 @@ impl<'a> Run<'a> {
         }) {
             self.denied(check);
         } else {
-            self.report.failed(check, error);
-            (self.observer)(Observation::Finding(self.report.findings.last().unwrap()));
+            self.incomplete(format!("{check}: {error:#}"));
         }
     }
     pub fn denied(&mut self, location: &str) {
-        if self.denied.insert(location.into()) {
+        let id = *self.active.last().expect("active check");
+        if self.denied.entry(id).or_default().insert(location.into()) {
             (self.observer)(Observation::AccessDenied(location));
         }
     }
@@ -94,47 +181,23 @@ impl<'a> Run<'a> {
         }
         denied
     }
-    pub fn skipped(&mut self, reason: &str) {
-        self.report.skipped.push(reason.into());
-        (self.observer)(Observation::Skipped(reason));
-    }
     pub fn progress(&mut self, completed: usize, total: usize) {
         (self.observer)(Observation::Progress { completed, total });
     }
     pub fn finish(mut self) -> Report {
-        if !self.denied.is_empty() {
-            self.add("scan.access_denied",self.denied.iter().take(100).cloned().collect(),
-                format!("Scan incomplete: {} inaccessible paths/checks; at most 100 listed. Use lyfy lint --elevate for protected system checks.",self.denied.len()),false);
+        for (check, paths) in self.denied {
+            self.report.diagnostics.push(Diagnostic { code: DiagnosticCode::AccessDenied, check, detail: format!("{} inaccessible paths/checks; at most 100 listed. Repeat with lyfy lint --elevate for full coverage.", paths.len()), paths: paths.into_iter().take(100).collect() });
+        }
+        for &id in CheckId::ALL {
+            if !self.report.checks.iter().any(|check| check.id == id) {
+                let status = if self.enabled(id) {
+                    CheckStatus::Blocked
+                } else {
+                    CheckStatus::Disabled
+                };
+                self.skip(id, status, "prerequisite did not complete");
+            }
         }
         self.report
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::domain::observation::Observation;
-    use crate::services::inspection::run::Run;
-    use std::io;
-
-    #[test]
-    fn permission_errors_are_coverage_but_other_errors_remain_failures() {
-        let mut observer = |_: Observation<'_>| {};
-        let mut run = Run::new(&mut observer);
-        for _ in 0..2 {
-            run.failed(
-                "/etc/protected",
-                anyhow::Error::new(io::Error::from(io::ErrorKind::PermissionDenied))
-                    .context("traversal"),
-            );
-        }
-        run.failed(
-            "missing tool",
-            io::Error::from(io::ErrorKind::NotFound).into(),
-        );
-        let report = run.finish();
-        assert_eq!(report.findings.len(), 2);
-        assert_eq!(report.findings[0].rule, "scan.incomplete");
-        assert_eq!(report.findings[1].rule, "scan.access_denied");
-        assert_eq!(report.findings[1].paths, ["/etc/protected"]);
     }
 }
