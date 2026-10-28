@@ -37,7 +37,7 @@ impl Root {
     }
 
     fn parent(&self, path: &Path, create: bool) -> Result<(File, CString)> {
-        crate::config::absolute(path)?;
+        crate::domain::config::absolute(path)?;
         let mut parts: Vec<_> = path
             .components()
             .filter_map(|c| match c {
@@ -168,5 +168,27 @@ impl Root {
         );
         bytes.truncate(n as usize);
         Ok(String::from_utf8(bytes)?)
+    }
+
+    pub fn check_directory_attributes(&self, path: &Path) -> Result<()> {
+        let (dir, leaf) = self.parent(path, false)?;
+        // SAFETY: open only the directory itself without following a leaf symlink.
+        let file = checked(unsafe {
+            libc::openat(
+                dir.as_raw_fd(),
+                leaf.as_ptr(),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            )
+        })?;
+        // SAFETY: query only attribute names' buffer size; no attribute values are read.
+        let count = unsafe { libc::flistxattr(file.as_raw_fd(), std::ptr::null_mut(), 0) };
+        ensure!(
+            count == 0
+                || (count < 0
+                    && std::io::Error::last_os_error().raw_os_error() == Some(libc::EOPNOTSUPP)),
+            "directory extended attributes are unsupported: {}",
+            path.display()
+        );
+        Ok(())
     }
 }
