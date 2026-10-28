@@ -27,6 +27,7 @@ build() {
   export RUSTUP_TOOLCHAIN=stable
   export CARGO_TARGET_DIR=target
   export LYFY_BUILD_VERSION="$pkgver"
+  export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }--remap-path-prefix=$srcdir=/usr/src/debug/$pkgname"
   cargo build --frozen --release --target x86_64-unknown-linux-gnu --bin "$pkgname"
 }
 
@@ -35,6 +36,7 @@ check() {
   export RUSTUP_TOOLCHAIN=stable
   export CARGO_TARGET_DIR=target
   export LYFY_BUILD_VERSION="$pkgver"
+  export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }--remap-path-prefix=$srcdir=/usr/src/debug/$pkgname"
   cargo test --frozen --target x86_64-unknown-linux-gnu --all-features
   test "$("target/x86_64-unknown-linux-gnu/release/$pkgname" --version)" = "$pkgname $pkgver"
 }
