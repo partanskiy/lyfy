@@ -193,6 +193,11 @@ Findings, conflicts or pending fmt fixes remain.
 .B 2
 An operational or configuration error prevented completion.
 .SH LIMITATIONS
+External checks have a 120-second time limit.
+Timeouts remain explicit incomplete checks.
+Large pacman diagnostic streams are drained with bounded samples rather than
+retained as complete output archives.
+.PP
 Individual file replacements are atomic; a multi-file operation is not one
 atomic filesystem transaction.
 Failures leave original file objects and a recovery journal in
