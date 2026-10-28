@@ -95,3 +95,70 @@ fn missing_scan_roots_are_incomplete_checks() {
             .any(|v| v["rule"] == "scan.incomplete")
     );
 }
+
+#[test]
+fn text_lint_streams_readable_findings_and_keeps_progress_on_stderr() {
+    let f = Fixture::new();
+    f.write("etc/example.conf.pacnew", "different\n");
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_lyfy"))
+        .env_clear()
+        .env("HOME", f.temp.path())
+        .env("PATH", "/usr/bin:/bin")
+        .arg("--config_file")
+        .arg(&f.config)
+        .arg("lint")
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stdout.contains("error [arch.pacnew]"));
+    assert!(stdout.contains("lint: 1 finding(s)"));
+    assert!(!stdout.contains("[[findings]]"));
+    assert!(stderr.contains("checking /etc pacnew and pacsave..."));
+    assert!(stderr.contains("finished /etc pacnew and pacsave ("));
+    let json = f.run(&["lint"]);
+    assert!(serde_json::from_slice::<Value>(&json.stdout).is_ok());
+    assert!(
+        String::from_utf8(json.stderr)
+            .unwrap()
+            .contains("checking Arch identity...")
+    );
+}
+
+#[test]
+fn protected_directories_are_one_coverage_warning_and_other_paths_are_scanned() {
+    use std::os::unix::fs::PermissionsExt;
+    // SAFETY: geteuid has no preconditions. Root bypasses mode-based fixture denials.
+    if unsafe { libc::geteuid() } == 0 {
+        return;
+    }
+    let f = Fixture::new();
+    let protected: Vec<_> = ["a-protected", "b-protected"]
+        .into_iter()
+        .map(|name| f.root.join("etc").join(name))
+        .collect();
+    for path in &protected {
+        fs::create_dir(path).unwrap();
+        fs::set_permissions(path, fs::Permissions::from_mode(0)).unwrap();
+    }
+    f.write("etc/z-visible.pacnew", "pending\n");
+    let output = f.run(&["lint"]);
+    for path in &protected {
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    assert_eq!(output.status.code(), Some(1));
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let findings = value["findings"].as_array().unwrap();
+    assert_eq!(findings.len(), 2);
+    assert!(findings.iter().any(|f| f["rule"] == "arch.pacnew"));
+    let access = findings
+        .iter()
+        .find(|f| f["rule"] == "scan.access_denied")
+        .unwrap();
+    assert_eq!(access["severity"], "warning");
+    assert_eq!(access["paths"].as_array().unwrap().len(), 2);
+    assert!(access["detail"].as_str().unwrap().contains("--elevate"));
+    assert!(!f.data.exists());
+    assert!(!f.state.exists());
+}
