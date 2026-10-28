@@ -47,8 +47,8 @@ lyfy fmt
 
 - `lint` runs the [Arch rule catalog](docs/rules.md). It reports incomplete and
   skipped checks explicitly.
-- `save` creates an immutable snapshot and advances this host's HEAD only after
-  a successful capture. Files edited in place are saved as ordinary bytes.
+- `save` captures concrete state and commits the host's files and metadata in
+  the configured Git repository. An unchanged state creates no empty commit.
 - `apply` returns a file plan and package comparison. `--write` executes the file
   plan, with conflict checks, preimage backups and a transaction journal.
 - `fmt` returns supported policy fixes. `--write` currently removes only pacnew
@@ -89,6 +89,9 @@ See [examples/config.toml](examples/config.toml) and the [complete settings refe
 No shell expansion occurs; `~` is supported only in managed scope lists.
 
 Persistent content lives in `$XDG_DATA_HOME/lyfy` (default `~/.local/share/lyfy`).
+By default this is a Git worktree; `storage_format = "directory"` selects the
+alternative immutable JSON/content-object store. Both path and format have flag
+and ENV overrides. See the [storage contract](docs/storage.md).
 Receipts, locks and recovery journals live in `$XDG_STATE_HOME/lyfy` (default
 `~/.local/state/lyfy`). Newly created application directories are private.
 No cache or runtime directory is created when it is not needed.
@@ -109,11 +112,11 @@ host snapshots. Saving edited files updates the selected host, not the base.
 Home paths map to the destination `home_dir`, including a different username.
 Home ownership maps to the destination home directory's owner and group.
 
-Keep the private data repository available on the participating hosts, copying
-the entire directory with restrictive permissions or using an external trusted
-synchronization tool. Built-in network/Git transport and synchronization conflict
-resolution are not implemented. Never publish real system snapshots in this
-public source repository.
+Share the state repository using normal Git clone/fetch/push. Use a full clone
+so pinned base revisions remain available. lyfy commits locally and never
+implicitly pushes, pulls, merges or rewrites history. State synchronization
+conflicts are resolved using normal Git workflows. Real system snapshots belong
+in a separate private repository, not this public source repository.
 
 ## Apply and packages
 

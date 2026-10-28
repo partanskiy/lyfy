@@ -12,6 +12,7 @@ library's business logic.
 | home_dir | HOME | Absolute logical home path inside the target root |
 | data_dir | XDG_DATA_HOME/lyfy | Physical private content/snapshot repository |
 | state_dir | XDG_STATE_HOME/lyfy | Physical private receipts, locks and journals |
+| storage_format | git | Git worktree with plain files/JSON, or directory JSON/object store |
 | host | /etc/hostname | Validated host identifier |
 | base_host | unset | Host whose latest snapshot becomes the pinned save base |
 | snapshot | latest | Input snapshot ID for apply; save always creates a new ID |
