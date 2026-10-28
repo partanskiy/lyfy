@@ -27,9 +27,10 @@ cargo build --locked --release
 target/release/lyfy --help
 ```
 
-Installed packages include `man lyfy` for commands and `man lyfy.conf` for
+Installed packages include `man 1 lyfy` for commands and `man 5 lyfy.conf` for
 configuration, environment variables and XDG paths. Static manual sources live
-in [docs/man](docs/man).
+in [docs/man](docs/man). The dotted manual name follows the configuration-page
+convention; the actual configuration filename is `config.toml`.
 
 Library without CLI parsing dependencies:
 
@@ -56,7 +57,9 @@ lyfy fmt
 ```
 
 - `lint` runs the [Arch rule catalog](docs/rules.md). It reports incomplete and
-  skipped checks explicitly.
+  skipped checks explicitly. Text findings appear as checks run; check progress
+  and durations go to stderr. Terminals also show the active check every two
+  seconds. `--format json` keeps a single final JSON report on stdout.
 - `save` captures concrete state and commits the host's files and metadata in
   the configured Git repository. An unchanged state creates no empty commit.
 - `apply` returns a file plan and package comparison. `--write` executes the file
@@ -67,6 +70,16 @@ lyfy fmt
 `apply` and `fmt` are previews unless `--write` is present. Execution permission
 is not a configuration value and cannot be supplied by ENV. There are no
 hidden config, rules, init or package-management commands.
+
+Use `lyfy lint --elevate` for a full scan of protected system paths. The input
+invokes `/usr/bin/sudo`, which owns authentication, then runs only read-only
+lint with the original resolved user settings, including HOME/XDG-derived
+paths and flag overrides. It does not switch to root's lyfy configuration.
+Elevation has no ENV/config equivalent and requires sudo to be installed and
+permit the operation. Without it, inaccessible paths become one
+`scan.access_denied` warning and accessible checks continue. Partial coverage
+returns exit code 1. Running `sudo lyfy lint` directly is possible but may use
+root's HOME/XDG defaults instead of yours.
 
 Exit codes: 0 means the requested operation succeeded, 1 means findings or
 conflicts remain, 2 means an operational/configuration error. An apply preview
@@ -147,7 +160,7 @@ lyfy apply --install_packages true
 lyfy apply --install_packages true --write
 ```
 
-Package execution requires existing root privileges; lyfy never invokes sudo.
+Package execution requires existing root privileges; apply does not invoke sudo.
 It installs missing native packages using `pacman -Syu --needed`, preserves
 pacman's confirmation, then restores affected installation reasons. It refuses
 missing foreign packages. It does not remove extra packages or downgrade to
