@@ -133,7 +133,7 @@ pub fn plan(desired: &[Package], current: &[Package]) -> Result<PackagePlan> {
             if current.explicit != package.explicit {
                 result.reason_drift.push(package.name.clone());
             }
-        } else if package.source == "native" && package.explicit {
+        } else if package.source == "native" {
             result.install_native.push(package.name.clone());
         } else if package.source != "native" {
             result.missing_foreign.push(package.name.clone());
@@ -146,4 +146,36 @@ pub fn plan(desired: &[Package], current: &[Package]) -> Result<PackagePlan> {
         result.extra_explicit.push(package.name.clone());
     }
     Ok(result)
+}
+
+pub mod restore;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn package_plan_preserves_native_foreign_versions_and_reasons() {
+        let package = |name: &str, source: &str, explicit| Package {
+            name: name.into(),
+            version: "1".into(),
+            source: source.into(),
+            explicit,
+        };
+        let desired = vec![
+            package("native", "native", true),
+            package("optional", "native", false),
+            package("foreign", "foreign", true),
+            package("drift", "native", true),
+        ];
+        let mut drift = package("drift", "native", false);
+        drift.version = "2".into();
+        let current = vec![drift, package("extra", "native", true)];
+        let plan = plan(&desired, &current).unwrap();
+        assert_eq!(plan.install_native, ["native", "optional"]);
+        assert_eq!(plan.missing_foreign, ["foreign"]);
+        assert_eq!(plan.version_drift, ["drift"]);
+        assert_eq!(plan.reason_drift, ["drift"]);
+        assert_eq!(plan.extra_explicit, ["extra"]);
+        assert!(!valid_name("--overwrite=*"));
+    }
 }
