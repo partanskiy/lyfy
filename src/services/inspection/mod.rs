@@ -1,3 +1,7 @@
+use crate::domain::{
+    checks::{CheckId, CheckStatus},
+    rules::{FixAction, RuleId},
+};
 mod arch;
 mod boot;
 mod packages;
@@ -18,7 +22,11 @@ pub fn run(config: &Config) -> Result<Report> {
 pub fn run_observed(config: &Config, observer: &mut dyn FnMut(Observation<'_>)) -> Result<Report> {
     let root = Root::open(&config.root)?;
     let mut report = Run::new(observer);
-    report.check("Arch identity", |report| {
+    report.report.target = config.root.display().to_string();
+    report.report.host = config.host.clone();
+    report.report.fail_on = config.fail_on;
+    report.report.disabled_rules = config.disabled_rules.clone();
+    report.check(CheckId::Identity, |report| {
         let os = root
             .read(Path::new("/etc/os-release"), 65536)
             .or_else(|_| root.read(Path::new("/usr/lib/os-release"), 65536));
@@ -26,46 +34,60 @@ pub fn run_observed(config: &Config, observer: &mut dyn FnMut(Observation<'_>)) 
             Ok(bytes) => {
                 let text = String::from_utf8_lossy(&bytes);
                 if !text.lines().any(|s| s == "ID=arch" || s == "ID=\"arch\"") {
-                    report.add("arch.os_release", vec![], "Expected ID=arch", false);
+                    report.add(RuleId::OsRelease, vec![], "Expected ID=arch", None);
                 }
             }
             Err(e) => return Err(e),
         }
         Ok(())
     });
-    report.check("/etc pacnew and pacsave", |report| {
+    report.check(CheckId::Pacfiles, |report| {
         scan_pacfiles(config, &root, report);
         Ok(())
     });
-    report.check("pacman database lock", |report| {
+    report.check(CheckId::DatabaseLock, |report| {
         if root
             .metadata(Path::new("/var/lib/pacman/db.lck"))?
             .is_some()
         {
             report.add(
-                "arch.database_lock",
+                RuleId::DatabaseLock,
                 vec!["/var/lib/pacman/db.lck".into()],
                 "Do not remove a lock from an active transaction",
-                false,
+                None,
             );
         }
         Ok(())
     });
     if config.check_packages {
-        report.check("package database", |report| {
-            packages::inspect(config, report)
-        });
+        packages::inspect(config, &mut report);
     } else {
-        report.skipped("package checks disabled by check_packages = false");
+        for id in [
+            CheckId::PackageDatabase,
+            CheckId::DatabaseConsistency,
+            CheckId::Ownership,
+            CheckId::PackageFiles,
+            CheckId::Orphans,
+        ] {
+            report.skip(id, CheckStatus::Disabled, "check_packages = false");
+        }
     }
     if config.root == Path::new("/") {
-        report.check("running kernel", |report| arch::kernel(&root, report));
-        report.check("systemd units", arch::systemd);
+        report.check(CheckId::Kernel, |report| arch::kernel(&root, report));
+        report.check(CheckId::Systemd, arch::systemd);
         if config.require_uki {
-            report.check("boot entries", boot::check);
+            report.check(CheckId::Boot, boot::check);
+        } else {
+            report.skip(CheckId::Boot, CheckStatus::Disabled, "require_uki = false");
         }
     } else {
-        report.skipped("runtime checks (kernel, EFI, systemd) require root = /");
+        for id in [CheckId::Kernel, CheckId::Systemd, CheckId::Boot] {
+            report.skip(
+                id,
+                CheckStatus::NotApplicable,
+                "runtime checks require root = /",
+            );
+        }
     }
     Ok(report.finish())
 }
@@ -95,9 +117,9 @@ fn scan_pacfiles(config: &Config, root: &Root, report: &mut Run<'_>) {
                     && identical_pacnew(config, root, &path).unwrap_or(false);
                 report.add(
                     if extension == "pacnew" {
-                        "arch.pacnew"
+                        RuleId::Pacnew
                     } else {
-                        "arch.pacsave"
+                        RuleId::Pacsave
                     },
                     vec![path.to_string_lossy().into()],
                     if fixable {
@@ -105,7 +127,9 @@ fn scan_pacfiles(config: &Config, root: &Root, report: &mut Run<'_>) {
                     } else {
                         "Manual review required"
                     },
-                    fixable,
+                    fixable.then(|| FixAction::RemoveIdenticalPacnew {
+                        path: path.to_string_lossy().into(),
+                    }),
                 );
             }
             Ok(_) => (),

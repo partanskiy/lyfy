@@ -1,3 +1,4 @@
+use crate::domain::{checks::CheckId, rules::RuleId};
 use crate::infrastructure::process;
 use crate::services::inspection::run::Run;
 use anyhow::{Context, Result, ensure};
@@ -24,7 +25,7 @@ fn inspect(value: &Value, report: &mut Run<'_>) -> Result<()> {
         .filter_map(|entry| entry["id"].as_str().map(str::to_owned))
         .collect();
     if !uki || !legacy.is_empty() {
-        report.add("arch.uki",legacy,"Strict policy requires Type #2 UKI entries and no Type #1 entries; UKI is a lyfy policy, not an Arch requirement",false);
+        report.add(RuleId::Uki,legacy,"Strict policy requires Type #2 UKI entries and no Type #1 entries; UKI is a lyfy policy, not an Arch requirement",None);
     }
     Ok(())
 }
