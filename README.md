@@ -74,15 +74,21 @@ lyfy fmt
 is not a configuration value and cannot be supplied by ENV. There are no
 hidden config, rules, init or package-management commands.
 
-Use `lyfy lint --elevate` for a full scan of protected system paths. The input
-invokes `/usr/bin/sudo`, which owns authentication, then runs only read-only
-lint with the original resolved user settings, including HOME/XDG-derived
-paths and flag overrides. It does not switch to root's lyfy configuration.
-Elevation has no ENV/config equivalent and requires sudo to be installed and
-permit the operation. Without it, inaccessible paths become one
-`scan.access_denied` warning and accessible checks continue. Partial coverage
-returns exit code 1. Running `sudo lyfy lint` directly is possible but may use
-root's HOME/XDG defaults instead of yours.
+Interactive `lyfy lint` requests sudo automatically when scanning the running
+system (`root = /`) as a non-root user, with both stdin and stderr connected
+to terminals. This is the default `--elevate=auto` launch policy.
+Use `--elevate=never` to retain current privileges. Bare `--elevate` (equivalent
+to `--elevate=required`) requests sudo even for another root or a noninteractive
+launch. Auto mode does not prompt in scripts or for alternative roots.
+
+The input invokes `/usr/bin/sudo`, which owns authentication, then runs only
+read-only lint with the original resolved user settings, including HOME/XDG
+paths and flag overrides. The child explicitly disables further elevation.
+The policy has no ENV/config equivalent. Sudo must be installed and authorize
+the request; refusal or failure stops that launch. When scanning without sudo,
+inaccessible paths become one `scan.access_denied` warning and accessible
+checks continue; partial coverage returns exit code 1. Running `sudo lyfy lint`
+directly is possible but may use root's HOME/XDG defaults instead of yours.
 
 Exit codes: 0 means the requested operation succeeded, 1 means findings or
 conflicts remain, 2 means an operational/configuration error. An apply preview

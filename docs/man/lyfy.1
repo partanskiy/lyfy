@@ -5,7 +5,7 @@ lyfy \- declarative system maintenance for Arch Linux
 .B lyfy
 .RI [ options ]
 .B lint
-.RB [ \-\-elevate ]
+.RB [ \-\-elevate [=auto|never|required]]
 .br
 .B lyfy
 .RI [ options ]
@@ -54,11 +54,22 @@ Check progress and durations go to stderr, with periodic elapsed-time updates
 when stderr is a terminal.
 JSON display keeps a single final document on stdout.
 .IP
+Interactive scans of the running system request sudo automatically for a
+non-root user when stdin and stderr are terminals.
+This is the default
+.B \-\-elevate=auto
+policy.
+.B \-\-elevate=never
+keeps existing privileges.
+Bare
 .B \-\-elevate
-explicitly requests sudo authentication for protected paths.
+or
+.B \-\-elevate=required
+requests sudo even for noninteractive launches or alternative roots.
 The child runs only read-only lint, preserving the original resolved user
 settings and HOME/XDG-derived paths rather than choosing root's defaults.
-Without this flag, inaccessible paths are aggregated into one
+It explicitly disables further elevation.
+When scanning without sudo, inaccessible paths are aggregated into one
 .B scan.access_denied
 warning and accessible checks continue.
 Partial coverage returns exit status 1.
@@ -117,10 +128,15 @@ removed automatically.
 Other findings require manual review.
 .SH OPTIONS
 .TP
-.B \-\-elevate
-Request /usr/bin/sudo for lint only.
+.BR \-\-elevate [=auto|never|required]
+Choose the sudo policy for lint only.
+The default auto policy requests authentication only when stdin and stderr
+are terminals and root is /.
+Never disables the request; required always requests it for a non-root user.
+An omitted value means required. A value must follow an equals sign.
 Sudo must be installed and authorize the operation; it owns the password prompt.
-This launch permission has no configuration key or environment equivalent.
+Refusal or failure stops that launch.
+This launch policy has no configuration key or environment equivalent.
 If already root, lint runs directly.
 .TP
 .BI \-\-config_file " path"
@@ -153,6 +169,7 @@ Comma-separated list overrides replace the lower-priority list.
 .SH EXAMPLES
 .nf
 lyfy lint
+lyfy lint \-\-elevate=never
 lyfy lint \-\-elevate
 lyfy save \-\-host common
 lyfy save \-\-host laptop \-\-base_host common
