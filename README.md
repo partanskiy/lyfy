@@ -1,5 +1,7 @@
 # lyfy
 
+Licensed under [MIT](LICENSE).
+
 Declarative system maintenance for Arch Linux: inspect the system, capture its
 concrete configuration, reconcile host state and apply supported policy fixes.
 

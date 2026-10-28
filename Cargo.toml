@@ -5,6 +5,7 @@ edition = "2024"
 rust-version = "1.88"
 description = "Declarative system maintenance for Arch Linux"
 repository = "https://github.com/partanskiy/lyfy"
+license = "MIT"
 
 [dependencies]
 anyhow = "1"
