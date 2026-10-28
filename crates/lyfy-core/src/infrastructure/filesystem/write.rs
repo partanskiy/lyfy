@@ -14,7 +14,7 @@ impl Root {
         let temp = CString::new(format!(
             ".lyfy-{}-{}",
             std::process::id(),
-            crate::store::timestamp()
+            crate::infrastructure::store::timestamp()
         ))?;
         let result = (|| {
             if let Some(link) = link {
