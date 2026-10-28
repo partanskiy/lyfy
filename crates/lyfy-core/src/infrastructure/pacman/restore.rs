@@ -1,8 +1,7 @@
-use super::{Package, inventory, plan};
-use crate::{
-    config::Config,
-    store::{timestamp, write_json},
-};
+use super::inventory;
+use crate::domain::config::Config;
+use crate::domain::packages::{Package, plan};
+use crate::infrastructure::store::{timestamp, write_json};
 use anyhow::{Result, ensure};
 use std::{collections::BTreeSet, path::Path, process::Command};
 
@@ -14,10 +13,6 @@ pub fn run(config: &Config, desired: &[Package]) -> Result<()> {
     ensure!(
         config.root == Path::new("/"),
         "package transactions require root = /"
-    );
-    ensure!(
-        config.format == "text",
-        "interactive package transactions require format = text"
     );
     // SAFETY: geteuid has no pointer arguments.
     ensure!(
@@ -68,7 +63,6 @@ pub fn run(config: &Config, desired: &[Package]) -> Result<()> {
 }
 
 fn execute(args: &[String]) -> Result<()> {
-    eprintln!("Package transaction: pacman {}", args.join(" "));
     let status = Command::new("/usr/bin/pacman")
         .args(args)
         .env("LC_ALL", "C")
