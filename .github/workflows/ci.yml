@@ -80,3 +80,18 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: bash scripts/check-commits.sh --range "$BASE..$HEAD"
+
+  arch-package:
+    name: Arch package (x86_64)
+    runs-on: ubuntu-24.04
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Install pacman-managed build dependencies
+        run: pacman -Syu --noconfirm --needed rust python git systemd
+      - uses: actions/checkout@v4
+      - name: Build and inspect the source package as an unprivileged user
+        run: |
+          install -d -m755 -o nobody -g nobody /tmp/lyfy-arch-package
+          runuser -u nobody -- env CARGO_HOME=/tmp/lyfy-arch-package/cargo \
+            bash scripts/check-arch-package.sh 0.1.0 /tmp/lyfy-arch-package
