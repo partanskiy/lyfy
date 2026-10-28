@@ -8,15 +8,22 @@ fi
 version=$1
 rendered=$(cd "$2" && pwd)
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-: "${AUR_SSH_PRIVATE_KEY:?missing AUR publishing credential}"
 test -s "$rendered/PKGBUILD"
 test -s "$rendered/.SRCINFO"
 
-workdir=$(mktemp -d)
+workdir=$(mktemp -d /tmp/lyfy-aur.XXXXXXXX)
 trap 'rm -rf "$workdir"' EXIT
 chmod 700 "$workdir"
-printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > "$workdir/key"
-chmod 600 "$workdir/key"
+if [[ -n ${AUR_SSH_KEY_FILE:-} ]]; then
+  identity=$(realpath "$AUR_SSH_KEY_FILE")
+  [[ "$identity" =~ ^/[a-zA-Z0-9_./-]+$ ]]
+  test -r "$identity"
+else
+  : "${AUR_SSH_PRIVATE_KEY:?set a local AUR_SSH_KEY_FILE or an explicitly authorized CI secret}"
+  identity="$workdir/key"
+  printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > "$identity"
+  chmod 600 "$identity"
+fi
 unset AUR_SSH_PRIVATE_KEY
 ssh-keyscan -t ed25519 aur.archlinux.org 2>/dev/null > "$workdir/known_hosts"
 fingerprint=$(ssh-keygen -lf "$workdir/known_hosts" -E sha256 | awk '{print $2}')
@@ -24,7 +31,7 @@ if [[ "$fingerprint" != 'SHA256:RFzBCUItH9LZS0cKB5UE6ceAYhBD5C8GeOBip8Z11+4' ]];
   echo 'AUR SSH host fingerprint differs from the published value.' >&2
   exit 1
 fi
-export GIT_SSH_COMMAND="ssh -i $workdir/key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$workdir/known_hosts"
+export GIT_SSH_COMMAND="ssh -i $identity -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$workdir/known_hosts"
 remote='ssh://aur@aur.archlinux.org/lyfy.git'
 git clone "$remote" "$workdir/repository"
 cd "$workdir/repository"
