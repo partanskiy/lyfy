@@ -145,3 +145,16 @@ fn the_cli_has_exactly_four_business_commands() {
         assert!(text.contains(command));
     }
 }
+
+#[test]
+fn interactive_package_execution_cannot_corrupt_json_output() {
+    let f = Fixture::new();
+    let output = f.run(&["apply", "--write", "--install_packages", "true"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("interactive package transactions require format = text")
+    );
+    assert!(!f.data.exists());
+    assert!(!f.state.exists());
+}

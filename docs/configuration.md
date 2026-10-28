@@ -31,6 +31,9 @@ library's business logic.
 LYFY_CONFIG_FILE. A configuration file cannot redirect its own loader.
 `--write` is execution permission on an apply/fmt request, not a setting; it has
 no TOML key or environment equivalent.
+Interactive package execution additionally requires text display; JSON previews
+remain supported. This launch constraint prevents pacman prompts from corrupting
+the executable's JSON result stream.
 
 Paths in include/exclude/ownership_roots must be absolute or start with `~/`.
 They are prefixes, not globs. `~` maps to home_dir. Absolute system paths are
