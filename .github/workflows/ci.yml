@@ -34,20 +34,22 @@ jobs:
   clippy:
     name: clippy
     runs-on: ubuntu-24.04
+    container:
+      image: archlinux:base-devel
     steps:
+      - run: pacman -Syu --noconfirm --needed rust git pkgconf libarchive
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-targets --all-features --locked -- -D warnings
 
   test:
     name: test
     runs-on: ubuntu-24.04
+    container:
+      image: archlinux:base-devel
     steps:
+      - run: pacman -Syu --noconfirm --needed rust git pkgconf libarchive
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --all-features --locked
       - name: Library without launch dependencies
@@ -61,9 +63,11 @@ jobs:
   build:
     name: release build
     runs-on: ubuntu-24.04
+    container:
+      image: archlinux:base-devel
     steps:
+      - run: pacman -Syu --noconfirm --needed rust git pkgconf libarchive
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --locked --release
       - run: cargo build --lib --no-default-features --locked --release
@@ -89,7 +93,7 @@ jobs:
       image: archlinux:base-devel
     steps:
       - name: Install pacman-managed build dependencies
-        run: pacman -Syu --noconfirm --needed rust python git systemd groff
+        run: pacman -Syu --noconfirm --needed rust python git systemd groff pkgconf libarchive
       - uses: actions/checkout@v4
       - name: Build and inspect the source package as an unprivileged user
         run: |
