@@ -140,6 +140,52 @@ Do not add a trait and implementation pair for every concrete operation.
 Introduce an interface when a second implementation or a real testing need
 requires it, while preserving the dependency direction.
 
+## Rule and inspection contract
+
+The closed, typed rule catalog belongs to domain. Each rule has one stable ID,
+a semantic revision, severity, category, subject kind, explanation, remedy and
+an optional supported fix kind. IDs are never reused for another meaning.
+Behavior changes update the revision; removals require a documented migration.
+Categories distinguish integrity, maintenance, observations and lyfy policy.
+The UKI requirement is lyfy policy, not a claim about Arch requirements.
+
+Inspection services implement checks over shared observations. A check can
+evaluate several rules without repeating a database open or filesystem walk.
+Checks have typed identities and recorded outcomes, durations and finding
+counts. Disabling a check, an inapplicable runtime check and an incomplete
+check are different states. Completion means observations were collected;
+it does not mean no rule was violated. An observer receives synchronous
+typed events and cannot select rules or alter execution policy.
+
+Findings describe observed system state. Access errors, unsupported data and
+failed prerequisites are separate coverage diagnostics, never system rules.
+Incomplete coverage returns exit code 2, outstanding findings at or above the
+configured fail_on threshold return 1, and a complete successful scan returns
+0. Disabled rules and a severity threshold are explicit validated core inputs;
+the launch input supplies their flag/ENV/TOML overrides.
+
+Automatic remediation is a closed enum of concrete actions. A finding may
+offer only an action supported by its rule. The remediation service matches
+that action, revalidates scope and preimages, and uses normal transactions.
+Successful execution is verified before findings are marked fixed. Unknown
+actions cannot fall through to a default file mutation. fmt and lint share
+inspection and domain contracts and never call one another.
+
+The input owns terminal capability detection, progress rendering, report
+formats and file destinations. Text, JSON, TOML, YAML, Markdown and SARIF are
+representations of the same returned report. Structured reports include a
+schema version and rule metadata. Export uses atomic private files and refuses
+to replace an existing destination. An elevated scan returns data to the
+original caller; the caller renders and saves the report with its privileges.
+No formatter, terminal library or report-file writer enters the core.
+
+Adding a rule requires a catalog entry, a check implementation, fixture tests
+for positive/negative and incomplete observations, and a catalog document
+update. Adding a fix also requires precondition, conflict and postcondition
+tests. Contract tests enforce catalog identities, check ownership and action
+compatibility. Presentation tests consume the public report contract, rather
+than reaching into inspection implementations.
+
 ## State invariants
 
 - Stored state is concrete file content and metadata, never generated templates.
