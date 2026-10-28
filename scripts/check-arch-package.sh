@@ -7,9 +7,9 @@ if [[ $# != 2 ]]; then
 fi
 version=$1
 workdir=$2
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 [[ $(uname -m) == x86_64 ]]
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+bash "$repo_root/scripts/check-version.sh" "$version"
 for page in "$repo_root/docs/man/lyfy.1" "$repo_root/docs/man/lyfy.conf.5"; do
   groff -Tascii -man -z -ww "$page"
 done
