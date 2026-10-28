@@ -1,0 +1,192 @@
+.TH LYFY 1 "2026-10-28" "lyfy" "User Commands"
+.SH NAME
+lyfy \- declarative system maintenance for Arch Linux
+.SH SYNOPSIS
+.B lyfy
+.RI [ options ]
+.B lint
+.br
+.B lyfy
+.RI [ options ]
+.B save
+.br
+.B lyfy
+.RI [ options ]
+.B apply
+.RB [ \-\-write ]
+.br
+.B lyfy
+.RI [ options ]
+.B fmt
+.RB [ \-\-write ]
+.SH DESCRIPTION
+.B lyfy
+inspects an Arch Linux system, records concrete host configuration and plans
+reconciliation with saved state.
+The supported release architecture is x86_64.
+.PP
+There are exactly four commands:
+.BR lint ,
+.BR fmt ,
+.BR save
+and
+.BR apply .
+Global options may appear before or after the command.
+Each setting has a snake_case option and a corresponding
+.B LYFY_UPPER_CASE
+environment variable.
+Precedence is option, environment, TOML configuration, then default.
+See
+.BR lyfy.conf (5)
+for settings, scope defaults and configuration lookup.
+.SH COMMANDS
+.TP
+.B lint
+Inspect the Arch policy without changing the managed system.
+Checks include pending pacnew/pacsave files, pacman database consistency,
+missing package files, package metadata drift, files without a package owner,
+orphan dependencies, running kernel state, the configured UKI policy and
+failed systemd units.
+Incomplete and skipped checks are reported explicitly.
+.IP
+UKI is a lyfy policy, not an Arch Linux requirement.
+Unowned files, orphan packages and modified package metadata require review.
+.TP
+.B save
+Capture files, normal Unix permissions, ownership, symlinks and optional
+package inventory for the selected host.
+Files edited in place are saved directly, without templates.
+.IP
+Git is the default storage format.
+The repository contains ordinary payload files and JSON metadata under
+.IR hosts/host/ .
+Saving commits the host state locally on the current attached branch and
+creates no empty commit for unchanged state.
+Existing repository changes must be committed, stashed or resolved first.
+Saving never implicitly pushes or merges.
+.IP
+.B \-\-base_host
+selects an optional common base when saving.
+The resulting host overlay pins that base to an immutable revision.
+Saving common later does not rewrite already saved host overlays.
+.TP
+.B apply
+Plan reconciliation with the selected host and snapshot.
+The plan compares desired content, live content and the last applied receipt
+for the same host, root and home directory.
+A different existing target on first deployment is a conflict.
+.IP
+.B \-\-write
+executes a conflict-free plan, backing up file preimages and recording a
+private transaction journal before target writes.
+.B \-\-overwrite true
+permits reviewed conflicting replacements.
+Tracked deletions additionally require
+.BR "\-\-prune true" .
+Untracked files are retained, and directory deletion is nonrecursive.
+.IP
+Package restoration additionally requires
+.BR "\-\-install_packages true" ,
+existing root privileges and text display.
+It uses a full pacman upgrade for missing native packages and restores
+affected installation reasons.
+Missing foreign packages require deliberate handling.
+Extra packages are not removed and recorded versions are not forced.
+.TP
+.B fmt
+Plan supported deterministic policy fixes.
+.B \-\-write
+executes them through the same backup and journal mechanism as apply.
+Currently only pacnew files identical to their active configuration are
+removed automatically.
+Other findings require manual review.
+.SH OPTIONS
+.TP
+.BI \-\-config_file " path"
+Use this required TOML file instead of XDG configuration lookup.
+The environment equivalent is
+.BR LYFY_CONFIG_FILE .
+This selector cannot be specified inside the configuration file itself.
+.TP
+.BI \-\-format " text|json"
+Select result display.
+Interactive package execution requires text display.
+.TP
+.B \-\-write
+Grant execution permission for apply or fmt.
+This permission has no configuration key or environment equivalent.
+.TP
+.B \-h, \-\-help
+Show command-line help.
+.TP
+.B \-V, \-\-version
+Show the executable version.
+.PP
+All configuration settings documented in
+.BR lyfy.conf (5)
+also accept the corresponding
+.B \-\-snake_case
+global option.
+Booleans require an explicit true or false value.
+Comma-separated list overrides replace the lower-priority list.
+.SH EXAMPLES
+.nf
+lyfy lint
+lyfy save \-\-host common
+lyfy save \-\-host laptop \-\-base_host common
+lyfy apply \-\-host laptop
+lyfy apply \-\-host laptop \-\-write
+lyfy fmt
+.fi
+.PP
+Review the plan before selecting overwrite, prune or package restoration.
+.SH FILES
+.TP
+.I $XDG_CONFIG_HOME/lyfy/config.toml
+User configuration, defaulting to
+.IR ~/.config/lyfy/config.toml .
+.TP
+.I $XDG_CONFIG_DIRS/lyfy/config.toml
+System configuration locations searched after the user's file.
+The default directory is
+.IR /etc/xdg .
+The first readable configuration file wins as a whole.
+.TP
+.I $XDG_DATA_HOME/lyfy
+Default state repository, falling back to
+.IR ~/.local/share/lyfy .
+.TP
+.I $XDG_STATE_HOME/lyfy
+Receipts, locks and transaction journals, falling back to
+.IR ~/.local/state/lyfy .
+.SH EXIT STATUS
+.TP
+.B 0
+The requested operation succeeded.
+An apply preview with planned changes and no conflicts succeeds.
+.TP
+.B 1
+Findings, conflicts or pending fmt fixes remain.
+.TP
+.B 2
+An operational or configuration error prevented completion.
+.SH LIMITATIONS
+Individual file replacements are atomic; a multi-file operation is not one
+atomic filesystem transaction.
+Failures leave original file objects and a recovery journal in
+.IR state_dir/transactions/ .
+Automatic rollback, crash resume, AUR builds and boot migration are not
+implemented.
+.PP
+Capture rejects hardlinks, regular-file/directory extended attributes,
+special permission bits, special files and non-UTF-8 names.
+Symbolic links are recorded without following their targets.
+Target writes refuse symlink parents.
+Stop concurrent edits and package transactions while capturing or applying
+state; lyfy does not freeze the filesystem.
+.SH SEE ALSO
+.BR lyfy.conf (5),
+.BR pacman (8),
+.BR bootctl (1),
+.BR systemctl (1),
+.BR git (1)
