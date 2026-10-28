@@ -49,7 +49,8 @@ jobs:
             -C target/x86_64-unknown-linux-gnu/release lyfy \
             -C "$GITHUB_WORKSPACE" LICENSE README.md ARCHITECTURE.md docs examples \
             -C "$GITHUB_WORKSPACE/target" THIRD_PARTY_LICENSES.txt
-          git archive --format=tar --prefix="lyfy-${RELEASE_TAG#v}/" HEAD | \
+          git archive --format=tar --prefix="lyfy-${RELEASE_TAG#v}/" \
+            --add-file=target/THIRD_PARTY_LICENSES.txt HEAD | \
             gzip -n > "dist/lyfy-$RELEASE_TAG-source.tar.gz"
       - name: Create checksums
         working-directory: dist
