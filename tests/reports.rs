@@ -242,3 +242,25 @@ fn terminal_progress_redraws_stderr_while_json_remains_clean() {
         assert!(feedback.contains("Arch identity"));
     }
 }
+
+#[test]
+fn sarif_percent_encodes_artifacts_and_retains_typed_evidence() {
+    let f = Fixture::new();
+    f.write("etc/a space#%.pacnew", "pending\n");
+    let output = f.run(&["lint", "--format", "sarif"]);
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let run = &value["runs"][0];
+    let result = &run["results"][0];
+    let uri = result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+        .as_str()
+        .unwrap();
+    assert!(uri.starts_with("file:///"));
+    assert!(uri.ends_with("/etc/a%20space%23%25.pacnew"));
+    assert_eq!(
+        result["partialFingerprints"]["lyfy/v1"]
+            .as_str()
+            .unwrap()
+            .len(),
+        64
+    );
+}

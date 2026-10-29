@@ -195,7 +195,15 @@ impl<'a> Run<'a> {
                 } else {
                     CheckStatus::Disabled
                 };
-                self.skip(id, status, "prerequisite did not complete");
+                self.skip(
+                    id,
+                    status,
+                    if status == CheckStatus::Disabled {
+                        "all rules disabled"
+                    } else {
+                        "prerequisite did not complete"
+                    },
+                );
             }
         }
         self.report
