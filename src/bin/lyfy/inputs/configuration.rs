@@ -146,6 +146,9 @@ pub fn resolve(options: Options) -> Result<Launch> {
     if value["base_host"] == "" {
         value["base_host"] = Value::Null;
     }
+    if value["disabled_rules"] == serde_json::json!([""]) {
+        value["disabled_rules"] = serde_json::json!([]);
+    }
     let config: Config = serde_json::from_value(value)?;
     config.validate()?;
     ensure!(config.root.is_dir(), "root must be an existing directory");

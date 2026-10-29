@@ -78,7 +78,7 @@ progress = "auto"
 
 Each setting has its snake_case flag and LYFY_UPPER_CASE environment variable,
 with flag > ENV > TOML > default precedence. disabled_rules replaces the whole
-list; IDs are validated. fail_on accepts info, warning or error and defaults to
+list; IDs are validated. An empty flag/ENV value clears the disabled list. fail_on accepts info, warning or error and defaults to
 warning. It changes failure policy without hiding lower-severity findings.
 Disabling all rules in a check skips that check explicitly.
 
