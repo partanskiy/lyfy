@@ -207,3 +207,27 @@ fn markdown(report: &Report) -> String {
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn a_destination_created_during_the_scan_is_preserved() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("report.json");
+        let destination = Destination::prepare(Some(&path)).unwrap();
+        fs::write(&path, "another process owns this\n").unwrap();
+        let launch = Launch {
+            config: super::super::configuration::defaults(),
+            format: "json".into(),
+            output_file: Some(path.clone()),
+            progress: "never".into(),
+        };
+        assert!(destination.publish(&launch, &Report::default()).is_err());
+        assert_eq!(
+            fs::read_to_string(path).unwrap(),
+            "another process owns this\n"
+        );
+        assert_eq!(fs::read_dir(temp.path()).unwrap().count(), 1);
+    }
+}
