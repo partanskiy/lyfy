@@ -191,3 +191,54 @@ fn incompatible_export_settings_are_rejected_before_mutation() {
     );
     assert!(!f.data.exists());
 }
+
+#[test]
+fn terminal_progress_redraws_stderr_while_json_remains_clean() {
+    use std::{
+        fs::File,
+        io::Read,
+        os::fd::{FromRawFd, OwnedFd},
+        process::Stdio,
+    };
+    for term in ["xterm-256color", "dumb"] {
+        let f = Fixture::new();
+        let (mut master, mut slave) = (-1, -1);
+        // SAFETY: valid output pointers; default terminal settings and size.
+        assert_eq!(
+            unsafe {
+                libc::openpty(
+                    &mut master,
+                    &mut slave,
+                    std::ptr::null_mut(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                )
+            },
+            0
+        );
+        // SAFETY: openpty returned two distinct owned descriptors.
+        let mut master = unsafe { File::from_raw_fd(master) };
+        let slave = unsafe { OwnedFd::from_raw_fd(slave) };
+        let output = f
+            .command()
+            .env("TERM", term)
+            .env("NO_COLOR", "1")
+            .args(["lint", "--elevate=never"])
+            .stderr(Stdio::from(slave))
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        assert_eq!(
+            serde_json::from_slice::<Value>(&output.stdout).unwrap()["schema_version"],
+            2
+        );
+        let mut feedback = String::new();
+        match master.read_to_string(&mut feedback) {
+            Ok(_) => (),
+            Err(error) => assert_eq!(error.raw_os_error(), Some(libc::EIO)),
+        }
+        assert!(!feedback.contains("still checking"));
+        assert_eq!(feedback.contains('\u{1b}'), term != "dumb");
+        assert!(feedback.contains("Arch identity"));
+    }
+}

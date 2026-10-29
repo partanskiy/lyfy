@@ -87,3 +87,61 @@ pub fn verify(config: &Config, report: &mut Report, plan: &Plan) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::domain::{config::Config, rules::Severity};
+    use crate::services::{inspection, remediation};
+    use std::fs;
+
+    #[test]
+    fn fixes_recheck_content_scope_and_postconditions() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("root");
+        fs::create_dir_all(root.join("etc")).unwrap();
+        fs::write(root.join("etc/os-release"), "ID=arch\n").unwrap();
+        let active = root.join("etc/demo.conf");
+        let candidate = root.join("etc/demo.conf.pacnew");
+        fs::write(&active, "same\n").unwrap();
+        fs::write(&candidate, "same\n").unwrap();
+        let config = Config {
+            system: "arch".into(),
+            root,
+            home_dir: "/home/test".into(),
+            data_dir: temp.path().join("data"),
+            state_dir: temp.path().join("state"),
+            storage_format: "directory".into(),
+            host: "test".into(),
+            base_host: None,
+            snapshot: "latest".into(),
+            include: vec!["/etc".into()],
+            exclude: vec![],
+            ownership_roots: vec![],
+            require_uki: false,
+            check_packages: false,
+            install_packages: false,
+            overwrite: false,
+            prune: false,
+            max_file_bytes: 1024,
+            disabled_rules: vec![],
+            fail_on: Severity::Warning,
+        };
+        let mut report = inspection::run(&config).unwrap();
+        assert!(report.findings[0].fix.is_some());
+        fs::write(&candidate, "changed\n").unwrap();
+        assert!(remediation::plan(&config, &report).is_err());
+        fs::write(&candidate, "same\n").unwrap();
+        let excluded = Config {
+            exclude: vec!["/etc".into()],
+            ..config.clone()
+        };
+        assert!(remediation::plan(&excluded, &report).is_err());
+        let plan = remediation::plan(&config, &report).unwrap();
+        assert!(remediation::verify(&config, &mut report, &plan).is_err());
+        assert!(!report.findings[0].fixed);
+        fs::remove_file(&candidate).unwrap();
+        fs::write(&active, "edited during fmt\n").unwrap();
+        assert!(remediation::verify(&config, &mut report, &plan).is_err());
+        assert!(!report.findings[0].fixed);
+    }
+}
