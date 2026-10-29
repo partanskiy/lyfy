@@ -1,4 +1,4 @@
-.TH LYFY 1 "2026-10-28" "lyfy" "User Commands"
+.TH LYFY 1 "2026-10-29" "lyfy" "User Commands"
 .SH NAME
 lyfy \- declarative system maintenance for Arch Linux
 .SH SYNOPSIS
@@ -52,10 +52,12 @@ Incomplete and skipped checks are reported explicitly.
 Read-only package operations use dynamically linked libalpm directly.
 File checks compare package mtree metadata and stream SHA-256 reads.
 JSON package findings include typed evidence for changed fields.
-Text findings are printed as checks run.
-Check progress and durations go to stderr, with periodic elapsed-time updates
-when stderr is a terminal.
-JSON display keeps a single final document on stdout.
+Terminals show updating stage spinners and package-count bars on stderr.
+Redirected stderr uses plain stage messages and package counts.
+The final human report explains rule categories, findings and remedies.
+JSON, TOML, YAML, Markdown and SARIF 2.1.0 are also available.
+Report data goes to stdout unless output_file selects a new private file.
+The CLI owns all rendering and report formats.
 .IP
 Interactive scans of the running system request sudo automatically for a
 non-root user when stdin and stderr are terminals.
@@ -72,10 +74,11 @@ requests sudo even for noninteractive launches or alternative roots.
 The child runs only read-only lint, preserving the original resolved user
 settings and HOME/XDG-derived paths rather than choosing root's defaults.
 It explicitly disables further elevation.
-When scanning without sudo, inaccessible paths are aggregated into one
-.B scan.access_denied
-warning and accessible checks continue.
-Partial coverage returns exit status 1.
+When scanning without sudo, inaccessible paths are aggregated per check as
+coverage diagnostics and accessible checks continue.
+Partial coverage returns exit status 2.
+The elevated worker returns report data to the original process, which renders
+and saves it as the original invoking user.
 Root access does not bypass every access policy or missing mount.
 .IP
 UKI is a lyfy policy, not an Arch Linux requirement.
@@ -148,9 +151,28 @@ The environment equivalent is
 .BR LYFY_CONFIG_FILE .
 This selector cannot be specified inside the configuration file itself.
 .TP
-.BI \-\-format " text|json"
-Select result display.
+.BI \-\-format " text|json|toml|yaml|markdown|sarif"
+Select report format. Markdown and SARIF are lint-only.
 Interactive package execution requires text display.
+.TP
+.BI \-\-output_file " path"
+Save a lint report to a new private file with mode 0600.
+The parent directory must exist. Publication is atomic and never replaces an
+existing file, directory or symlink. A value of - selects stdout.
+With a file destination stdout is empty; stderr confirms the saved report.
+.TP
+.BI \-\-progress " auto|plain|never"
+Select lint progress, default auto.
+Auto uses an updating display for terminal stderr unless TERM is unset or dumb;
+otherwise it uses plain messages. Never hides scan feedback.
+NO_COLOR disables colors. Progress never enters the report.
+.TP
+.BI \-\-disabled_rules " rule,rule"
+Replace the list of excluded rule IDs. Unknown IDs are errors.
+.TP
+.BI \-\-fail_on " info|warning|error"
+Set the minimum finding severity that fails a complete scan.
+The default is warning. Lower-severity findings remain visible.
 .TP
 .B \-\-write
 Grant execution permission for apply or fmt.
@@ -174,6 +196,8 @@ Comma-separated list overrides replace the lower-priority list.
 lyfy lint
 lyfy lint \-\-elevate=never
 lyfy lint \-\-elevate
+lyfy lint \-\-format sarif \-\-output_file laptop.sarif
+lyfy lint \-\-format json \-\-progress never
 lyfy save \-\-host common
 lyfy save \-\-host laptop \-\-base_host common
 lyfy apply \-\-host laptop
@@ -208,10 +232,12 @@ The requested operation succeeded.
 An apply preview with planned changes and no conflicts succeeds.
 .TP
 .B 1
-Findings, conflicts or pending fmt fixes remain.
+A complete scan has outstanding findings at or above fail_on, or conflicts
+or pending fmt fixes remain.
 .TP
 .B 2
-An operational or configuration error prevented completion.
+Coverage is incomplete, or an operational, configuration or report export
+error prevented completion.
 .SH LIMITATIONS
 External tool queries have a 120-second time limit.
 Timeouts remain explicit incomplete checks.
