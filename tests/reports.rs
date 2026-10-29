@@ -133,6 +133,20 @@ fn rule_policy_obeys_flag_environment_and_config_precedence() {
         })
         .unwrap();
     assert!(f.run(&["lint"]).status.success());
+    assert_eq!(
+        f.run(&["lint", "--disabled_rules", ""]).status.code(),
+        Some(1)
+    );
+    assert_eq!(
+        f.command()
+            .env("LYFY_DISABLED_RULES", "")
+            .arg("lint")
+            .output()
+            .unwrap()
+            .status
+            .code(),
+        Some(1)
+    );
     let env = f
         .command()
         .env("LYFY_DISABLED_RULES", "arch.pacsave")
