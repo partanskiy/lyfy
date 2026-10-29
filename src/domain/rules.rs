@@ -78,14 +78,14 @@ pub struct RuleSpec {
     pub fix: Option<FixKind>,
 }
 macro_rules! catalog {
-    ($($variant:ident, $id:literal, $check:ident, $severity:ident, $category:ident, $subject:ident, $fix:expr, $description:literal, $remedy:literal;)+) => {
+    ($($variant:ident, $id:literal, $revision:literal, $check:ident, $severity:ident, $category:ident, $subject:ident, $fix:expr, $description:literal, $remedy:literal;)+) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
         pub enum RuleId { $(#[serde(rename = $id)] $variant,)+ }
         impl RuleId {
             pub const ALL: &'static [Self] = &[$(Self::$variant,)+];
             pub fn as_str(self) -> &'static str { match self { $(Self::$variant => $id,)+ } }
             pub fn spec(self) -> RuleSpec {
-                match self { $(Self::$variant => RuleSpec { id: self, revision: 1, check: CheckId::$check, severity: Severity::$severity, category: Category::$category, subject_kind: SubjectKind::$subject, description: $description, remedy: $remedy, fix: $fix },)+ }
+                match self { $(Self::$variant => RuleSpec { id: self, revision: $revision, check: CheckId::$check, severity: Severity::$severity, category: Category::$category, subject_kind: SubjectKind::$subject, description: $description, remedy: $remedy, fix: $fix },)+ }
             }
         }
         impl FromStr for RuleId {
@@ -97,33 +97,33 @@ macro_rules! catalog {
     }
 }
 catalog! {
-    OsRelease, "arch.os_release", Identity, Error, Integrity, System, None,
+    OsRelease, "arch.os_release", 1, Identity, Error, Integrity, System, None,
     "Target is not Arch Linux", "Choose an Arch Linux target";
-    Pacnew, "arch.pacnew", Pacfiles, Error, Maintenance, File, Some(FixKind::RemoveIdenticalPacnew),
+    Pacnew, "arch.pacnew", 1, Pacfiles, Error, Maintenance, File, Some(FixKind::RemoveIdenticalPacnew),
     "Pending pacman configuration merge", "Review with pacdiff; fmt removes only byte-identical copies";
-    Pacsave, "arch.pacsave", Pacfiles, Warning, Maintenance, File, None,
+    Pacsave, "arch.pacsave", 1, Pacfiles, Warning, Maintenance, File, None,
     "Saved configuration from a removed package", "Review and archive deliberately";
-    DatabaseLock, "arch.database_lock", DatabaseLock, Warning, Observation, File, None,
+    DatabaseLock, "arch.database_lock", 1, DatabaseLock, Warning, Observation, File, None,
     "Pacman database lock exists", "Check running transactions before investigating a stale lock";
-    MissingDependency, "arch.missing_dependency", DatabaseConsistency, Error, Integrity, Package, None,
+    MissingDependency, "arch.missing_dependency", 1, DatabaseConsistency, Error, Integrity, Package, None,
     "Installed package has an unsatisfied dependency", "Review dependency providers and perform a full upgrade";
-    PackageConflict, "arch.package_conflict", DatabaseConsistency, Error, Integrity, Package, None,
+    PackageConflict, "arch.package_conflict", 1, DatabaseConsistency, Error, Integrity, Package, None,
     "Installed packages conflict", "Review conflicting packages and their declared dependencies";
-    FileOwners, "arch.file_owners", DatabaseConsistency, Error, Integrity, File, None,
+    FileOwners, "arch.file_owners", 1, DatabaseConsistency, Error, Integrity, File, None,
     "Multiple packages own the same file", "Investigate package records; never remove database entries blindly";
-    PackageFiles, "arch.package_files", PackageFiles, Error, Integrity, File, None,
+    PackageFiles, "arch.package_files", 1, PackageFiles, Error, Integrity, File, None,
     "Installed package files are missing", "Review NoExtract and reinstall affected packages in a full upgrade";
-    PackageMetadata, "arch.package_metadata", PackageFiles, Warning, Observation, File, None,
+    PackageMetadata, "arch.package_metadata", 1, PackageFiles, Warning, Observation, File, None,
     "Package metadata differs from installed files", "Review changed fields; backup configurations may intentionally differ";
-    UnownedFile, "arch.unowned_file", Ownership, Warning, Observation, File, None,
+    UnownedFile, "arch.unowned_file", 1, Ownership, Warning, Observation, File, None,
     "File in a distribution-owned tree has no package owner", "Package local software or move it to /usr/local; review before deleting";
-    Orphans, "arch.orphans", Orphans, Info, Maintenance, Package, None,
+    Orphans, "arch.orphans", 1, Orphans, Info, Maintenance, Package, None,
     "Dependency packages are no longer required", "Review installation reasons before removal";
-    KernelReboot, "arch.kernel_reboot", Kernel, Warning, Maintenance, KernelRelease, None,
+    KernelReboot, "arch.kernel_reboot", 1, Kernel, Warning, Maintenance, KernelRelease, None,
     "Running kernel has no installed kernel image", "Validate boot entries and reboot into an installed kernel";
-    Uki, "arch.uki", Boot, Error, Policy, BootEntry, None,
+    Uki, "arch.uki", 1, Boot, Error, Policy, BootEntry, None,
     "Boot entries do not satisfy the lyfy UKI policy", "Review kernel-install/mkinitcpio UKI configuration and a tested fallback";
-    FailedUnits, "systemd.failed_units", Systemd, Error, Integrity, Unit, None,
+    FailedUnits, "systemd.failed_units", 1, Systemd, Error, Integrity, Unit, None,
     "System systemd units have failed", "Inspect systemctl --failed and the journal";
 }
 impl fmt::Display for RuleId {
