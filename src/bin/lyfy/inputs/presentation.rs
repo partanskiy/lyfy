@@ -81,12 +81,16 @@ pub fn text(report: &Report, color: bool) -> String {
                     }
                 );
             }
-            let _ = writeln!(out, "  Action: {}", rule.remedy);
+            let _ = writeln!(
+                out,
+                "  Category: {:?}. Action: {}",
+                rule.category, rule.remedy
+            );
             let _ = writeln!(
                 out,
                 "  fmt: {}\n",
                 if finding.fix.is_some() {
-                    "verified automatic action available"
+                    "automatic action available; conditions rechecked before write"
                 } else {
                     "manual review required"
                 }
