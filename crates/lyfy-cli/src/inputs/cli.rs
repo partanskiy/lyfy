@@ -4,7 +4,7 @@ use serde::Serialize;
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
-#[command(version = option_env!("LYFY_BUILD_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")), about = "Declarative system maintenance for Arch Linux", disable_help_subcommand = true)]
+#[command(name = "lyfy", version = option_env!("LYFY_BUILD_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")), about = "Declarative system maintenance for Arch Linux", disable_help_subcommand = true)]
 pub struct Cli {
     #[command(flatten)]
     pub options: Options,
