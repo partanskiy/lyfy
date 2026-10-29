@@ -187,6 +187,9 @@ impl<'a> Run<'a> {
     pub fn finish(mut self) -> Report {
         for (check, paths) in std::mem::take(&mut self.denied) {
             self.report.diagnostics.push(Diagnostic { code: DiagnosticCode::AccessDenied, check, detail: format!("{} inaccessible paths/checks; at most 100 listed. Repeat with lyfy lint --elevate for full coverage.", paths.len()), paths: paths.into_iter().take(100).collect() });
+            (self.observer)(Observation::Diagnostic(
+                self.report.diagnostics.last().unwrap(),
+            ));
         }
         for &id in CheckId::ALL {
             if !self.report.checks.iter().any(|check| check.id == id) {
@@ -221,7 +224,12 @@ mod tests {
     use std::io;
     #[test]
     fn permission_denials_are_aggregated_without_hiding_real_findings() {
-        let mut observer = |_: Observation<'_>| {};
+        let mut diagnostics = Vec::new();
+        let mut observer = |event: Observation<'_>| {
+            if let Observation::Diagnostic(diagnostic) = event {
+                diagnostics.push(diagnostic.code);
+            }
+        };
         let mut run = Run::new(&mut observer);
         run.check(CheckId::Pacfiles, |run| {
             for _ in 0..2 {
@@ -242,6 +250,10 @@ mod tests {
         assert_eq!(report.findings.len(), 1);
         assert_eq!(report.findings[0].rule, RuleId::Pacnew);
         assert_eq!(report.diagnostics.len(), 1);
+        assert_eq!(
+            diagnostics,
+            [crate::domain::diagnostics::DiagnosticCode::AccessDenied]
+        );
         assert_eq!(report.diagnostics[0].paths, ["/etc/protected"]);
         assert_eq!(report.checks[0].status, CheckStatus::Incomplete);
         assert_eq!(report.exit_code(), 2);
