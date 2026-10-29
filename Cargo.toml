@@ -61,3 +61,7 @@ required-features = ["cli"]
 [[test]]
 name = "native"
 required-features = ["cli"]
+
+[[test]]
+name = "reports"
+required-features = ["cli"]
