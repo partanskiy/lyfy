@@ -65,9 +65,10 @@ lyfy fmt
 ```
 
 - `lint` runs the [Arch rule catalog](docs/rules.md). It reports incomplete and
-  skipped checks explicitly. Text findings appear as checks run; check progress
-  and durations go to stderr. Terminals also show the active check every two
-  seconds. `--format json` keeps a single final JSON report on stdout.
+  skipped checks explicitly. Terminals show updating stage progress and package
+  counts on stderr. The final report explains findings and remedies. Export
+  text, JSON, TOML, YAML, Markdown or SARIF with `--format` and `--output_file`;
+  see [lint reports](docs/lint.md).
 - `save` captures concrete state and commits the host's files and metadata in
   the configured Git repository. An unchanged state creates no empty commit.
 - `apply` returns a file plan and package comparison. `--write` executes the file
@@ -98,12 +99,13 @@ read-only lint with the original resolved user settings, including HOME/XDG
 paths and flag overrides. The child explicitly disables further elevation.
 The policy has no ENV/config equivalent. Sudo must be installed and authorize
 the request; refusal or failure stops that launch. When scanning without sudo,
-inaccessible paths become one `scan.access_denied` warning and accessible
-checks continue; partial coverage returns exit code 1. Running `sudo lyfy lint`
+inaccessible paths become separate coverage diagnostics and accessible
+checks continue; partial coverage returns exit code 2. Running `sudo lyfy lint`
 directly is possible but may use root's HOME/XDG defaults instead of yours.
 
-Exit codes: 0 means the requested operation succeeded, 1 means findings or
-conflicts remain, 2 means an operational/configuration error. An apply preview
+Exit codes: 0 means the requested operation succeeded, 1 means findings at or
+above fail_on (default warning) or conflicts remain, 2 means incomplete coverage
+or an operational/configuration/export error. An apply preview
 with planned changes but no conflicts succeeds. A fmt preview with pending
 fixes returns 1.
 

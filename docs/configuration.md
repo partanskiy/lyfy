@@ -25,13 +25,19 @@ library's business logic.
 | overwrite | false | Permit replacing live content that conflicts with the receipt |
 | prune | false | Permit deleting explicitly tracked paths absent from desired state |
 | max_file_bytes | 16777216 | Maximum regular-file bytes during capture/planning |
-| format | text | CLI result display: text or json; not passed to the library |
+| disabled_rules | [] | Validated rule IDs excluded from inspection |
+| fail_on | warning | Fail a complete scan at info, warning or error |
+| format | text | Lint: text, json, toml, yaml, markdown or sarif; CLI only |
+| output_file | unset | New private lint report file; - selects stdout; CLI only |
+| progress | auto | auto, plain or never; CLI only |
 
 `config_file` is a bootstrap selector, available only as `--config_file` and
 LYFY_CONFIG_FILE. A configuration file cannot redirect its own loader.
 `--write` is execution permission on an apply/fmt request, not a setting; it has
 no TOML key or environment equivalent.
-Interactive package execution additionally requires text display; JSON previews
+See [lint reports](lint.md) for progress, formats, private files and exit codes.
+Markdown/SARIF and output_file are lint-only. Other commands support text, JSON,
+TOML and YAML. Interactive package execution requires text display; JSON previews
 remain supported. This launch constraint prevents pacman prompts from corrupting
 the executable's JSON result stream.
 
