@@ -1,116 +1,139 @@
-use lyfy::domain::{diagnostics::Report, observation::Observation};
-use std::{
-    io::{self, IsTerminal, Write},
-    sync::{Arc, Mutex, mpsc},
-    thread::{self, JoinHandle},
-    time::{Duration, Instant},
-};
+use lyfy::domain::{diagnostics::Report, rules::Severity};
+use std::fmt::Write;
 
-pub struct Lint {
-    json: bool,
-    access_notice: bool,
-    progress: Progress,
-}
-
-impl Lint {
-    pub fn new(json: bool) -> Self {
-        Self {
-            json,
-            access_notice: false,
-            progress: Progress::new(),
-        }
-    }
-
-    pub fn observe(&mut self, observation: Observation<'_>) {
-        match observation {
-            Observation::CheckStarted(id) => {
-                let name = id.name();
-                *self.progress.stage.lock().unwrap() = Some(ActiveCheck {
-                    name,
-                    started: Instant::now(),
-                    progress: None,
-                });
-                let _ = writeln!(io::stderr().lock(), "lyfy: checking {name}...");
+pub fn text(report: &Report, color: bool) -> String {
+    let mut out = String::new();
+    let status = match report.exit_code() {
+        0 => "passed",
+        1 => "needs attention",
+        _ => "incomplete scan",
+    };
+    let title = format!("lyfy lint: {status}");
+    let _ = writeln!(
+        out,
+        "{}",
+        console::Style::new()
+            .bold()
+            .for_stdout()
+            .force_styling(color)
+            .apply_to(title)
+    );
+    let _ = writeln!(
+        out,
+        "Host: {}  Target: {}",
+        safe(&report.host),
+        safe(&report.target)
+    );
+    let counts = [Severity::Error, Severity::Warning, Severity::Info].map(|severity| {
+        report
+            .findings
+            .iter()
+            .filter(|f| !f.fixed && f.severity == severity)
+            .count()
+    });
+    let _ = writeln!(
+        out,
+        "{} error(s), {} warning(s), {} info; {} coverage diagnostic(s)\n",
+        counts[0],
+        counts[1],
+        counts[2],
+        report.diagnostics.len()
+    );
+    for severity in [Severity::Error, Severity::Warning, Severity::Info] {
+        for finding in report.findings.iter().filter(|f| f.severity == severity) {
+            let rule = finding.rule.spec();
+            let label = format!(
+                "{} [{}]{}",
+                severity,
+                finding.rule,
+                if finding.fixed { " (fixed)" } else { "" }
+            );
+            let style = match severity {
+                Severity::Error => console::Style::new().red(),
+                Severity::Warning => console::Style::new().yellow(),
+                Severity::Info => console::Style::new().cyan(),
+            };
+            let _ = writeln!(
+                out,
+                "{}: {}",
+                style
+                    .bold()
+                    .for_stdout()
+                    .force_styling(color)
+                    .apply_to(label),
+                rule.description
+            );
+            let _ = writeln!(out, "  {}", safe(&finding.detail));
+            for path in &finding.paths {
+                let _ = writeln!(out, "  - {}", safe(path));
             }
-            Observation::CheckFinished { id, elapsed, .. } => {
-                let name = id.name();
-                *self.progress.stage.lock().unwrap() = None;
-                let _ = writeln!(
-                    io::stderr().lock(),
-                    "lyfy: finished {name} ({:.1}s)",
-                    elapsed.as_secs_f64()
-                );
-            }
-            Observation::Progress { completed, total } => {
-                if let Some(check) = self.progress.stage.lock().unwrap().as_mut() {
-                    check.progress = Some((completed, total));
-                }
-                if self.progress.worker.is_none() && (completed % 100 == 0 || completed == total) {
-                    let _ = writeln!(
-                        io::stderr().lock(),
-                        "lyfy: checked {completed}/{total} packages"
-                    );
-                }
-            }
-            Observation::Finding(finding) if !self.json => {
-                let mut out = io::stdout().lock();
+            for evidence in &finding.evidence {
                 let _ = writeln!(
                     out,
-                    "{} [{}]: {}",
-                    finding.severity,
-                    finding.rule,
-                    safe(&finding.detail)
-                );
-                for path in &finding.paths {
-                    if !finding
-                        .evidence
-                        .iter()
-                        .any(|evidence| &evidence.path == path)
-                    {
-                        let _ = writeln!(out, "  {}", safe(path));
+                    "    {} ({}): {:?}{}",
+                    safe(&evidence.path),
+                    safe(&evidence.package),
+                    evidence.differences,
+                    if evidence.backup_configuration {
+                        " [backup configuration; edits may be intentional]"
+                    } else {
+                        ""
                     }
-                }
-                for evidence in &finding.evidence {
-                    let _ = writeln!(
-                        out,
-                        "  {}: {:?}{}",
-                        safe(&evidence.path),
-                        evidence.differences,
-                        if evidence.backup_configuration {
-                            " (backup configuration; review intentional edits)"
-                        } else {
-                            ""
-                        }
-                    );
-                }
-                let _ = out.flush();
-            }
-            Observation::Skipped(reason) => {
-                let _ = writeln!(io::stderr().lock(), "lyfy: skipped: {}", safe(reason));
-            }
-            Observation::AccessDenied(_) if !self.access_notice => {
-                self.access_notice = true;
-                let _ = writeln!(
-                    io::stderr().lock(),
-                    "lyfy: limited access; continuing. Use lyfy lint --elevate for protected system checks."
                 );
             }
-            _ => {}
+            let _ = writeln!(out, "  Action: {}", rule.remedy);
+            let _ = writeln!(
+                out,
+                "  fmt: {}\n",
+                if finding.fix.is_some() {
+                    "verified automatic action available"
+                } else {
+                    "manual review required"
+                }
+            );
         }
     }
-
-    pub fn summary(&self, report: &Report) {
+    for diagnostic in &report.diagnostics {
         let _ = writeln!(
-            io::stdout().lock(),
-            "lint: {} finding(s), {} skipped check group(s)",
-            report.findings.len(),
-            report.skipped.len()
+            out,
+            "INCOMPLETE [{}]: {}",
+            diagnostic.check.name(),
+            safe(&diagnostic.detail)
         );
+        for path in &diagnostic.paths {
+            let _ = writeln!(out, "  - {}", safe(path));
+        }
     }
+    if !report.skipped.is_empty() {
+        let _ = writeln!(out, "\nSkipped checks:");
+        for reason in &report.skipped {
+            let _ = writeln!(out, "  - {}", safe(reason));
+        }
+    }
+    let _ = writeln!(
+        out,
+        "\nChecks: {} completed, {} incomplete/blocked. Fail threshold: {}.",
+        report
+            .checks
+            .iter()
+            .filter(|check| check.status == lyfy::domain::checks::CheckStatus::Complete)
+            .count(),
+        report
+            .checks
+            .iter()
+            .filter(|check| matches!(
+                check.status,
+                lyfy::domain::checks::CheckStatus::Incomplete
+                    | lyfy::domain::checks::CheckStatus::Blocked
+            ))
+            .count(),
+        report.fail_on
+    );
+    out
 }
 
-// Escape control characters from filenames/tool output without losing Unicode names.
-fn safe(text: &str) -> String {
+// Escape controls from filenames and external tools without losing Unicode names.
+pub fn safe(text: &str) -> String {
     text.chars()
         .flat_map(|ch| {
             if ch.is_control() {
@@ -121,63 +144,6 @@ fn safe(text: &str) -> String {
         })
         .collect()
 }
-
-struct ActiveCheck {
-    name: &'static str,
-    started: Instant,
-    progress: Option<(usize, usize)>,
-}
-type Stage = Arc<Mutex<Option<ActiveCheck>>>;
-
-struct Progress {
-    stage: Stage,
-    stop: mpsc::Sender<()>,
-    worker: Option<JoinHandle<()>>,
-}
-
-impl Progress {
-    fn new() -> Self {
-        let stage: Stage = Arc::new(Mutex::new(None));
-        let (stop, receiver) = mpsc::channel();
-        let worker = io::stderr().is_terminal().then(|| {
-            let stage = Arc::clone(&stage);
-            thread::spawn(move || {
-                while receiver.recv_timeout(Duration::from_secs(2))
-                    == Err(mpsc::RecvTimeoutError::Timeout)
-                {
-                    if let Some(check) = stage.lock().unwrap().as_ref() {
-                        let _ = writeln!(
-                            io::stderr().lock(),
-                            "lyfy: still checking {} ({:.0}s){}",
-                            check.name,
-                            check.started.elapsed().as_secs_f64(),
-                            check
-                                .progress
-                                .map_or(String::new(), |(completed, total)| format!(
-                                    "; {completed}/{total} packages"
-                                ))
-                        );
-                    }
-                }
-            })
-        });
-        Self {
-            stage,
-            stop,
-            worker,
-        }
-    }
-}
-
-impl Drop for Progress {
-    fn drop(&mut self) {
-        let _ = self.stop.send(());
-        if let Some(worker) = self.worker.take() {
-            let _ = worker.join();
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     #[test]
