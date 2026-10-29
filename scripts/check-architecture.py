@@ -108,6 +108,8 @@ if core_manifest.get("package", {}).get("name") != "lyfy" or core_manifest.get("
     errors.append("lyfy must be the library package")
 if core_manifest.get("bin") or "cli" in core_manifest.get("features", {}):
     errors.append("The library cannot contain a binary target or cli feature")
+if cli_manifest.get("package", {}).get("autolib") is not False:
+    errors.append("CLI must disable automatic library discovery")
 if cli_manifest.get("package", {}).get("name") != "lyfy-cli" or cli_manifest.get("bin") != [{"name": "lyfy", "path": "src/main.rs"}] or "lib" in cli_manifest:
     errors.append("lyfy-cli must contain exactly the lyfy binary target")
 for member in (core_manifest, cli_manifest):
@@ -124,7 +126,9 @@ def dependencies(member):
             for name, spec in table.get(kind, {}).items():
                 spec = spec if isinstance(spec, dict) else {}
                 if spec.get("workspace"):
-                    spec = {**workspace.get("dependencies", {}).get(name, {}), **spec} if isinstance(workspace.get("dependencies", {}).get(name), dict) else spec
+                    inherited = workspace.get("dependencies", {}).get(name, {})
+                    if isinstance(inherited, dict):
+                        spec = {**inherited, **spec}
                 yield spec.get("package", name), spec
 
 
