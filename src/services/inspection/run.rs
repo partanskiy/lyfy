@@ -204,7 +204,13 @@ impl<'a> Run<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::domain::{
+        checks::{CheckId, CheckStatus},
+        observation::Observation,
+        rules::RuleId,
+    };
+    use crate::services::inspection::run::Run;
+    use std::io;
     #[test]
     fn permission_denials_are_aggregated_without_hiding_real_findings() {
         let mut observer = |_: Observation<'_>| {};

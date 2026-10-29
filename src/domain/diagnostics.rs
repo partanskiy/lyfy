@@ -1,5 +1,5 @@
 //! Inspection data, independent of terminal rendering and serialization formats.
-use super::{
+use crate::domain::{
     checks::{CheckId, CheckResult, CheckStatus},
     rules::{FixAction, RuleId, Severity},
 };

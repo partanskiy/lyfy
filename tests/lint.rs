@@ -99,7 +99,7 @@ fn missing_scan_roots_are_incomplete_checks() {
 }
 
 #[test]
-fn text_lint_streams_readable_findings_and_keeps_progress_on_stderr() {
+fn text_lint_explains_findings_and_keeps_progress_on_stderr() {
     let f = Fixture::new();
     f.write("etc/example.conf.pacnew", "different\n");
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_lyfy"))
@@ -115,10 +115,10 @@ fn text_lint_streams_readable_findings_and_keeps_progress_on_stderr() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(stdout.contains("error [arch.pacnew]"));
-    assert!(stdout.contains("lint: 1 finding(s)"));
+    assert!(stdout.contains("1 error(s), 0 warning(s)"));
     assert!(!stdout.contains("[[findings]]"));
     assert!(stderr.contains("checking /etc pacnew and pacsave..."));
-    assert!(stderr.contains("finished /etc pacnew and pacsave ("));
+    assert!(stderr.contains("done /etc pacnew and pacsave ("));
     let json = f.run(&["lint"]);
     assert!(serde_json::from_slice::<Value>(&json.stdout).is_ok());
     assert!(

@@ -77,7 +77,7 @@ fn native_dependencies_honor_versioned_provides_and_report_conflicts() {
             .any(|finding| finding["detail"].as_str().unwrap().contains("virtual>=2"))
     );
     fs::write(provider.join("desc"), desc + "%CONFLICTS%\napplication\n\n").unwrap();
-    assert!(has(&lint(&f), "arch.missing_dependency"));
+    assert!(has(&lint(&f), "arch.package_conflict"));
 }
 
 #[test]

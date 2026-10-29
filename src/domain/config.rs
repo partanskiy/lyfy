@@ -23,8 +23,8 @@ pub struct Config {
     pub overwrite: bool,
     pub prune: bool,
     pub max_file_bytes: u64,
-    pub disabled_rules: Vec<super::rules::RuleId>,
-    pub fail_on: super::rules::Severity,
+    pub disabled_rules: Vec<crate::domain::rules::RuleId>,
+    pub fail_on: crate::domain::rules::Severity,
 }
 
 impl Config {
