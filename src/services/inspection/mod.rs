@@ -112,6 +112,12 @@ fn scan_pacfiles(config: &Config, root: &Root, report: &mut Run<'_>) {
                     continue;
                 };
                 let path = Path::new("/").join(relative);
+                if path.to_str().is_none() {
+                    report.incomplete(
+                        "Non-UTF-8 pacman configuration path cannot be represented safely",
+                    );
+                    continue;
+                }
                 let fixable = extension == "pacnew"
                     && config.managed(&path)
                     && identical_pacnew(config, root, &path).unwrap_or(false);
