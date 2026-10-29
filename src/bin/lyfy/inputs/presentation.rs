@@ -109,7 +109,7 @@ pub fn text(report: &Report, color: bool) -> String {
         }
     }
     if !report.skipped.is_empty() {
-        let _ = writeln!(out, "\nSkipped checks:");
+        let _ = writeln!(out, "\nSkipped or blocked checks:");
         for reason in &report.skipped {
             let _ = writeln!(out, "  - {}", safe(reason));
         }

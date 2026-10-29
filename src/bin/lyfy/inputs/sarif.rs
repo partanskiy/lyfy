@@ -46,7 +46,10 @@ pub fn encode(report: &Report) -> Value {
         let spec = finding.rule.spec();
         let mut fingerprint = Sha256::new();
         // Length prefixes make distinct subject sequences unambiguous.
-        for value in std::iter::once(report.host.as_str()).chain(std::iter::once(finding.rule.as_str())).chain(finding.paths.iter().map(String::as_str)) {
+        let mut subjects = finding.paths.iter().map(String::as_str).collect::<Vec<_>>();
+        subjects.sort_unstable();
+        subjects.dedup();
+        for value in std::iter::once(report.host.as_str()).chain(std::iter::once(finding.rule.as_str())).chain(subjects) {
             fingerprint.update((value.len() as u64).to_le_bytes()); fingerprint.update(value.as_bytes());
         }
         json!({"ruleId":finding.rule,"ruleIndex":RuleId::ALL.iter().position(|id| *id == finding.rule).unwrap(),

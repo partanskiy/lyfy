@@ -15,6 +15,7 @@ pub fn unowned(config: &Config, database: &Database, report: &mut Run<'_>) -> Re
         for entry in WalkDir::new(config.physical(&logical))
             .follow_links(false)
             .follow_root_links(false)
+            .sort_by_file_name()
         {
             let entry = match entry {
                 Ok(entry) => entry,
@@ -56,6 +57,7 @@ pub fn kernel(root: &Root, report: &mut Run<'_>) -> Result<()> {
             installed.push(entry.file_name().to_string_lossy().into_owned());
         }
     }
+    installed.sort();
     if !installed.iter().any(|s| s == running) {
         report.add(
             RuleId::KernelReboot,
