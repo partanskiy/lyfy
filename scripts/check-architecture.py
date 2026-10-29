@@ -26,21 +26,21 @@ def error(path, message):
 
 for path in CORE.rglob("*.rs"):
     relative = path.relative_to(CORE)
+    text = path.read_text()
+    if re.search(r"\b(?:clap|toml|indicatif|console|serde_yaml_ng|percent_encoding)::|std::env|\b(?:e?print(?:ln)?|dbg)!", text):
+        error(path, "launch parsing, environment and terminal rendering belong to inputs/bootstrap")
     if relative == Path("lib.rs"):
         continue
     layer = relative.parts[0]
     if layer not in LAYERS:
         error(path, "unexpected core layer; change the architecture decision first")
         continue
-    text = path.read_text()
     # Cross-layer paths must be explicit, never hidden by root glob/group aliases.
     if re.search(r"\buse\s+crate\s*(?:::\s*\{|as\b|;)", text):
         error(path, "use explicit crate::layer paths")
     for dependency in re.findall(r"\bcrate::([A-Za-z_][A-Za-z_0-9]*)", text):
         if dependency not in ALLOWED[layer]:
             error(path, f"{layer} must not depend on {dependency}")
-    if re.search(r"\b(?:clap|toml|indicatif|console|serde_yaml_ng|percent_encoding)::|std::env|\b(?:e?print(?:ln)?|dbg)!", text):
-        error(path, "launch parsing, environment and terminal rendering belong to inputs/bootstrap")
     if layer != "infrastructure" and re.search(r"\b(?:alpm|alpm_sys|libarchive|libarchive3_sys)::", text):
         error(path, "native package-library bindings belong to infrastructure")
     if relative != Path("infrastructure/pacman/restore.rs") and '"/usr/bin/pacman"' in text:

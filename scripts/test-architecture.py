@@ -68,6 +68,10 @@ class WorkspaceBoundaries(unittest.TestCase):
         self.append("crates/lyfy/src/services/files.rs", "use toml::Value;")
         self.check("launch parsing, environment and terminal rendering belong to inputs/bootstrap")
 
+    def test_the_library_entry_point_cannot_render_to_the_terminal(self):
+        self.append("crates/lyfy/src/lib.rs", 'fn render() { println!("bad"); }')
+        self.check("launch parsing, environment and terminal rendering belong to inputs/bootstrap")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,17 @@
-//! Arch Linux maintenance logic. Launch inputs resolve configuration before calling this API.
+//! Arch Linux maintenance logic, independently reusable as a Rust library.
+//!
+//! [`Config`] contains resolved operation parameters, not an application config
+//! loader. Inputs own file discovery, parsing, ENV, defaults and presentation.
+//! [`Context`] owns validated parameters and the repository session.
+//!
+//! ```no_run
+//! use lyfy::{Config, Context, Request, execute};
+//!
+//! fn lint(options: Config) -> anyhow::Result<u8> {
+//!     let context = Context::new(options)?;
+//!     Ok(execute(&context, Request::Lint)?.exit_code)
+//! }
+//! ```
 pub mod domain;
 mod infrastructure;
 mod managers;
