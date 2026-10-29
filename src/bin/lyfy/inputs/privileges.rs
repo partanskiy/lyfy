@@ -97,6 +97,8 @@ mod tests {
         let launch = Launch {
             config: super::super::configuration::defaults(),
             format: "json".into(),
+            output_file: None,
+            progress: "auto".into(),
         };
         let text = resolved_settings(&launch).unwrap();
         let mut value: toml::Value = toml::from_str(&text).unwrap();

@@ -62,6 +62,12 @@ pub struct Options {
     pub max_file_bytes: Option<u64>,
     #[arg(long, env = "LYFY_FORMAT", global = true)]
     pub format: Option<String>,
+    /// Write a lint report to a new private file; - means stdout.
+    #[arg(long, env = "LYFY_OUTPUT_FILE", global = true)]
+    pub output_file: Option<PathBuf>,
+    /// Progress style: auto, plain or never.
+    #[arg(long, env = "LYFY_PROGRESS", global = true)]
+    pub progress: Option<String>,
     #[arg(
         long,
         env = "LYFY_DISABLED_RULES",

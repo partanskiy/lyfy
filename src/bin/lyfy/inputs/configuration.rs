@@ -7,6 +7,8 @@ use std::{env, fs, path::PathBuf};
 pub struct Launch {
     pub config: Config,
     pub format: String,
+    pub output_file: Option<PathBuf>,
+    pub progress: String,
 }
 
 pub fn xdg(name: &str, fallback: &str) -> PathBuf {
@@ -92,6 +94,8 @@ pub fn resolve(options: Options) -> Result<Launch> {
     };
     let mut value = serde_json::to_value(defaults())?;
     value["format"] = "text".into();
+    value["output_file"] = Value::Null;
+    value["progress"] = "auto".into();
     for path in candidates {
         match fs::read_to_string(&path) {
             Ok(text) => {
@@ -123,8 +127,21 @@ pub fn resolve(options: Options) -> Result<Launch> {
     let format: String =
         serde_json::from_value(value.as_object_mut().unwrap().remove("format").unwrap())?;
     ensure!(
-        ["text", "json"].contains(&format.as_str()),
-        "format must be text or json"
+        ["text", "json", "toml", "yaml", "markdown", "sarif"].contains(&format.as_str()),
+        "format must be text, json, toml, yaml, markdown or sarif"
+    );
+    let output_file = serde_json::from_value(
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("output_file")
+            .unwrap(),
+    )?;
+    let progress: String =
+        serde_json::from_value(value.as_object_mut().unwrap().remove("progress").unwrap())?;
+    ensure!(
+        ["auto", "plain", "never"].contains(&progress.as_str()),
+        "progress must be auto, plain or never"
     );
     if value["base_host"] == "" {
         value["base_host"] = Value::Null;
@@ -132,7 +149,12 @@ pub fn resolve(options: Options) -> Result<Launch> {
     let config: Config = serde_json::from_value(value)?;
     config.validate()?;
     ensure!(config.root.is_dir(), "root must be an existing directory");
-    Ok(Launch { config, format })
+    Ok(Launch {
+        config,
+        format,
+        output_file,
+        progress,
+    })
 }
 
 fn merge(target: &mut Value, patch: Value) -> Result<()> {

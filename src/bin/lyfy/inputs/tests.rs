@@ -11,6 +11,8 @@ fn every_setting_has_a_snake_case_flag_and_environment_variable() {
     let settings = configuration::defaults();
     let mut fields = serde_json::to_value(settings).unwrap();
     fields["format"] = "text".into();
+    fields["output_file"] = "report.json".into();
+    fields["progress"] = "auto".into();
     let command = Cli::command();
     for key in fields.as_object().unwrap().keys() {
         let arg = command
