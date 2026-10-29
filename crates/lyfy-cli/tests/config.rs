@@ -158,3 +158,20 @@ fn interactive_package_execution_cannot_corrupt_json_output() {
     assert!(!f.data.exists());
     assert!(!f.state.exists());
 }
+
+#[test]
+fn public_command_identity_is_independent_of_the_package_name() {
+    let f = Fixture::new();
+    let version = f.run(&["--version"]);
+    assert!(version.status.success());
+    let expected = option_env!("LYFY_BUILD_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"));
+    assert_eq!(
+        String::from_utf8(version.stdout).unwrap(),
+        format!("lyfy {expected}\n")
+    );
+    let help = f.run(&["--help"]);
+    assert!(help.status.success());
+    let help = String::from_utf8(help.stdout).unwrap();
+    assert!(help.contains("Usage: lyfy "));
+    assert!(!help.contains("lyfy-cli"));
+}
