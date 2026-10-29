@@ -6,24 +6,37 @@ an explicit architecture discussion and a separate reviewed change.
 
 ## Package targets and launch inputs
 
-One Cargo package, `lyfy`, contains two targets with the same name:
+One Cargo workspace contains exactly two packages:
 
-- The `lyfy` library owns all system maintenance logic.
-- The `lyfy` executable owns its launch inputs.
+- `crates/lyfy`: package and library `lyfy`, owning system maintenance logic.
+- `crates/lyfy-cli`: package `lyfy-cli`, owning the executable named `lyfy`.
 
-`src/bin/lyfy/main.rs` is a small bootstrap: parse an input, resolve launch
+The root Cargo.toml is a virtual workspace manifest. Members share Cargo.lock,
+target, package metadata and common dependency versions. Each member declares
+its own dependencies. Only lyfy-cli depends on lyfy; the library cannot depend
+on the CLI. No third package is needed for configuration loading.
+
+`crates/lyfy-cli/src/main.rs` is a small bootstrap: parse an input, resolve launch
 settings, construct a context, invoke the library, display returned data and
 choose the exit code. It contains no system maintenance logic.
 
-`src/bin/lyfy/inputs/` owns CLI arguments, environment variables, XDG discovery,
+`crates/lyfy-cli/src/inputs/` owns CLI arguments, environment variables, XDG discovery,
 TOML reading, precedence and launch presentation preferences. `format` and
 `config_file` belong here. The library never reads these sources. Its modules
-cannot import input code: inputs are compiled only into the binary target.
+cannot import input code: inputs are compiled only into the CLI package.
 
-clap and TOML are optional dependencies behind the `cli` feature, enabled by
-default for normal executable builds. `cargo build --lib --no-default-features`
-builds the library without input libraries. A future input adapts to the same
+clap, TOML and presentation libraries are dependencies of lyfy-cli alone.
+There is no cli feature on the library. `cargo build -p lyfy` builds the
+library without launch dependencies; `cargo build -p lyfy-cli` builds the
+executable and its library dependency. A future input adapts to the same
 library API; it does not become a new layer inside the library.
+
+The library owns typed Config and validates domain invariants. The CLI owns
+launch defaults, discovery, file reading, TOML parsing and flag/ENV/config
+precedence, and passes resolved Config to Context. Library callers construct
+Config directly. System artifacts such as pacman.conf and stored snapshots
+are separate: their parsing belongs to the corresponding core infrastructure
+adapter, because it observes or persists managed system state.
 
 There is no output layer, transport layer, server, RPC protocol or event bus.
 Results remain ordinary return values. An optional synchronous, per-call
@@ -71,7 +84,7 @@ flowchart TD
     R --> D
 ```
 
-The library contains exactly four layer directories beside the separate `bin/` target. They have these responsibilities:
+The library contains exactly four layer directories. They have these responsibilities:
 
 | Layer | Owns | May depend on |
 | --- | --- | --- |
@@ -215,6 +228,9 @@ complement Rust module visibility and Cargo target boundaries.
 The CLI tests verify that the operation set contains exactly four commands and
 each setting has its snake_case flag and LYFY environment override. A core API
 test exercises save/apply without the executable, ENV or a configuration file.
+The workspace check fixes member identities and target/dependency direction.
+Core dependency checks reject input packages even through transitive edges.
+Core tests live with the library; executable integration tests live with the CLI.
 
 Any exception must update this contract and its checks in the same reviewed
 architecture change. Do not bypass a check to complete a feature.

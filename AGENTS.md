@@ -1,7 +1,8 @@
 # Project instructions
 
 - Read ARCHITECTURE.md first and enforce its layer boundaries.
-- The core is the lyfy library target; inputs own CLI, ENV and TOML configuration.
+- Keep exactly two workspace packages: lyfy (library) and lyfy-cli (binary lyfy).
+- Only lyfy-cli depends on lyfy. Inputs own launch defaults, CLI, ENV and TOML loading; lyfy owns typed settings and validation.
 - Keep exactly four independent managers: lint, fmt, save, apply.
 - Managers must never import or invoke one another; share named services.
 - Do not add an outputs layer or a fifth command without an architecture discussion.
