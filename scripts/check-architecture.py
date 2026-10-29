@@ -6,7 +6,8 @@ import sys
 import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
-CORE = ROOT / "src"
+CORE = ROOT / "crates/lyfy/src"
+CLI = ROOT / "crates/lyfy-cli/src"
 COMMANDS = {"lint", "fmt", "save", "apply"}
 LAYERS = {"domain", "infrastructure", "services", "managers"}
 ALLOWED = {
@@ -25,7 +26,7 @@ def error(path, message):
 
 for path in CORE.rglob("*.rs"):
     relative = path.relative_to(CORE)
-    if relative == Path("lib.rs") or relative.parts[0] == "bin":
+    if relative == Path("lib.rs"):
         continue
     layer = relative.parts[0]
     if layer not in LAYERS:
@@ -70,7 +71,7 @@ for path in CORE.rglob("*.rs"):
 managers = {p.stem for p in (CORE / "managers").glob("*.rs")} - {"mod"}
 if managers != COMMANDS or any(p.is_dir() for p in (CORE / "managers").iterdir()):
     errors.append("Exactly four flat manager modules are allowed: lint, fmt, save, apply")
-if {p.name for p in CORE.iterdir() if p.is_dir()} != LAYERS | {"bin"}:
+if {p.name for p in CORE.iterdir() if p.is_dir()} != LAYERS:
     errors.append("Core directories must match the four documented layers")
 request = re.search(r"pub enum Request\s*\{(.*?)\n\}", (CORE / "lib.rs").read_text(), re.S)
 variants = set(re.findall(r"^    ([A-Z][A-Za-z]+)(?:,|\s*\{)", request[1], re.M)) if request else set()
@@ -94,14 +95,55 @@ for node in service_edges:
     visit(node, [], done)
 
 manifest = tomllib.loads((ROOT / "Cargo.toml").read_text())
-for package in {"clap", "toml", "config", "dotenv", "dotenvy", "indicatif", "console", "serde_yaml_ng", "percent-encoding"} & set(manifest["dependencies"]):
-    if not manifest["dependencies"][package].get("optional", False):
-        errors.append(f"Input dependency {package} must be optional")
-if manifest.get("bin") != [{"name": "lyfy", "path": "src/bin/lyfy/main.rs", "required-features": ["cli"]}]:
-    errors.append("The CLI must remain an isolated lyfy binary target")
-for path in [ROOT / "src/outputs", CORE / "outputs", CORE / "inputs"]:
+workspace = manifest.get("workspace", {})
+if set(workspace.get("members", [])) != {"crates/lyfy", "crates/lyfy-cli"}:
+    errors.append("Exactly two workspace members are allowed: lyfy and lyfy-cli")
+if "package" in manifest or workspace.get("resolver") != "3":
+    errors.append("The root must be a virtual workspace using resolver 3")
+if {p.name for p in (ROOT / "crates").iterdir() if p.is_dir()} != {"lyfy", "lyfy-cli"}:
+    errors.append("Unexpected workspace package directory")
+core_manifest = tomllib.loads((CORE.parent / "Cargo.toml").read_text())
+cli_manifest = tomllib.loads((CLI.parent / "Cargo.toml").read_text())
+if core_manifest.get("package", {}).get("name") != "lyfy" or core_manifest.get("lib") != {"name": "lyfy", "path": "src/lib.rs"}:
+    errors.append("lyfy must be the library package")
+if core_manifest.get("bin") or "cli" in core_manifest.get("features", {}):
+    errors.append("The library cannot contain a binary target or cli feature")
+if cli_manifest.get("package", {}).get("name") != "lyfy-cli" or cli_manifest.get("bin") != [{"name": "lyfy", "path": "src/main.rs"}] or "lib" in cli_manifest:
+    errors.append("lyfy-cli must contain exactly the lyfy binary target")
+for member in (core_manifest, cli_manifest):
+    if member.get("package", {}).get("autobins") is not False:
+        errors.append("Workspace packages must disable automatic binary discovery")
+if cli_manifest.get("dependencies", {}).get("lyfy") != {"path": "../lyfy"}:
+    errors.append("The CLI must explicitly depend on the local lyfy library")
+
+
+def dependencies(member):
+    tables = [member, *member.get("target", {}).values()]
+    for table in tables:
+        for kind in ("dependencies", "dev-dependencies", "build-dependencies"):
+            for name, spec in table.get(kind, {}).items():
+                spec = spec if isinstance(spec, dict) else {}
+                if spec.get("workspace"):
+                    spec = {**workspace.get("dependencies", {}).get(name, {}), **spec} if isinstance(workspace.get("dependencies", {}).get(name), dict) else spec
+                yield spec.get("package", name), spec
+
+
+input_packages = {"lyfy-cli", "clap", "toml", "config", "dotenv", "dotenvy", "indicatif", "console", "serde_yaml_ng", "percent-encoding"}
+for name, spec in dependencies(core_manifest):
+    if name in input_packages or ("path" in spec and (CORE.parent / spec["path"]).resolve() == CLI.parent):
+        errors.append(f"Library dependency {name} belongs to launch inputs")
+for name, _ in dependencies(cli_manifest):
+    if name in {"alpm", "alpm-sys", "libarchive", "libarchive3-sys"}:
+        errors.append(f"Native package dependency {name} belongs to core infrastructure")
+for path in CLI.rglob("*.rs"):
+    text = path.read_text()
+    if re.search(r"\blyfy::(?:infrastructure|services|managers)\b|\b(?:alpm|alpm_sys|libarchive|libarchive3_sys)::", text):
+        error(path, "CLI must use only the public core API, not infrastructure bindings")
+if {p.name for p in CLI.iterdir() if p.is_dir()} != {"inputs"}:
+    errors.append("CLI launch modules belong to inputs")
+for path in [ROOT / "src", ROOT / "tests", CORE / "outputs", CORE / "inputs", CLI / "outputs"]:
     if path.exists():
-        error(path, "this layer is not part of the architecture")
+        error(path, "this directory is not part of the workspace architecture")
 
 if errors:
     print("\n".join(errors), file=sys.stderr)
