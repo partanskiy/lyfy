@@ -26,3 +26,9 @@ overwrite = false
 prune = false
 max_file_bytes = 16777216
 format = "text"
+
+# Lint policy and launch presentation.
+fail_on = "warning"
+disabled_rules = []
+progress = "auto"
+# output_file = "laptop.txt"
