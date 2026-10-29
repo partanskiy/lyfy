@@ -42,11 +42,13 @@ jobs:
       - name: Validate and build the tagged source
         run: |
           python3 scripts/check-architecture.py
+          python3 scripts/test-architecture.py
           cargo fmt --all -- --check
-          cargo clippy --all-targets --all-features --locked -- -D warnings
-          cargo test --all-features --locked
-          cargo test --lib --test api --no-default-features --locked
-          LYFY_BUILD_VERSION="${RELEASE_TAG#v}" cargo build --locked --release
+          cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+          cargo test --workspace --all-features --locked
+          cargo test -p lyfy --locked
+          bash scripts/check-library-deps.sh
+          LYFY_BUILD_VERSION="${RELEASE_TAG#v}" cargo build --locked --release -p lyfy-cli --bin lyfy
           test "$(target/x86_64-unknown-linux-gnu/release/lyfy --version)" = "lyfy ${RELEASE_TAG#v}"
           python3 scripts/license-notices.py target/THIRD_PARTY_LICENSES.txt
       - name: Create archive

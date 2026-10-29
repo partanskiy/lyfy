@@ -16,11 +16,12 @@ root = Path(__file__).resolve().parent.parent
 version_check = subprocess.run(["bash", str(root / "scripts/check-version.sh"), args.version])
 if version_check.returncode:
     raise SystemExit(version_check.returncode)
-package = tomllib.loads((root / "Cargo.toml").read_text())["package"]
-license_id = package.get("license", "")
-binary_license = package.get("metadata", {}).get("lyfy", {}).get("binary-license", "")
+workspace = tomllib.loads((root / "Cargo.toml").read_text())["workspace"]
+cli_package = tomllib.loads((root / "crates/lyfy-cli/Cargo.toml").read_text())["package"]
+license_id = workspace.get("package", {}).get("license", "")
+binary_license = cli_package.get("metadata", {}).get("lyfy", {}).get("binary-license", "")
 if not all(re.fullmatch(r"[A-Za-z0-9.+-]+", value) for value in (license_id, binary_license)):
-    raise SystemExit("Cargo.toml must declare one SPDX license identifier before publishing")
+    raise SystemExit("Workspace and CLI manifests must declare SPDX license identifiers before publishing")
 archive = args.archive.resolve(strict=True)
 with archive.open("rb") as source:
     checksum = hashlib.file_digest(source, "sha256").hexdigest()

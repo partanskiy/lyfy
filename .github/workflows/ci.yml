@@ -23,6 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 scripts/check-architecture.py
+      - run: python3 scripts/test-architecture.py
       - run: bash scripts/test-version.sh
 
   fmt:
@@ -44,7 +45,7 @@ jobs:
       - run: pacman -Syu --noconfirm --needed rust git pkgconf libarchive
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --all-targets --all-features --locked -- -D warnings
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
   test:
     name: test
@@ -55,14 +56,11 @@ jobs:
       - run: pacman -Syu --noconfirm --needed rust git pkgconf libarchive
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --all-features --locked
+      - run: cargo test --workspace --all-features --locked
       - name: Library without launch dependencies
         run: |
-          cargo test --lib --test api --no-default-features --locked
-          if cargo tree --no-default-features --prefix none | grep -Eq '^(clap|toml|indicatif|console|serde_yaml_ng|percent-encoding) '; then
-            echo 'Library build depends on launch libraries.' >&2
-            exit 1
-          fi
+          cargo test -p lyfy --locked
+          bash scripts/check-library-deps.sh
 
   build:
     name: release build
@@ -73,8 +71,8 @@ jobs:
       - run: pacman -Syu --noconfirm --needed rust git pkgconf libarchive
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --locked --release
-      - run: cargo build --lib --no-default-features --locked --release
+      - run: cargo build --locked --release -p lyfy-cli --bin lyfy
+      - run: cargo build -p lyfy --locked --release
 
   commits:
     name: validate commits

@@ -14,7 +14,7 @@ metadata = json.loads(subprocess.check_output([
 ]))
 sections = ["Third-party notices for lyfy (x86_64 Linux).\nGenerated from Cargo.lock.\n"]
 for package in sorted(metadata["packages"], key=lambda p: (p["name"], p["version"])):
-    if package["name"] == "lyfy" and package["source"] is None:
+    if package["id"] in metadata["workspace_members"]:
         continue
     root = Path(package["manifest_path"]).parent
     notices = sorted(path for path in root.iterdir() if path.is_file()
