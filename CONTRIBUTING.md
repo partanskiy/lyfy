@@ -46,17 +46,22 @@ server configuration.
 
 ```sh
 python3 scripts/check-architecture.py
+python3 scripts/test-architecture.py
 cargo fmt --all -- --check
-cargo clippy --all-targets --all-features --locked -- -D warnings
-cargo test --all-features --locked
-cargo build --locked --release
-cargo test --lib --test api --no-default-features --locked
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-features --locked
+cargo build -p lyfy-cli --locked --release
+cargo test -p lyfy --locked
+bash scripts/check-library-deps.sh
 bash scripts/check-commits.sh --range origin/main..HEAD
 ```
 
 Tests use temporary target roots and synthetic data. Never run fmt/apply with
 `--write` against a developer's real system as a test. Core changes must remain
 usable through the library API without CLI/environment configuration.
+Keep API/rule tests in crates/lyfy/tests and executable integration tests in
+crates/lyfy-cli/tests. Cargo commands use -p lyfy for the library, -p lyfy-cli
+for the executable, and --workspace for shared checks.
 
 ## Releases from existing commits
 

@@ -12,9 +12,11 @@ The architecture and current boundaries are explicit below.
 
 ## Architecture
 
-One Cargo package provides a library named `lyfy` and an executable named
-`lyfy`. CLI arguments, ENV, XDG discovery and TOML belong to the binary input.
-The library accepts resolved settings and exactly four operation requests.
+The Cargo workspace contains two packages: `lyfy` is the Rust library and
+`lyfy-cli` builds the executable named `lyfy`. CLI arguments, ENV, XDG discovery
+and application TOML loading belong to lyfy-cli. The library accepts resolved
+typed settings and exactly four operation requests. See the [library API
+boundary](docs/library.md).
 
 The four independent managers share named services for inspection, capture,
 snapshots, reconciliation and transactions. Managers never call each other.
@@ -28,7 +30,7 @@ The executable dynamically links the native libraries; they remain managed
 by pacman. Build and release CI use Arch environments for the matching ABI.
 
 ```sh
-cargo build --locked --release
+cargo build -p lyfy-cli --locked --release
 target/release/lyfy --help
 ```
 
@@ -37,11 +39,12 @@ configuration, environment variables and XDG paths. Static manual sources live
 in [docs/man](docs/man). The dotted manual name follows the configuration-page
 convention; the actual configuration filename is `config.toml`.
 
-Library without CLI parsing dependencies:
+Build and test the library package independently:
 
 ```sh
-cargo build --lib --no-default-features --locked
-cargo test --lib --test api --no-default-features --locked
+cargo build -p lyfy --locked
+cargo test -p lyfy --locked
+bash scripts/check-library-deps.sh
 ```
 
 The supported target system is Arch Linux. Tests run against temporary Linux

@@ -1,6 +1,6 @@
 # Arch Linux rules and check lifecycle
 
-`src/domain/rules.rs` is the single catalog. `RuleId` is a closed enum, generated
+`crates/lyfy/src/domain/rules.rs` is the single catalog. `RuleId` is a closed enum, generated
 from that catalog. Each entry defines a stable serialized ID, semantic revision,
 check owner, severity, category, subject kind, explanation, remedy and supported
 fix kind. Services emit typed IDs. Strings cannot introduce an unregistered rule.
@@ -44,7 +44,7 @@ check. Permission denials are deduplicated and aggregated per check, with up to
 Missing tools, unsupported data and malformed records also prevent a complete
 scan. These are not system rule violations.
 
-Check IDs and labels live in `src/domain/checks.rs`. Inspection records one of:
+Check IDs and labels live in `crates/lyfy/src/domain/checks.rs`. Inspection records one of:
 
 - `complete`: observations collected, possibly with findings.
 - `incomplete`: some requested observations failed.
