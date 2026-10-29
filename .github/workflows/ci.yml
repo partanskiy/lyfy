@@ -59,7 +59,7 @@ jobs:
       - name: Library without launch dependencies
         run: |
           cargo test --lib --test api --no-default-features --locked
-          if cargo tree --no-default-features --prefix none | grep -Eq '^(clap|toml) '; then
+          if cargo tree --no-default-features --prefix none | grep -Eq '^(clap|toml|indicatif|console|serde_yaml_ng|percent-encoding) '; then
             echo 'Library build depends on launch libraries.' >&2
             exit 1
           fi
