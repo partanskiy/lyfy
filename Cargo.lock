@@ -405,13 +405,27 @@ version = "26.10.0"
 dependencies = [
  "alpm",
  "anyhow",
- "clap",
- "console",
  "glob",
- "indicatif",
  "libarchive",
  "libarchive3-sys",
  "libc",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "walkdir",
+]
+
+[[package]]
+name = "lyfy-cli"
+version = "26.10.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "console",
+ "indicatif",
+ "libc",
+ "lyfy",
  "percent-encoding",
  "serde",
  "serde_json",
@@ -419,7 +433,6 @@ dependencies = [
  "sha2",
  "tempfile",
  "toml",
- "walkdir",
 ]
 
 [[package]]
