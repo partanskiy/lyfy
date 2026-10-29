@@ -1,9 +1,9 @@
 use super::configuration::Launch;
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use std::{
     env,
     ffi::OsString,
-    io::{self, IsTerminal, Write},
+    io::{self, IsTerminal, Seek, SeekFrom, Write},
     path::Path,
     process::Command,
 };
@@ -27,7 +27,7 @@ fn should_elevate(mode: Elevation, root: bool, interactive: bool, live_system: b
         }
 }
 
-pub fn elevate(launch: &Launch, mode: Elevation) -> Result<Option<u8>> {
+pub fn elevate(launch: &Launch, mode: Elevation) -> Result<Option<lyfy::Outcome>> {
     // SAFETY: geteuid has no preconditions and does not modify process state.
     let root = unsafe { libc::geteuid() } == 0;
     let interactive = io::stdin().is_terminal() && io::stderr().is_terminal();
@@ -47,24 +47,39 @@ pub fn elevate(launch: &Launch, mode: Elevation) -> Result<Option<u8>> {
     file.flush()?;
     let executable = env::current_exe().context("locate lyfy for sudo")?;
     let keys = env::vars_os().map(|(key, _)| key);
+    let mut output = tempfile::tempfile().context("create caller-owned scan channel")?;
     let status = sudo_command(&executable, file.path(), keys)
+        .stdout(output.try_clone()?)
         .status()
         .context("cannot launch /usr/bin/sudo; install sudo or run lint as root explicitly")?;
-    Ok(Some(
-        status
-            .code()
-            .and_then(|n| u8::try_from(n).ok())
-            .unwrap_or(2),
-    ))
+    output.seek(SeekFrom::Start(0))?;
+    let code = status
+        .code()
+        .and_then(|n| u8::try_from(n).ok())
+        .unwrap_or(2);
+    let report = decode_report(output, code)?;
+    Ok(Some(lyfy::Outcome {
+        data: lyfy::Data::Lint(report),
+        exit_code: code,
+    }))
 }
 
 fn resolved_settings(launch: &Launch) -> Result<String> {
     let mut settings = toml::Value::try_from(&launch.config)?;
-    settings
-        .as_table_mut()
-        .unwrap()
-        .insert("format".into(), launch.format.clone().into());
+    let table = settings.as_table_mut().unwrap();
+    // Only data crosses stdout. The original caller owns rendering and exports.
+    table.insert("format".into(), "json".into());
+    table.insert("progress".into(), launch.progress.clone().into());
     Ok(toml::to_string(&settings)?)
+}
+
+fn decode_report(reader: impl io::Read, code: u8) -> Result<lyfy::domain::diagnostics::Report> {
+    let report: lyfy::domain::diagnostics::Report = serde_json::from_reader(reader).with_context(|| format!("elevated lint returned no valid report (exit {code}); authentication or execution failed"))?;
+    ensure!(
+        report.schema_version == 2 && code == report.exit_code(),
+        "elevated lint returned inconsistent report status"
+    );
+    Ok(report)
 }
 
 fn sudo_command(
@@ -97,7 +112,7 @@ mod tests {
         let launch = Launch {
             config: super::super::configuration::defaults(),
             format: "json".into(),
-            output_file: None,
+            output_file: Some("/tmp/caller-only-report.json".into()),
             progress: "auto".into(),
         };
         let text = resolved_settings(&launch).unwrap();
@@ -111,6 +126,8 @@ mod tests {
                 .as_str(),
             Some("json")
         );
+        value.as_table_mut().unwrap().remove("progress");
+        assert!(!text.contains("output_file"));
         let config: lyfy::Config = value.try_into().unwrap();
         assert_eq!(
             serde_json::to_value(config).unwrap(),
@@ -166,5 +183,17 @@ mod tests {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod channel_tests {
+    #[test]
+    fn privileged_scan_protocol_rejects_missing_data_and_wrong_exit_status() {
+        let report = lyfy::domain::diagnostics::Report::default();
+        let data = serde_json::to_vec(&report).unwrap();
+        assert!(super::decode_report(data.as_slice(), 0).is_ok());
+        assert!(super::decode_report(data.as_slice(), 1).is_err());
+        assert!(super::decode_report("sudo: authentication failed".as_bytes(), 1).is_err());
     }
 }
