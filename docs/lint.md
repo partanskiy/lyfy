@@ -1,6 +1,6 @@
 # Lint presentation and report files
 
-The library returns inspection data and synchronous events. Only the CLI detects
+The library returns inspection data and synchronous events. Only the lyfy-cli package detects
 terminals, renders progress and encodes/writes report files. Library users can
 observe checks directly without selecting a report format.
 

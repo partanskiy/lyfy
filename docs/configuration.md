@@ -3,7 +3,9 @@
 All names below are TOML keys and `--snake_case` flags. The corresponding
 environment variable is LYFY_ followed by the uppercase name. CLI flags override
 ENV, then TOML, then defaults. Launch input resolution is independent of the
-library's business logic.
+library's business logic. `lyfy-cli` loads this application configuration;
+`lyfy::Config` contains resolved typed parameters and validates their meaning.
+See [the library boundary](library.md).
 
 | Setting | Default | Meaning |
 | --- | --- | --- |

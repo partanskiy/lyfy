@@ -33,7 +33,7 @@ shared validator for the workflow and packaging/publication tools; it rejects
 padded months, invalid months, prereleases and legacy SemVer numbering.
 Release tags and published
 assets must not be rewritten. The version tag controls LYFY_BUILD_VERSION for
-both the downloadable binary and AUR builds; Cargo.toml's development version
+both the downloadable binary and AUR builds; the root workspace's development version
 does not have to match the tag.
 
 ## What the workflow does
