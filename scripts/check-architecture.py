@@ -38,7 +38,7 @@ for path in CORE.rglob("*.rs"):
     for dependency in re.findall(r"\bcrate::([A-Za-z_][A-Za-z_0-9]*)", text):
         if dependency not in ALLOWED[layer]:
             error(path, f"{layer} must not depend on {dependency}")
-    if re.search(r"\b(?:clap|toml)::|std::env|\b(?:e?print(?:ln)?|dbg)!", text):
+    if re.search(r"\b(?:clap|toml|indicatif|console|serde_yaml_ng|percent_encoding)::|std::env|\b(?:e?print(?:ln)?|dbg)!", text):
         error(path, "launch parsing, environment and terminal rendering belong to inputs/bootstrap")
     if layer != "infrastructure" and re.search(r"\b(?:alpm|alpm_sys|libarchive|libarchive3_sys)::", text):
         error(path, "native package-library bindings belong to infrastructure")
@@ -94,7 +94,7 @@ for node in service_edges:
     visit(node, [], done)
 
 manifest = tomllib.loads((ROOT / "Cargo.toml").read_text())
-for package in {"clap", "toml", "config", "dotenv", "dotenvy"} & set(manifest["dependencies"]):
+for package in {"clap", "toml", "config", "dotenv", "dotenvy", "indicatif", "console", "serde_yaml_ng", "percent-encoding"} & set(manifest["dependencies"]):
     if not manifest["dependencies"][package].get("optional", False):
         errors.append(f"Input dependency {package} must be optional")
 if manifest.get("bin") != [{"name": "lyfy", "path": "src/bin/lyfy/main.rs", "required-features": ["cli"]}]:

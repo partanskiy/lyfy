@@ -1,4 +1,4 @@
-use super::{
+use crate::domain::{
     checks::{CheckId, CheckStatus},
     diagnostics::{Diagnostic, Finding},
 };

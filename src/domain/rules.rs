@@ -1,5 +1,5 @@
 //! Closed rule vocabulary. Services collect facts; inputs render these definitions.
-use super::checks::CheckId;
+use crate::domain::checks::CheckId;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 
