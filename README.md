@@ -20,7 +20,7 @@ boundary](docs/library.md).
 
 The four independent application operations share named services for inspection, capture,
 snapshots, reconciliation and transactions. Operations never call each other.
-There is no output layer. See the mandatory [architecture contract](ARCHITECTURE.md)
+There is no output layer. See the mandatory [architecture contract](ARCHITECTURE.md),
 [application/API layout](docs/application.md) and [contribution rules](CONTRIBUTING.md).
 
 ## Build

@@ -46,7 +46,9 @@ Chunking, compression and encryption need separate implementation decisions.
 Reject overlapping collection roots initially. There is no implicit first-match
 or longest-prefix rule that could silently capture a path under another policy.
 Paths use the same validated home/system namespaces and no-follow rules as the
-current core. Default project exclusions remain until explicitly migrating to a
+current core. All local backend/cache roots and runtime transaction paths are
+excluded before walking any collection, preventing recursive capture. Default
+project exclusions remain until explicitly migrating to a
 collection policy; adding a backend never silently includes ~/Projects.
 
 Routing and replication are different. Routing partitions paths between
@@ -143,6 +145,8 @@ CLI owns loading these policies and selecting operations, not backend protocols.
 No outputs layer or additional package is needed for this design.
 
 Optional export/import adapters consume the shared model and content access API.
+An explicit read-only snapshot/content view must precede external exporters; the
+current Saved return value is only a summary, not a complete state payload.
 A one-way exporter cannot promise safe apply from an edited foreign format.
 Round-trip import must validate metadata, content, deletions, host/base references
 and supported semantics. A metadata-only document is not a complete backup.
