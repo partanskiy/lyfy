@@ -107,6 +107,15 @@ for readable configuration diffs. Choose the Git backend for that use case.
 Automatic conversion between existing backend layouts is not implemented;
 choose an empty/new data_dir when changing storage_format.
 
-Both backends share the same managers and services. The persistence adapter
+Both backends share the same application operations and services. The persistence adapter
 owns encoding and history mechanics. Multi-file target backups and receipts
 remain in state_dir and are not committed as desired system state.
+
+
+## Planned storage evolution
+
+storage_format currently chooses Git or directory layout/backend. The CLI
+format setting changes the operation report, not the saved state representation.
+The [collection/backend design](storage-design.md) proposes independent path
+routing, history and backend policies for a later iteration, including object
+storage. It does not introduce implemented S3 support or new runtime settings.
