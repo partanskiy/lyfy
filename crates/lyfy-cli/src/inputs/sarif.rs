@@ -1,9 +1,6 @@
 //! SARIF 2.1.0 adapter. System paths are artifacts, never invented source lines.
 use super::reporting::VERSION;
-use lyfy::domain::{
-    diagnostics::Report,
-    rules::{RuleId, Severity, SubjectKind},
-};
+use lyfy::{Report, RuleId, Severity, SubjectKind};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};

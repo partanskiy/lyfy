@@ -76,7 +76,7 @@ pub struct Options {
     )]
     pub disabled_rules: Option<Vec<String>>,
     #[arg(long, env = "LYFY_FAIL_ON", global = true)]
-    pub fail_on: Option<lyfy::domain::rules::Severity>,
+    pub fail_on: Option<lyfy::Severity>,
 }
 
 #[derive(Debug, Subcommand)]

@@ -73,8 +73,8 @@ fn resolved_settings(launch: &Launch) -> Result<String> {
     Ok(toml::to_string(&settings)?)
 }
 
-fn decode_report(reader: impl io::Read, code: u8) -> Result<lyfy::domain::diagnostics::Report> {
-    let report: lyfy::domain::diagnostics::Report = serde_json::from_reader(reader).with_context(|| format!("elevated lint returned no valid report (exit {code}); authentication or execution failed"))?;
+fn decode_report(reader: impl io::Read, code: u8) -> Result<lyfy::Report> {
+    let report: lyfy::Report = serde_json::from_reader(reader).with_context(|| format!("elevated lint returned no valid report (exit {code}); authentication or execution failed"))?;
     ensure!(
         report.schema_version == 2 && code == report.exit_code(),
         "elevated lint returned inconsistent report status"
@@ -190,7 +190,7 @@ mod tests {
 mod channel_tests {
     #[test]
     fn privileged_scan_protocol_rejects_missing_data_and_wrong_exit_status() {
-        let report = lyfy::domain::diagnostics::Report::default();
+        let report = lyfy::Report::default();
         let data = serde_json::to_vec(&report).unwrap();
         assert!(super::decode_report(data.as_slice(), 0).is_ok());
         assert!(super::decode_report(data.as_slice(), 1).is_err());

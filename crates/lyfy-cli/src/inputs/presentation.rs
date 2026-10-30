@@ -1,4 +1,4 @@
-use lyfy::domain::{diagnostics::Report, rules::Severity};
+use lyfy::{Report, Severity};
 use std::fmt::Write;
 
 pub fn text(report: &Report, color: bool) -> String {
@@ -120,15 +120,14 @@ pub fn text(report: &Report, color: bool) -> String {
         report
             .checks
             .iter()
-            .filter(|check| check.status == lyfy::domain::checks::CheckStatus::Complete)
+            .filter(|check| check.status == lyfy::CheckStatus::Complete)
             .count(),
         report
             .checks
             .iter()
             .filter(|check| matches!(
                 check.status,
-                lyfy::domain::checks::CheckStatus::Incomplete
-                    | lyfy::domain::checks::CheckStatus::Blocked
+                lyfy::CheckStatus::Incomplete | lyfy::CheckStatus::Blocked
             ))
             .count(),
         report.fail_on

@@ -1,8 +1,4 @@
-use lyfy::domain::{
-    checks::CheckId,
-    diagnostics::{Diagnostic, DiagnosticCode, Report},
-    rules::{FixAction, FixKind, RuleId, Severity},
-};
+use lyfy::{CheckId, Diagnostic, DiagnosticCode, FixAction, FixKind, Report, RuleId, Severity};
 use std::collections::BTreeSet;
 
 #[test]

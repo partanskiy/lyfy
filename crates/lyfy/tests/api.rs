@@ -27,7 +27,7 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
         prune: false,
         max_file_bytes: 1024,
         disabled_rules: vec![],
-        fail_on: lyfy::domain::rules::Severity::Warning,
+        fail_on: lyfy::Severity::Warning,
     };
     let context = Context::new(config).unwrap();
     let saved = execute(&context, Request::Save).unwrap();
@@ -59,13 +59,13 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
     fs::write(root.join("etc/os-release"), "ID=other\n").unwrap();
     let mut events = Vec::new();
     let outcome = lyfy::execute_observed(&context, Request::Lint, &mut |event| {
-        use lyfy::domain::observation::Observation;
+        use lyfy::Observation;
         match event {
             Observation::CheckStarted(name) => events.push(format!("start:{}", name.name())),
             Observation::CheckFinished { id, .. } => events.push(format!("end:{}", id.name())),
             Observation::Finding(finding) => {
                 events.push(finding.rule.to_string());
-                if finding.rule == lyfy::domain::rules::RuleId::OsRelease {
+                if finding.rule == lyfy::RuleId::OsRelease {
                     fs::write(root.join("etc/late.pacsave"), "saved\n").unwrap();
                 }
             }
