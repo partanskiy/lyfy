@@ -18,10 +18,10 @@ and application TOML loading belong to lyfy-cli. The library accepts resolved
 typed settings and exactly four operation requests. See the [library API
 boundary](docs/library.md).
 
-The four independent managers share named services for inspection, capture,
-snapshots, reconciliation and transactions. Managers never call each other.
+The four independent application operations share named services for inspection, capture,
+snapshots, reconciliation and transactions. Operations never call each other.
 There is no output layer. See the mandatory [architecture contract](ARCHITECTURE.md)
-and [contribution rules](CONTRIBUTING.md).
+[application/API layout](docs/application.md) and [contribution rules](CONTRIBUTING.md).
 
 ## Build
 

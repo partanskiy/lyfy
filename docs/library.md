@@ -51,7 +51,10 @@ The complete standalone API fixture is in crates/lyfy/tests/api.rs.
 `execute_observed` additionally accepts synchronous inspection feedback; the
 caller chooses how to present it.
 
-This workspace migration preserves the existing Config/Context API. More
+The Config/Context API remains available through explicit root exports. Internal
+layer paths, including the old lyfy::domain namespace, are private. See
+[application/API layout](application.md) for the execution contract and import
+migration. More
 specific per-operation parameter types can be considered separately. There is
 no third configuration package: only one launch implementation currently needs
 the application file loader. Future inputs can construct typed core parameters
