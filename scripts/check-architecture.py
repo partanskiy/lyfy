@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce the layer graph and the closed command/manager set without extra packages."""
+"""Enforce the layer graph and the closed command/operation set without extra packages."""
 from pathlib import Path
 import re
 import sys
@@ -9,12 +9,12 @@ ROOT = Path(__file__).resolve().parent.parent
 CORE = ROOT / "crates/lyfy/src"
 CLI = ROOT / "crates/lyfy-cli/src"
 COMMANDS = {"lint", "fmt", "save", "apply"}
-LAYERS = {"domain", "infrastructure", "services", "managers"}
+LAYERS = {"domain", "infrastructure", "services", "application"}
 ALLOWED = {
     "domain": {"domain"},
     "infrastructure": {"domain", "infrastructure"},
     "services": {"domain", "infrastructure", "services", "Context"},
-    "managers": {"domain", "services", "Context"},
+    "application": {"domain", "services", "Context"},
 }
 errors = []
 service_edges = {}
@@ -29,7 +29,7 @@ for path in CORE.rglob("*.rs"):
     text = path.read_text()
     if re.search(r"\b(?:clap|toml|indicatif|console|serde_yaml_ng|percent_encoding)::|std::env|\b(?:e?print(?:ln)?|dbg)!", text):
         error(path, "launch parsing, environment and terminal rendering belong to inputs/bootstrap")
-    if relative == Path("lib.rs"):
+    if relative in {Path("lib.rs"), Path("api.rs")}:
         continue
     layer = relative.parts[0]
     if layer not in LAYERS:
@@ -45,16 +45,16 @@ for path in CORE.rglob("*.rs"):
         error(path, "native package-library bindings belong to infrastructure")
     if relative != Path("infrastructure/pacman/restore.rs") and '"/usr/bin/pacman"' in text:
         error(path, "inventory/inspection must use libalpm; only interactive restoration invokes pacman")
-    if layer in {"domain", "managers"}:
+    if layer in {"domain", "application"}:
         if re.search(r"\b(?:libc|walkdir|tempfile)::|std::(?:fs|io|process|os)::", text):
             error(path, "OS access belongs to infrastructure/services")
         for group in re.findall(r"use\s+std::\{(.*?)\};", text, re.S):
             if re.search(r"\b(?:fs|io|process|os)\b", group):
                 error(path, "OS access belongs to infrastructure/services")
-    if layer == "managers" and re.search(r"\bsuper::|\buse\s+crate\s*;", text):
-        error(path, "managers must not import siblings or alias the crate root")
-    if layer == "managers" and re.search(r"\bcontext\.repository\b",text):
-        error(path, "managers must access persistence through named services")
+    if layer == "application" and re.search(r"\bsuper::|\buse\s+crate\s*;", text):
+        error(path, "operations must not import siblings or alias the crate root")
+    if layer == "application" and re.search(r"\bcontext\.repository\b",text):
+        error(path, "operations must access persistence through named services")
     if layer != "infrastructure" and "super::" in text:
         error(path, "cross-layer dependencies must use explicit crate::layer paths")
     if "super::super::" in text or "extern crate" in text:
@@ -68,12 +68,33 @@ for path in CORE.rglob("*.rs"):
             dependencies.update(re.findall(r"\b([a-z_]+)(?=\s*(?:,|::|$))", group))
         service_edges.setdefault(source, set()).update(dependencies - {source})
 
-managers = {p.stem for p in (CORE / "managers").glob("*.rs")} - {"mod"}
-if managers != COMMANDS or any(p.is_dir() for p in (CORE / "managers").iterdir()):
-    errors.append("Exactly four flat manager modules are allowed: lint, fmt, save, apply")
+operations = {p.stem for p in (CORE / "application").glob("*.rs")} - {"mod"}
+if operations != COMMANDS or any(p.is_dir() for p in (CORE / "application").iterdir()):
+    errors.append("Exactly four flat application operations are allowed: lint, fmt, save, apply")
+for path in (CORE / "application").glob("*.rs"):
+    if path.name != "mod.rs" and re.findall(r"^pub(?:\([^)]*\))? fn ([a-z_]+)", path.read_text(), re.M) != ["run"]:
+        error(path, "an operation exposes exactly one internal run function")
+    if path.name != "mod.rs" and not re.search(r"^pub\(crate\) fn run\(", path.read_text(), re.M):
+        error(path, "operation run functions must be pub(crate)")
 if {p.name for p in CORE.iterdir() if p.is_dir()} != LAYERS:
     errors.append("Core directories must match the four documented layers")
-request = re.search(r"pub enum Request\s*\{(.*?)\n\}", (CORE / "lib.rs").read_text(), re.S)
+facade = (CORE / "lib.rs").read_text()
+facade_code = "\n".join(line for line in facade.splitlines() if not line.lstrip().startswith("//"))
+if set(re.findall(r"^mod ([a-z_]+);", facade_code, re.M)) != LAYERS | {"api"}:
+    errors.append("lib.rs must declare only the private API and four internal layers")
+if re.search(r"\bpub(?:\([^)]*\))? mod\b|\b(?:fn|struct|enum|trait|impl)\b", facade_code):
+    errors.append("lib.rs must be an explicit facade, not a public layer or implementation")
+for export in re.findall(r"pub use (.*?);", facade_code, re.S):
+    if "*" in export or not export.startswith(("api::", "domain::")):
+        errors.append("Public exports must explicitly name API/model items")
+api = (CORE / "api.rs").read_text()
+if set(re.findall(r"^pub fn ([a-z_]+)", api, re.M)) != {"execute", "execute_observed"}:
+    errors.append("api.rs must contain exactly the two public operation entry points")
+if set(re.findall(r"^pub (?:struct|enum|trait|type) ([A-Za-z]+)", api, re.M)) != {"Context", "Request", "Data", "Outcome"}:
+    errors.append("Operation API types belong to the explicit api.rs contract")
+if re.search(r"\b(?:libc|walkdir|tempfile|alpm|alpm_sys|libarchive|libarchive3_sys)::|std::(?:fs|io|process|os)::", api):
+    errors.append("API composition must delegate OS/native mechanisms to infrastructure")
+request = re.search(r"pub enum Request\s*\{(.*?)\n\}", api, re.S)
 variants = set(re.findall(r"^    ([A-Z][A-Za-z]+)(?:,|\s*\{)", request[1], re.M)) if request else set()
 if {v.lower() for v in variants} != COMMANDS:
     errors.append("The public Request enum must contain exactly four commands")
@@ -141,7 +162,7 @@ for name, _ in dependencies(cli_manifest):
         errors.append(f"Native package dependency {name} belongs to core infrastructure")
 for path in CLI.rglob("*.rs"):
     text = path.read_text()
-    if re.search(r"\blyfy::(?:infrastructure|services|managers)\b|\b(?:alpm|alpm_sys|libarchive|libarchive3_sys)::", text):
+    if re.search(r"\blyfy::(?:api|application|domain|infrastructure|services)\b|\b(?:alpm|alpm_sys|libarchive|libarchive3_sys)::", text):
         error(path, "CLI must use only the public core API, not infrastructure bindings")
 if {p.name for p in CLI.iterdir() if p.is_dir()} != {"inputs"}:
     errors.append("CLI launch modules belong to inputs")
