@@ -58,9 +58,9 @@ operations return concrete result types which the API wraps in Data/Outcome.
 | Operation | Coordination | Concrete result |
 | --- | --- | --- |
 | lint | Inspect selected Arch checks and return findings/coverage | Report |
-| fmt | Inspect, plan deterministic actions, optionally lock/write/verify | Formatted |
+| fmt | Lock when writing, inspect/plan, optionally execute and verify | Formatted |
 | save | Lock repository/state, capture host overlay and packages, commit snapshot | Saved |
-| apply | Reconcile desired/live/receipt state, optionally lock/execute supported changes | Applied |
+| apply | Lock when writing, reconcile desired/live/receipt, optionally execute | Applied |
 
 run is an ordinary function name. It is meaningful in its operation module and
 has no special Rust entry-point behavior. The common name does not require a
