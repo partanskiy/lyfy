@@ -12,6 +12,23 @@
 //!     Ok(execute(&context, Request::Lint)?.exit_code)
 //! }
 //! ```
+//! Internal operations are not public entry points:
+//!
+//! ```compile_fail
+//! use lyfy::application::save::run;
+//! ```
+//!
+//! Domain layout is internal; use the explicit root types such as [`Config`]:
+//!
+//! ```compile_fail
+//! use lyfy::domain::config::Config;
+//! ```
+//!
+//! API implementation paths are private; use [`execute`] at the crate root:
+//!
+//! ```compile_fail
+//! use lyfy::api::execute;
+//! ```
 mod api;
 mod application;
 mod domain;

@@ -72,6 +72,32 @@ class WorkspaceBoundaries(unittest.TestCase):
         self.append("crates/lyfy/src/lib.rs", 'fn render() { println!("bad"); }')
         self.check("launch parsing, environment and terminal rendering belong to inputs/bootstrap")
 
+    def test_operation_entry_points_cannot_become_public(self):
+        path = self.root / "crates/lyfy/src/application/fmt.rs"
+        path.write_text(path.read_text().replace("pub(crate) fn run", "pub fn run"))
+        self.check("operation run functions must be pub(crate)")
+
+    def test_operations_cannot_import_each_other(self):
+        self.append("crates/lyfy/src/application/fmt.rs", "use crate::application::save;")
+        self.check("application must not depend on application")
+
+    def test_services_cannot_call_the_dispatcher_through_its_module(self):
+        self.append("crates/lyfy/src/services/files.rs", "use crate::api::execute;")
+        self.check("services must not depend on api")
+
+    def test_internal_domain_cannot_become_a_public_namespace(self):
+        path = self.root / "crates/lyfy/src/lib.rs"
+        path.write_text(path.read_text().replace("mod domain;", "pub mod domain;"))
+        self.check("lib.rs must be an explicit facade")
+
+    def test_public_model_exports_cannot_use_globs(self):
+        self.append("crates/lyfy/src/lib.rs", "pub use domain::rules::*;")
+        self.check("Public exports must explicitly name API/model items")
+
+    def test_a_new_public_operation_function_requires_a_contract_change(self):
+        self.append("crates/lyfy/src/api.rs", "pub fn another_operation() {}")
+        self.check("api.rs must contain exactly the two public operation entry points")
+
 
 if __name__ == "__main__":
     unittest.main()
