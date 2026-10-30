@@ -4,7 +4,7 @@ use crate::services::{capture, packages, session, snapshots};
 use anyhow::{Result, ensure};
 use std::collections::BTreeMap;
 
-pub fn run(context: &Context) -> Result<Saved> {
+pub(crate) fn run(context: &Context) -> Result<Saved> {
     let config = &context.config;
     let _locks = session::lock(context)?;
     ensure!(

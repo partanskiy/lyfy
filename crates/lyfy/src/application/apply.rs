@@ -3,7 +3,7 @@ use crate::domain::results::Applied;
 use crate::services::{packages, reconciliation, session, transactions};
 use anyhow::{Context as _, Result};
 
-pub fn run(context: &Context, write: bool) -> Result<Applied> {
+pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
     let config = &context.config;
     let _locks = write.then(|| session::lock(context)).transpose()?;
     let mut plan = reconciliation::build(context)?;

@@ -3,7 +3,7 @@ use crate::domain::results::Formatted;
 use crate::services::{inspection, remediation, session, transactions};
 use anyhow::Result;
 
-pub fn run(context: &Context, write: bool) -> Result<Formatted> {
+pub(crate) fn run(context: &Context, write: bool) -> Result<Formatted> {
     let config = &context.config;
     let _locks = write.then(|| session::state_lock(config)).transpose()?;
     let mut report = inspection::run(config)?;
