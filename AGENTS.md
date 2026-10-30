@@ -3,8 +3,9 @@
 - Read ARCHITECTURE.md first and enforce its layer boundaries.
 - Keep exactly two workspace packages: lyfy (library) and lyfy-cli (binary lyfy).
 - Only lyfy-cli depends on lyfy. Inputs own launch defaults, CLI, ENV and TOML loading; lyfy owns typed settings and validation.
-- Keep exactly four independent managers: lint, fmt, save, apply.
-- Managers must never import or invoke one another; share named services.
+- Keep exactly four independent application operations: lint, fmt, save, apply.
+- Application operations must never import or invoke one another; share named services.
+- lib.rs is an explicit public facade; api.rs alone dispatches to application. Internal layer modules stay private.
 - Do not add an outputs layer or a fifth command without an architecture discussion.
 - Target Arch Linux only. Never mutate the developer's host during tests.
 - Keep main protected; use topic branches and pull requests, rebase merge only.

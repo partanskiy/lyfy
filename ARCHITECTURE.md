@@ -71,10 +71,10 @@ a discussion; helper code must not become an extra command implicitly.
 ```mermaid
 flowchart TD
     I[Launch inputs] --> A[Core API and dispatcher]
-    A --> L[lint manager]
-    A --> F[fmt manager]
-    A --> S[save manager]
-    A --> P[apply manager]
+    A --> L[lint operation]
+    A --> F[fmt operation]
+    A --> S[save operation]
+    A --> P[apply operation]
     L --> V[Shared services]
     F --> V
     S --> V
@@ -89,32 +89,44 @@ The library contains exactly four layer directories. They have these responsibil
 | Layer | Owns | May depend on |
 | --- | --- | --- |
 | `domain` | Validated settings, state types, rule definitions, plans, results, pure comparison rules | Domain and pure libraries |
-| `managers` | The sequence and execution policy of each command | Domain and services |
+| `application` | The sequence and execution policy of each command | Domain and services |
 | `services` | Reusable application capabilities | Domain, infrastructure, acyclic service dependencies |
 | `infrastructure` | Filesystem descriptors, persistence, process execution, pacman integration | Domain and infrastructure |
 
-`lib.rs` composes the context and dispatches requests to managers. It is the
-only module allowed to reference the managers as a group. Managers are private
-implementation details; the stable entry points are `Context`, `Request` and
-`execute` (or `execute_observed` for inspection feedback), with typed result data.
+`lib.rs` is the public facade: private module declarations and explicit type
+and function re-exports. Internal domain paths are not a public namespace.
+`api.rs` owns Context, Request, Data, Outcome and the two operation entry points,
+execute and execute_observed. It is the only composition root and the only
+module allowed to dispatch to the application operations as a group.
 
-## Manager boundaries
+Each operation exposes one `pub(crate) fn run` with its concrete result type.
+These are implementation functions, not public library entry points. Ordinary
+functions and an exhaustive Request match define the closed operation set;
+there is no command registry, handler trait or class per operation.
 
-There are exactly four flat manager modules: `lint.rs`, `fmt.rs`, `save.rs`,
+Public report, plan, policy and result types are explicitly re-exported from
+the crate root. File-inventory implementation types and persistence internals
+remain private. This is a Rust source API, not a stable binary ABI. Public
+module paths must not expose the internal layer layout. The CLI and external
+consumers use the same root API.
+
+## Application boundaries
+
+There are exactly four flat application operation modules: `lint.rs`, `fmt.rs`, `save.rs`,
 `apply.rs`. Their `mod.rs` only declares modules.
 
-- Managers never import or call other managers, including indirectly through
-  a callback, dispatcher, service or alias. A manager must not invoke `execute`.
-- Managers do not read files, spawn processes, parse inputs, inspect ENV or
+- Application operations never import or call other operations, including indirectly through
+  a callback, dispatcher, service or alias. An operation must not invoke `execute`.
+- Application operations do not read files, spawn processes, parse inputs, inspect ENV or
   render terminal text. They coordinate named capabilities.
-- A service never calls a manager or the dispatcher. Infrastructure never
-  calls a service or manager. Domain code has no OS access.
+- A service never calls an operation or the dispatcher. Infrastructure never
+  calls a service or operation. Domain code has no OS access.
 - Public functions take explicit inputs and return typed values or errors.
   No global mutable context, ambient launch-setting dependencies or hidden
   execution permission.
 
 For example, fmt and apply share the `transactions` service. fmt does not call
-the apply manager. Likewise lint and fmt share `inspection`; fmt does not run
+the apply operation. Likewise lint and fmt share `inspection`; fmt does not run
 the lint command.
 
 ## Shared capabilities
@@ -213,15 +225,22 @@ than reaching into inspection implementations.
 - Reconciliation reads a selected committed revision, never uncommitted edits.
 - Save refuses a dirty Git repository and never pushes or merges implicitly.
 - The context owns one explicit repository session shared by named services;
-  managers cannot access its persistence implementation directly.
+  operations cannot access its persistence implementation directly.
 - Exclusions apply to capture and reconciliation, including imported snapshots.
 - File execution uses backups, an explicit plan and a transaction journal.
 - Package transactions have separate semantics and are not filesystem rollback.
 
+## Storage evolution
+
+[The storage design](docs/storage-design.md) separates the shared state model,
+collections, backend capabilities and history policy. It is a design for a
+future iteration; docs/storage.md describes implemented behavior. New backends
+and routing require their own implementation and compatibility review.
+
 ## Enforcement
 
 Run `python3 scripts/check-architecture.py`. CI requires this check. It verifies
-the manager and layer sets, explicit dependency paths, absence of input and
+the operation and layer sets, explicit dependency paths, absence of input and
 terminal code in the core, and acyclic service dependencies. Source checks
 complement Rust module visibility and Cargo target boundaries.
 
