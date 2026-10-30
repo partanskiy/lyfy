@@ -98,6 +98,10 @@ class WorkspaceBoundaries(unittest.TestCase):
         self.append("crates/lyfy/src/api.rs", "pub fn another_operation() {}")
         self.check("api.rs must contain exactly the two public operation entry points")
 
+    def test_application_module_cannot_hide_an_extra_dispatcher(self):
+        self.append("crates/lyfy/src/application/mod.rs", "pub(crate) fn dispatch_extra() {}")
+        self.check("application/mod.rs must only declare the four operation modules")
+
 
 if __name__ == "__main__":
     unittest.main()

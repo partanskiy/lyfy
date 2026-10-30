@@ -71,6 +71,9 @@ for path in CORE.rglob("*.rs"):
 operations = {p.stem for p in (CORE / "application").glob("*.rs")} - {"mod"}
 if operations != COMMANDS or any(p.is_dir() for p in (CORE / "application").iterdir()):
     errors.append("Exactly four flat application operations are allowed: lint, fmt, save, apply")
+declarations = [line.strip() for line in (CORE / "application/mod.rs").read_text().splitlines() if line.strip() and not line.lstrip().startswith("//")]
+if len(declarations) != 4 or set(declarations) != {f"pub(crate) mod {name};" for name in COMMANDS}:
+    errors.append("application/mod.rs must only declare the four operation modules")
 for path in (CORE / "application").glob("*.rs"):
     if path.name != "mod.rs" and re.findall(r"^pub(?:\([^)]*\))? fn ([a-z_]+)", path.read_text(), re.M) != ["run"]:
         error(path, "an operation exposes exactly one internal run function")
