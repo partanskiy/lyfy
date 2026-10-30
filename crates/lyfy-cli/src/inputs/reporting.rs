@@ -1,10 +1,7 @@
 //! Report encodings and file ownership are launch concerns, never core services.
 use super::{configuration::Launch, presentation, sarif};
 use anyhow::{Context, Result, ensure};
-use lyfy::domain::{
-    diagnostics::Report,
-    rules::{RuleId, RuleSpec, Severity},
-};
+use lyfy::{Report, RuleId, RuleSpec, Severity};
 use serde::Serialize;
 use std::{
     fs,

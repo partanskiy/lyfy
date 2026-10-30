@@ -1,7 +1,7 @@
 //! Terminal feedback only. Never writes findings to stdout.
 use super::presentation::safe;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use lyfy::domain::{checks::CheckStatus, observation::Observation};
+use lyfy::{CheckStatus, Observation};
 use std::{
     io::{self, IsTerminal, Write},
     time::Duration,
