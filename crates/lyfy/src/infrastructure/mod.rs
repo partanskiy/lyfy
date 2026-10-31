@@ -5,6 +5,8 @@ pub(crate) mod pacman;
 pub(crate) mod process;
 pub(crate) mod s3;
 mod s3_http;
+pub(crate) mod s3_lease;
+mod s3_listing;
 pub(crate) mod store;
 mod store_history;
 mod store_payload;
