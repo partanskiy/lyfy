@@ -169,7 +169,9 @@ fn save_failure_never_advances_head() {
     );
     assert_eq!(f.head("laptop"), head);
     fs::remove_file(f.root.join("etc/oversized")).unwrap();
-    fs::hard_link(f.root.join("etc/example.conf"), f.root.join("etc/hardlink")).unwrap();
+    let fifo = std::ffi::CString::new(f.root.join("etc/fifo").to_str().unwrap()).unwrap();
+    // SAFETY: fifo is a fixture-local NUL terminated path.
+    assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
     assert_eq!(f.run(&["save"]).status.code(), Some(2));
     assert_eq!(f.head("laptop"), head);
 }

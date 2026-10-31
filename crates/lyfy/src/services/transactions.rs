@@ -3,7 +3,7 @@ use crate::domain::plan::{Change, Plan, Receipt};
 use crate::domain::state::Content;
 use crate::infrastructure::filesystem::Root;
 use crate::infrastructure::store::{Store, timestamp, write_json};
-use crate::services::files::observe;
+use crate::services::files::{observe, observe_like};
 use crate::services::reconciliation::receipt_path;
 use anyhow::{Context, Result, ensure};
 use serde::Serialize;
@@ -62,7 +62,7 @@ fn execute(
     // Back up every preimage before the first target write.
     for change in &plan.changes {
         let path = config.path_for_key(&change.key)?;
-        let observed = observe(config, &root, &path)?;
+        let observed = observe_like(config, &root, &path, change.before.as_ref())?;
         ensure!(
             observed.as_ref().map(|(node, _)| node) == change.before.as_ref(),
             "target changed after planning: {}",
@@ -93,7 +93,14 @@ fn execute(
             );
         }
         let path = config.path_for_key(&change.key)?;
-        let current = observe(config, &root, &path)?.map(|(n, _)| n);
+        let mut current =
+            observe_like(config, &root, &path, change.before.as_ref())?.map(|(n, _)| n);
+        if let Some(target) = change.before.as_ref().and_then(|n| n.hardlink.as_ref())
+            && journal.completed.contains(target)
+            && let Some(node) = &mut current
+        {
+            node.hardlink = Some(target.clone());
+        }
         ensure!(
             current == change.before,
             "target changed during apply: {}; recovery data: {}",
@@ -109,8 +116,24 @@ fn execute(
                     }
                 }
                 Content::File { sha256 } => {
-                    root.put_file(&path, &mut store.object_file(sha256)?, node.mode, owner)?;
-                    root.set_attributes(&path, &node.attributes)?;
+                    if let Some(target) = &node.hardlink {
+                        let target_path = config.path_for_key(target)?;
+                        let expected = plan
+                            .desired
+                            .get(target)
+                            .context("undeclared hardlink target")?;
+                        ensure!(
+                            observe(config, &root, &target_path)?
+                                .map(|(n, _)| n)
+                                .as_ref()
+                                == Some(expected),
+                            "hardlink target changed after planning"
+                        );
+                        root.hardlink(&path, &target_path)?;
+                    } else {
+                        root.put_file(&path, &mut store.object_file(sha256)?, node.mode, owner)?;
+                        root.set_attributes(&path, &node.attributes)?;
+                    }
                 }
                 Content::Symlink { target } => {
                     root.put(&path, None, Some(target), node.mode, owner)?

@@ -69,6 +69,9 @@ pub fn save_diff(before: &Tree, after: &Tree) -> Vec<SavedChange> {
                 if old.attributes != new.attributes {
                     fields.push("attributes");
                 }
+                if old.hardlink != new.hardlink {
+                    fields.push("hardlink");
+                }
             }
             Some(SavedChange {
                 key: key.clone(),

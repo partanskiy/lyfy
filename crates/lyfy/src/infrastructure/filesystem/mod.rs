@@ -4,6 +4,7 @@ mod content;
 pub use content::hash_file;
 mod hash;
 mod identity;
+mod links;
 pub use identity::IdentityView;
 mod write;
 use anyhow::{Context, Result, ensure};

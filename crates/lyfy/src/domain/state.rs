@@ -27,6 +27,8 @@ pub struct Node {
     pub owner: Option<(u32, u32)>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub attributes: BTreeMap<String, Vec<u8>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hardlink: Option<String>,
 }
 
 impl Node {
@@ -41,6 +43,12 @@ impl Node {
                 "invalid extended attribute"
             );
         }
+        if let Some(target) = &self.hardlink {
+            ensure!(
+                matches!(self.content, Content::File { .. }) && !target.contains('\0'),
+                "invalid hardlink declaration"
+            );
+        }
         if let Content::File { sha256 } = &self.content {
             ensure!(
                 crate::domain::config::is_digest(sha256),
@@ -52,6 +60,27 @@ impl Node {
         }
         Ok(())
     }
+}
+
+pub fn validate_tree(tree: &Tree) -> Result<()> {
+    for (key, node) in tree {
+        node.validate()?;
+        if let Some(target) = &node.hardlink {
+            let primary = tree
+                .get(target)
+                .ok_or_else(|| anyhow::anyhow!("hardlink target missing from scope"))?;
+            ensure!(
+                target < key
+                    && primary.hardlink.is_none()
+                    && node.content == primary.content
+                    && node.mode == primary.mode
+                    && node.owner == primary.owner
+                    && node.attributes == primary.attributes,
+                "inconsistent or cyclic hardlink declaration"
+            );
+        }
+    }
+    Ok(())
 }
 
 pub fn digest(bytes: &[u8]) -> String {
