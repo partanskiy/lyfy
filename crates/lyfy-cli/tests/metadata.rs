@@ -124,3 +124,22 @@ fn hardlink_topology_is_saved_restored_and_checked_for_drift() {
         );
     }
 }
+
+#[test]
+fn hardlinks_outside_a_capture_scope_are_diagnosed_instead_of_flattened() {
+    let f = Fixture::new();
+    let outside = f.temp.path().join("outside");
+    fs::hard_link(f.root.join("etc/example.conf"), outside).unwrap();
+    let output = f.run(&["save"]);
+    assert_eq!(output.status.code(), Some(2));
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["created"], false);
+    assert!(
+        result["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["detail"].as_str().unwrap().contains("hardlink group"))
+    );
+    assert!(!f.data.join("hosts/laptop/HEAD").exists());
+}
