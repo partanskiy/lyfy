@@ -1,5 +1,7 @@
 //! Descriptor-relative access: parent symlinks cannot redirect writes out of root.
 mod attributes;
+mod content;
+pub use content::hash_file;
 mod hash;
 mod identity;
 pub use identity::IdentityView;

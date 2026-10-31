@@ -10,6 +10,24 @@ impl Root {
         mode: u32,
         owner: Option<(u32, u32)>,
     ) -> Result<()> {
+        let mut cursor = bytes.map(std::io::Cursor::new);
+        self.put_reader(
+            path,
+            cursor.as_mut().map(|c| c as &mut dyn std::io::Read),
+            link,
+            mode,
+            owner,
+        )
+    }
+
+    pub(super) fn put_reader(
+        &self,
+        path: &Path,
+        reader: Option<&mut dyn std::io::Read>,
+        link: Option<&str>,
+        mode: u32,
+        owner: Option<(u32, u32)>,
+    ) -> Result<()> {
         let (dir, leaf) = self.parent(path, true)?;
         let temp = CString::new(format!(
             ".lyfy-{}-{}",
@@ -54,7 +72,7 @@ impl Root {
                         0o600,
                     )
                 })?;
-                file.write_all(bytes.context("missing file content")?)?;
+                std::io::copy(reader.context("missing file content")?, &mut file)?;
                 if let Some((uid, gid)) = owner {
                     // SAFETY: valid open file descriptor.
                     ensure!(
