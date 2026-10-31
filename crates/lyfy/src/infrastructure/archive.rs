@@ -8,6 +8,7 @@ use std::{
     collections::BTreeSet,
     fs::File,
     io::{Read, Seek, Write},
+    path::Path,
 };
 
 const MAGIC: &[u8; 8] = b"LYFY\0\x01\r\n";
@@ -38,7 +39,12 @@ pub fn write(store: &Store, state: &SnapshotState) -> Result<File> {
     Ok(output)
 }
 
-pub fn read(config: &Config, mut input: File, store: Option<&Store>) -> Result<SnapshotState> {
+pub fn read(
+    config: &Config,
+    mut input: File,
+    store: Option<&Store>,
+    filter_scope: bool,
+) -> Result<SnapshotState> {
     let mut magic = [0; 8];
     input.read_exact(&mut magic)?;
     ensure!(&magic == MAGIC, "unsupported lyfy archive");
@@ -48,7 +54,7 @@ pub fn read(config: &Config, mut input: File, store: Option<&Store>) -> Result<S
     ensure!(length <= 64 * 1024 * 1024, "archive manifest exceeds limit");
     let mut manifest = vec![0; length as usize];
     input.read_exact(&mut manifest)?;
-    let state: SnapshotState = serde_json::from_slice(&manifest)
+    let mut state: SnapshotState = serde_json::from_slice(&manifest)
         .map_err(|_| anyhow::anyhow!("invalid archive manifest"))?;
     ensure!(
         state.schema == 1 && state.system == "arch",
@@ -59,7 +65,7 @@ pub fn read(config: &Config, mut input: File, store: Option<&Store>) -> Result<S
     for key in state.tree.keys().chain(state.deletions.iter()) {
         let path = config.path_for_key(key)?;
         ensure!(
-            config.key(&path)? == *key && config.managed(&path),
+            config.key(&path)? == *key && (filter_scope || config.managed(&path)),
             "archive path is outside the selected VFS scope: {key}"
         );
     }
@@ -79,18 +85,34 @@ pub fn read(config: &Config, mut input: File, store: Option<&Store>) -> Result<S
         required == state.sizes.keys().collect(),
         "archive content index differs from manifest"
     );
+    let selected: BTreeSet<String> = state
+        .tree
+        .iter()
+        .filter(|(key, _)| config.path_for_key(key).is_ok_and(|p| config.managed(&p)))
+        .filter_map(|(_, n)| match &n.content {
+            Content::File { sha256 } => Some(sha256.clone()),
+            _ => None,
+        })
+        .collect();
     for (hash, size) in &state.sizes {
+        let limit = if filter_scope && !selected.contains(hash) {
+            0
+        } else {
+            config.max_file_bytes
+        };
         ensure!(
-            is_digest(hash) && (config.max_file_bytes == 0 || *size <= config.max_file_bytes),
+            is_digest(hash) && (limit == 0 || *size <= limit),
             "invalid or oversized archive content"
         );
         let mut file = tempfile::tempfile()?;
         let copied = std::io::copy(&mut (&mut input).take(*size), &mut file)?;
         ensure!(
-            copied == *size && hash_file(&mut file, config.max_file_bytes)? == *hash,
+            copied == *size && hash_file(&mut file, limit)? == *hash,
             "archive content is truncated or corrupt"
         );
-        if let Some(store) = store {
+        if let Some(store) = store
+            && (!filter_scope || selected.contains(hash))
+        {
             store.put_file(hash, &mut file)?;
         }
     }
@@ -99,5 +121,22 @@ pub fn read(config: &Config, mut input: File, store: Option<&Store>) -> Result<S
         input.read(&mut trailing)? == 0,
         "archive contains unexpected trailing content"
     );
+    if filter_scope {
+        state
+            .tree
+            .retain(|key, _| config.path_for_key(key).is_ok_and(|p| config.managed(&p)));
+        state
+            .deletions
+            .retain(|key| config.path_for_key(key).is_ok_and(|p| config.managed(&p)));
+        state.sizes.retain(|hash, _| selected.contains(hash));
+        state.diagnostics.retain(|d| {
+            config.managed(Path::new(&d.path))
+                || config
+                    .include
+                    .iter()
+                    .any(|p| config.logical(p).is_ok_and(|p| p.starts_with(&d.path)))
+        });
+        validate_tree(&state.tree)?;
+    }
     Ok(state)
 }

@@ -8,6 +8,7 @@ use serde::Serialize;
 
 pub struct Context {
     pub(crate) access: crate::domain::access::Access,
+    pub(crate) capture_source: Option<std::path::PathBuf>,
     pub(crate) config: Config,
     pub(crate) repository: crate::infrastructure::store::Store,
 }
@@ -38,6 +39,7 @@ impl Context {
         crate::infrastructure::filesystem::Root::open(&config.root)?;
         Ok(Self {
             access: Default::default(),
+            capture_source: None,
             repository: crate::infrastructure::store::Store::configured(&config),
             config,
         })
@@ -50,6 +52,12 @@ impl Context {
     pub fn with_access(mut self, access: crate::domain::access::Access) -> Self {
         self.access = access;
         self
+    }
+
+    pub fn with_capture_source(mut self, path: std::path::PathBuf) -> Result<Self> {
+        crate::domain::config::absolute(&path)?;
+        self.capture_source = Some(path);
+        Ok(self)
     }
 
     pub fn snapshot(&self, mount: &str) -> Result<SnapshotView> {
@@ -69,7 +77,7 @@ impl Context {
 pub enum Request {
     Lint,
     Fmt { write: bool },
-    Save { dry_run: bool },
+    Save { dry_run: bool, capture_only: bool },
     Apply { write: bool },
 }
 
@@ -110,8 +118,11 @@ pub fn execute_observed(
             let failed = result.report.exit_code();
             (Data::Fmt(result), failed)
         }
-        Request::Save { dry_run } => {
-            let result = crate::application::save::run(context, dry_run, observer)?;
+        Request::Save {
+            dry_run,
+            capture_only,
+        } => {
+            let result = crate::application::save::run(context, dry_run, capture_only, observer)?;
             let code = if result.complete { 0 } else { 2 };
             (Data::Save(result), code)
         }

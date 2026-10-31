@@ -90,6 +90,15 @@ pub struct RepositoryLock {
     pub remote: Option<crate::infrastructure::s3_lease::Lease>,
 }
 impl Store {
+    pub fn ephemeral() -> Result<Self> {
+        use std::os::unix::fs::PermissionsExt;
+        let temporary = tempfile::Builder::new()
+            .permissions(std::fs::Permissions::from_mode(0o700))
+            .tempdir()?;
+        let mut store = Self::new(temporary.path().to_path_buf());
+        store.temporary = Some(temporary);
+        Ok(store)
+    }
     pub fn begin(&self) {
         if let Some(git) = &self.git {
             git.begin();

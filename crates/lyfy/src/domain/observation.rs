@@ -7,6 +7,8 @@ use std::time::Duration;
 /// Synchronous inspection feedback, rendered only by the calling input.
 #[derive(Debug)]
 pub enum Observation<'a> {
+    /// Private capture transport, emitted only for an explicit capture-only request.
+    CaptureArchive(&'a [u8]),
     SaveStage(&'static str),
     SaveProgress {
         entries: usize,

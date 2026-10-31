@@ -36,7 +36,14 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
         fail_on: lyfy::Severity::Warning,
     };
     let context = Context::new(config).unwrap();
-    let saved = execute(&context, Request::Save { dry_run: false }).unwrap();
+    let saved = execute(
+        &context,
+        Request::Save {
+            dry_run: false,
+            capture_only: false,
+        },
+    )
+    .unwrap();
     assert_eq!(saved.exit_code, 0);
     assert!(matches!(saved.data, Data::Save(_)));
     let view = context.snapshot("default").unwrap();
@@ -98,4 +105,67 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
         ]
     );
     assert!(events.iter().any(|event| event == "arch.pacsave"));
+
+    // A protected reader can return one archive; the caller partitions and
+    // publishes it without recapturing subsequently edited live files.
+    let nested = root.join("home/test/.config/nested");
+    fs::create_dir(&nested).unwrap();
+    fs::write(nested.join("value"), "captured before publication\n").unwrap();
+    let backend = temp.path().join("routed");
+    let caller = Context::new(Config {
+        data_dir: temp.path().join("caller-data"),
+        state_dir: temp.path().join("caller-state"),
+        backends: serde_json::from_value(serde_json::json!([{
+            "name": "local", "kind": "directory", "path": backend
+        }]))
+        .unwrap(),
+        mounts: serde_json::from_value(serde_json::json!([{
+            "name": "nested", "path": "~/.config/nested", "backend": "local"
+        }]))
+        .unwrap(),
+        ..context.config().clone()
+    })
+    .unwrap();
+    let mut bytes = vec![];
+    let captured = lyfy::execute_observed(
+        &caller,
+        Request::Save {
+            dry_run: false,
+            capture_only: true,
+        },
+        &mut |event| {
+            if let lyfy::Observation::CaptureArchive(chunk) = event {
+                bytes.extend_from_slice(chunk);
+            }
+        },
+    )
+    .unwrap();
+    assert_eq!(captured.exit_code, 0);
+    assert!(!caller.config().data_dir.exists());
+    assert!(!caller.config().state_dir.exists());
+    assert!(!backend.exists());
+    let channel = temp.path().join("capture-channel");
+    fs::write(&channel, bytes).unwrap();
+    fs::write(nested.join("value"), "edited after capture\n").unwrap();
+    let caller = caller.with_capture_source(channel).unwrap();
+    assert_eq!(
+        execute(
+            &caller,
+            Request::Save {
+                dry_run: false,
+                capture_only: false
+            }
+        )
+        .unwrap()
+        .exit_code,
+        0
+    );
+    let view = caller.snapshot("nested").unwrap();
+    let lyfy::Content::File { sha256 } = &view.state().tree["home/.config/nested/value"].content
+    else {
+        panic!("expected file")
+    };
+    let mut content = String::new();
+    std::io::Read::read_to_string(&mut view.open_content(sha256).unwrap(), &mut content).unwrap();
+    assert_eq!(content, "captured before publication\n");
 }
