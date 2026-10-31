@@ -68,8 +68,11 @@ fn execute(
             "target changed after planning: {}",
             change.key
         );
-        if let Some((_, Some(bytes))) = observed {
-            backup_store.put_object(&bytes)?;
+        if let Some((node, Some(mut file))) = observed {
+            let Content::File { sha256 } = node.content else {
+                unreachable!()
+            };
+            backup_store.put_file(&sha256, &mut file)?;
         }
     }
     write_json(&transaction.join("journal.json"), &journal)?;
@@ -106,7 +109,7 @@ fn execute(
                     }
                 }
                 Content::File { sha256 } => {
-                    root.put(&path, Some(&store.object(sha256)?), None, node.mode, owner)?;
+                    root.put_file(&path, &mut store.object_file(sha256)?, node.mode, owner)?;
                     root.set_attributes(&path, &node.attributes)?;
                 }
                 Content::Symlink { target } => {

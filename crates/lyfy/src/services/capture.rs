@@ -46,8 +46,11 @@ pub fn scan(
             }
             let (node, bytes) =
                 observe(config, &root, &logical)?.context("file disappeared during save")?;
-            if let Some(bytes) = bytes.filter(|_| persist) {
-                store.put_object(&bytes)?;
+            if let Some(mut file) = bytes.filter(|_| persist) {
+                let crate::domain::state::Content::File { sha256 } = &node.content else {
+                    unreachable!()
+                };
+                store.put_file(sha256, &mut file)?;
             }
             current.insert(key, node);
             observer(Observation::SaveProgress {

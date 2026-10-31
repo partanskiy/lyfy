@@ -1,8 +1,9 @@
 use crate::domain::{
     config::{identifier, is_revision},
-    state::{Content, Snapshot, digest},
+    state::{Content, Snapshot},
 };
 use crate::infrastructure::git::{Repository, Source};
+use crate::infrastructure::{filesystem::hash_file, process};
 use anyhow::{Context as _, Result, ensure};
 use std::collections::BTreeSet;
 
@@ -25,12 +26,9 @@ impl Repository {
             if let Some(node) = node {
                 if let Content::File { sha256 } = &mut node.content {
                     let path = format!("hosts/{host}/files/{key}");
-                    let bytes = self.checked(&["show", &format!("{id}:{path}")])?;
-                    ensure!(
-                        bytes.len() as u64 <= self.limit,
-                        "Git state file exceeds max_file_bytes"
-                    );
-                    *sha256 = digest(&bytes);
+                    let mut file =
+                        process::stream(self.command(&["show", &format!("{id}:{path}")]), None)?;
+                    *sha256 = hash_file(&mut file, self.limit)?;
                     self.objects.borrow_mut().insert(
                         sha256.clone(),
                         Source::Committed {

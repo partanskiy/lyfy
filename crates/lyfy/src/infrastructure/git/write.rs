@@ -56,10 +56,9 @@ impl Repository {
             if let Some(node) = node {
                 node.validate()?;
                 if let Content::File { sha256 } = &node.content {
-                    root.put(
+                    root.put_file(
                         &files.join(key),
-                        Some(&self.object(sha256)?),
-                        None,
+                        &mut self.object_file(sha256)?,
                         0o600,
                         None,
                     )?;

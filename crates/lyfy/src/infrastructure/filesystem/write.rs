@@ -1,5 +1,4 @@
 use super::*;
-use std::io::Write;
 
 impl Root {
     pub fn put(

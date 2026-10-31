@@ -1,11 +1,8 @@
 mod read;
 mod write;
-use crate::domain::{
-    config::{identifier, is_revision},
-    state::digest,
-};
+use crate::domain::config::{identifier, is_revision};
 use crate::infrastructure::{
-    filesystem::Root,
+    filesystem::{Root, hash_file},
     process::{self, BytesOutput},
     store::{Lock, private_dir},
 };
@@ -143,9 +140,8 @@ impl Repository {
         ensure!(is_revision(&id), "invalid Git revision");
         Ok(id)
     }
-    pub fn put_object(&self, bytes: &[u8]) -> Result<()> {
-        let hash = digest(bytes);
-        if self.objects.borrow().contains_key(&hash) {
+    pub fn put_file(&self, hash: &str, file: &mut std::fs::File) -> Result<()> {
+        if self.objects.borrow().contains_key(hash) {
             return Ok(());
         }
         if self.staging.borrow().is_none() {
@@ -155,28 +151,35 @@ impl Repository {
                     .tempdir_in(self.path.join(".git/lyfy"))?,
             );
         }
-        let path = self.staging.borrow().as_ref().unwrap().path().join(&hash);
-        Root::open(Path::new("/"))?.put(&path, Some(bytes), None, 0o600, None)?;
-        self.objects.borrow_mut().insert(hash, Source::Staged(path));
+        let path = self.staging.borrow().as_ref().unwrap().path().join(hash);
+        let root = Root::open(Path::new("/"))?;
+        root.put_file(&path, file, 0o600, None)?;
+        ensure!(
+            hash_file(&mut root.open_content(&path)?, self.limit)? == hash,
+            "file changed during Git capture"
+        );
+        self.objects
+            .borrow_mut()
+            .insert(hash.to_owned(), Source::Staged(path));
         Ok(())
     }
-    pub fn object(&self, hash: &str) -> Result<Vec<u8>> {
+    pub fn object_file(&self, hash: &str) -> Result<std::fs::File> {
         let source = self
             .objects
             .borrow()
             .get(hash)
             .cloned()
             .context("object was not resolved by this repository session")?;
-        let bytes = match source {
-            Source::Staged(path) => Root::open(Path::new("/"))?.read(&path, self.limit)?,
+        let mut file = match source {
+            Source::Staged(path) => Root::open(Path::new("/"))?.open_content(&path)?,
             Source::Committed { revision, path } => {
-                self.checked(&["show", &format!("{revision}:{path}")])?
+                process::stream(self.command(&["show", &format!("{revision}:{path}")]), None)?
             }
         };
         ensure!(
-            bytes.len() as u64 <= self.limit && digest(&bytes) == hash,
+            hash_file(&mut file, self.limit)? == hash,
             "corrupt or oversized Git object"
         );
-        Ok(bytes)
+        Ok(file)
     }
 }
