@@ -36,6 +36,7 @@ mod infrastructure;
 mod services;
 
 pub use api::{Context, Data, Outcome, Request, execute, execute_observed};
+pub use domain::access::{Access, S3Credentials};
 pub use domain::checks::{CheckId, CheckResult, CheckStatus};
 pub use domain::config::Config;
 pub use domain::diagnostics::{Diagnostic, DiagnosticCode, Finding, Report};

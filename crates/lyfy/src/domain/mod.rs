@@ -1,3 +1,4 @@
+pub mod access;
 pub mod checks;
 pub mod config;
 pub mod diagnostics;

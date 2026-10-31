@@ -76,6 +76,14 @@ pub struct Options {
         value_delimiter = ','
     )]
     pub selected_mounts: Option<Vec<String>>,
+    /// Native age identity files; used only for decrypting selected storage.
+    #[arg(
+        long,
+        env = "LYFY_IDENTITY_FILES",
+        global = true,
+        value_delimiter = ','
+    )]
+    pub identity_files: Option<Vec<PathBuf>>,
     #[arg(long, env = "LYFY_FORMAT", global = true)]
     pub format: Option<String>,
     /// Write a lint report to a new private file; - means stdout.

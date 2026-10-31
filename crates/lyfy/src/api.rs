@@ -7,6 +7,7 @@ use anyhow::Result;
 use serde::Serialize;
 
 pub struct Context {
+    pub(crate) access: crate::domain::access::Access,
     pub(crate) config: Config,
     pub(crate) repository: crate::infrastructure::store::Store,
 }
@@ -16,6 +17,7 @@ impl Context {
         config.validate()?;
         crate::infrastructure::filesystem::Root::open(&config.root)?;
         Ok(Self {
+            access: Default::default(),
             repository: crate::infrastructure::store::Store::configured(&config),
             config,
         })
@@ -23,6 +25,11 @@ impl Context {
 
     pub fn config(&self) -> &Config {
         &self.config
+    }
+
+    pub fn with_access(mut self, access: crate::domain::access::Access) -> Self {
+        self.access = access;
+        self
     }
 }
 

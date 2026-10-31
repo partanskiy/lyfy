@@ -41,7 +41,7 @@ pub fn scopes(context: &Context, apply: bool) -> Result<Vec<Scope>> {
         result.push(Scope {
             name: "default".into(),
             path: "/".into(),
-            context: Context::new(fallback)?,
+            context: Context::new(fallback)?.with_access(context.access.clone()),
         });
     }
     for (mount, root) in config.mounts.iter().zip(&roots) {
@@ -89,7 +89,7 @@ pub fn scopes(context: &Context, apply: bool) -> Result<Vec<Scope>> {
             BackendKind::S3 => anyhow::bail!("S3 backend adapter is not available"),
         }
         protect(&mut scoped, &protected);
-        let mut scoped_context = Context::new(scoped)?;
+        let mut scoped_context = Context::new(scoped)?.with_access(context.access.clone());
         scoped_context.repository.history = mount.history;
         scoped_context.repository.retain = mount.retain;
         result.push(Scope {

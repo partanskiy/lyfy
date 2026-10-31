@@ -41,7 +41,7 @@ fn run() -> Result<u8> {
             return Ok(outcome.exit_code);
         }
         let mut display = progress::Lint::new(&launch.progress);
-        let context = Context::new(launch.config.clone())?;
+        let context = Context::new(launch.config.clone())?.with_access(launch.access.clone());
         let outcome =
             lyfy::execute_observed(&context, request, &mut |event| display.observe(event))?;
         display.finish();
@@ -50,7 +50,7 @@ fn run() -> Result<u8> {
         }
         return Ok(outcome.exit_code);
     }
-    let context = Context::new(launch.config)?;
+    let context = Context::new(launch.config)?.with_access(launch.access);
     let outcome = if matches!(request, lyfy::Request::Save { .. }) {
         let mut display = progress::Save::new(&launch.progress);
         lyfy::execute_observed(&context, request, &mut |event| display.observe(event))?
