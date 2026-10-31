@@ -173,5 +173,6 @@ pub fn commit(
         complete: diagnostics.is_empty(),
         diagnostics,
         mounts: vec![],
+        exported: None,
     })
 }

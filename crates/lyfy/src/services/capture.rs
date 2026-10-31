@@ -13,6 +13,8 @@ use walkdir::WalkDir;
 pub struct Captured {
     pub tree: Tree,
     pub diagnostics: Vec<CaptureDiagnostic>,
+    pub inventory: Option<Option<Vec<crate::domain::packages::Package>>>,
+    pub deletions: std::collections::BTreeSet<String>,
 }
 
 impl Captured {
@@ -36,6 +38,8 @@ pub fn scan(
     let mut captured = Captured {
         tree: Tree::new(),
         diagnostics: vec![],
+        inventory: None,
+        deletions: Default::default(),
     };
     observer(Observation::SaveStage("capturing files"));
     for value in &config.include {

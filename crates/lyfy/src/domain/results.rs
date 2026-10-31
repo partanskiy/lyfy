@@ -19,6 +19,7 @@ pub struct Saved {
     pub diagnostics: Vec<CaptureDiagnostic>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub mounts: Vec<MountedSave>,
+    pub exported: Option<std::path::PathBuf>,
 }
 
 #[derive(Debug, Serialize)]
@@ -47,6 +48,7 @@ impl Saved {
             complete: true,
             diagnostics: vec![],
             mounts: vec![],
+            exported: None,
         }
     }
 }

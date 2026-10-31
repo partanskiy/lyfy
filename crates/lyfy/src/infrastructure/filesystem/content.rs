@@ -70,6 +70,11 @@ impl Root {
         owner: Option<(u32, u32)>,
     ) -> Result<()> {
         file.rewind()?;
-        self.put_reader(path, Some(file), None, mode, owner)
+        self.put_reader(path, Some(file), None, mode, owner, true)
+    }
+
+    pub fn export_file(&self, path: &Path, file: &mut File) -> Result<()> {
+        file.rewind()?;
+        self.put_reader(path, Some(file), None, 0o600, None, false)
     }
 }
