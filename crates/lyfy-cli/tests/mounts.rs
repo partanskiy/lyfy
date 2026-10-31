@@ -133,3 +133,23 @@ fn current_only_history_keeps_generations_pinned_by_other_hosts() {
     assert!(manifests.join(format!("{base}.json")).exists());
     assert!(!manifests.join(format!("{new_base}.json")).exists());
 }
+
+#[test]
+fn unavailable_remote_does_not_hide_committed_local_scopes() {
+    let f = setup();
+    writeln!(fs::OpenOptions::new().append(true).open(&f.config).unwrap(),
+        "[[backends]]\nname = 'remote'\nkind = 's3'\n[backends.s3]\nbucket = 'private-state'\nregion = 'test-region'\nendpoint = 'https://s3.example.invalid'\n[[mounts]]\nname = 'remote'\npath = '/etc/tree-other'\nbackend = 'remote'").unwrap();
+    let output = f.run(&["save"]);
+    assert_eq!(output.status.code(), Some(2));
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let mounts = result["mounts"].as_array().unwrap();
+    assert!(
+        mounts
+            .iter()
+            .filter(|m| m["name"] != "remote")
+            .all(|m| m["result"]["created"] == true)
+    );
+    let remote = mounts.iter().find(|m| m["name"] == "remote").unwrap();
+    assert!(remote["error"].as_str().unwrap().contains("credentials"));
+    assert!(f.data.join("hosts/laptop/HEAD").exists());
+}

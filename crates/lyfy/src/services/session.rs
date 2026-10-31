@@ -6,7 +6,11 @@ use anyhow::Result;
 pub fn lock(context: &Context) -> Result<(RepositoryLock, Lock)> {
     let config = &context.config;
     Ok((
-        context.repository.lock()?,
+        if context.repository.remote.is_some() {
+            context.repository.capture_lock()?
+        } else {
+            context.repository.lock()?
+        },
         Lock::acquire(&config.state_dir)?,
     ))
 }

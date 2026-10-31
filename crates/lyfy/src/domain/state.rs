@@ -82,6 +82,14 @@ impl Node {
 pub fn validate_tree(tree: &Tree) -> Result<()> {
     for (key, node) in tree {
         node.validate()?;
+        let mut parent = key.rsplit_once('/').map(|(parent, _)| parent);
+        while let Some(path) = parent {
+            ensure!(
+                !tree.get(path).is_some_and(|node| !node.directory()),
+                "state has a non-directory parent"
+            );
+            parent = path.rsplit_once('/').map(|(parent, _)| parent);
+        }
         if let Some(target) = &node.hardlink {
             let primary = tree
                 .get(target)
