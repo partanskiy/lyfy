@@ -196,3 +196,24 @@ fn unreadable_previously_saved_files_are_never_recorded_as_deletions() {
     assert!(f.snapshot("laptop")["changes"]["system/etc/example.conf"].is_object());
     fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).unwrap();
 }
+
+#[test]
+fn capture_transport_emits_a_private_archive_without_touching_user_storage() {
+    let f = setup();
+    fs::create_dir(&f.data).unwrap();
+    fs::write(f.data.join("sentinel"), "owned by caller\n").unwrap();
+    let output = f.run(&["save", "--capture_only", "--elevate=never"]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stdout.starts_with(b"LYFY\0\x01\r\n"));
+    assert_eq!(
+        fs::read_to_string(f.data.join("sentinel")).unwrap(),
+        "owned by caller\n"
+    );
+    assert_eq!(fs::read_dir(&f.data).unwrap().count(), 1);
+    assert!(!f.state.exists());
+    assert!(!String::from_utf8_lossy(&output.stderr).contains("common\n"));
+}

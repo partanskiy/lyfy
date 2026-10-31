@@ -84,6 +84,14 @@ pub(super) fn defaults() -> Config {
 }
 
 pub fn resolve(options: Options) -> Result<Launch> {
+    resolve_inner(options, true)
+}
+
+pub fn resolve_capture(options: Options) -> Result<Launch> {
+    resolve_inner(options, false)
+}
+
+fn resolve_inner(options: Options, connections: bool) -> Result<Launch> {
     let explicit = options.config_file.is_some();
     let candidates = if let Some(path) = &options.config_file {
         vec![path.clone()]
@@ -167,7 +175,11 @@ pub fn resolve(options: Options) -> Result<Launch> {
     let config: Config = serde_json::from_value(value)?;
     config.validate()?;
     ensure!(config.root.is_dir(), "root must be an existing directory");
-    let access = super::credentials::resolve(&config, identity_files)?;
+    let access = if connections {
+        super::credentials::resolve(&config, identity_files)?
+    } else {
+        Default::default()
+    };
     Ok(Launch {
         config,
         format,

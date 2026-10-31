@@ -18,7 +18,12 @@ pub enum Elevation {
     Required,
 }
 
-fn should_elevate(mode: Elevation, root: bool, interactive: bool, live_system: bool) -> bool {
+pub(super) fn should_elevate(
+    mode: Elevation,
+    root: bool,
+    interactive: bool,
+    live_system: bool,
+) -> bool {
     !root
         && match mode {
             Elevation::Auto => interactive && live_system,
@@ -64,7 +69,7 @@ pub fn elevate(launch: &Launch, mode: Elevation) -> Result<Option<lyfy::Outcome>
     }))
 }
 
-fn resolved_settings(launch: &Launch) -> Result<String> {
+pub(super) fn resolved_settings(launch: &Launch) -> Result<String> {
     let mut settings = toml::Value::try_from(&launch.config)?;
     let table = settings.as_table_mut().unwrap();
     // Only data crosses stdout. The original caller owns rendering and exports.
