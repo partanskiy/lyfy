@@ -85,9 +85,21 @@ UKI is a lyfy policy, not an Arch Linux requirement.
 Unowned files, orphan packages and modified package metadata require review.
 .TP
 .B save
-Capture files, normal Unix permissions, ownership, symlinks and optional
-package inventory for the selected host.
+Capture files, Unix permissions including special bits, ownership, symlinks,
+hardlinks, file/directory ACLs/xattr and optional package inventory.
 Files edited in place are saved directly, without templates.
+.IP
+.B \-\-dry_run
+previews changes without publishing snapshots, initializing storage or writing
+exports. Reports compare against the previous effective state. Unchanged saves
+reuse their snapshot in both Git and directory storage. Progress uses stderr.
+.IP
+Named VFS mounts route arbitrary nested paths to Git, directory or S3.
+The longest component-prefix match owns a path, including unselected children.
+History/current-only policy, pinned-base retention, replicas and age encryption
+are configured per mount/backend. Explicit selected_mounts controls data restore.
+export_file writes a complete committed archive; import_file supplies verified
+state for save or apply. Select exactly one scope for export/import.
 .IP
 Git is the default storage format.
 The repository contains ordinary payload files and JSON metadata under
@@ -135,7 +147,7 @@ Other findings require manual review.
 .SH OPTIONS
 .TP
 .BR \-\-elevate [=auto|never|required]
-Choose the sudo policy for lint only.
+Choose the sudo policy for lint or save.
 The default auto policy requests authentication only when stdin and stderr
 are terminals and root is /.
 Never disables the request; required always requests it for a non-root user.
@@ -143,6 +155,12 @@ An omitted value means required. A value must follow an equals sign.
 Sudo must be installed and authorize the operation; it owns the password prompt.
 Refusal or failure stops that launch.
 This launch policy has no configuration key or environment equivalent.
+For save, only protected capture runs elevated. The original caller validates
+a private channel and publishes using their own storage credentials.
+.TP
+.B \-\-dry_run
+Preview save without repository/state/remote/export writes.
+The alias \-\-dry-run is also accepted.
 If already root, lint runs directly.
 .TP
 .BI \-\-config_file " path"
@@ -253,9 +271,11 @@ Failures leave original file objects and a recovery journal in
 Automatic rollback, crash resume, AUR builds and boot migration are not
 implemented.
 .PP
-Capture rejects hardlinks, regular-file/directory extended attributes,
-special permission bits, special files and non-UTF-8 names.
+Capture reports unsupported sockets/devices, symlink attributes and non-UTF-8
+names. Strict capture blocks publication on any error. Explicit capture_errors
+skip records incomplete state and returns 2; apply refuses incomplete snapshots.
 Symbolic links are recorded without following their targets.
+Active identity/credential files are always excluded from capture.
 Target writes refuse symlink parents.
 Stop concurrent edits and package transactions while capturing or applying
 state; lyfy does not freeze the filesystem.

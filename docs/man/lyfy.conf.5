@@ -87,7 +87,31 @@ It must differ from data_dir.
 worktree.
 .B directory
 uses immutable JSON snapshots and SHA-256 content objects.
-Automatic conversion between the formats is not implemented.
+Export/import provides explicit migration into a new destination.
+.TP
+.B mounts, backends, selected_mounts
+Named VFS mount policies and Git/directory/S3 destinations.
+Mounts have name, path, backend, history (retained/current_only), retain,
+apply, packages, exclude, max_file_bytes, replicas and replicas_required fields.
+Backends have name, kind, optional local path, optional S3 connection and public
+age recipients. S3 connection fields are bucket, prefix, endpoint, region and
+optional profile. Nested paths use longest component-prefix ownership.
+Mount/backend CLI and ENV overrides accept a complete JSON array.
+selected_mounts accepts comma-separated names including default.
+Data mounts participate in ordinary apply only when apply=true; explicit
+selection permits their restoration. Lists replace lower-priority lists.
+.TP
+.B export_file, import_file
+Complete portable archive destination/source. Select one scope.
+Save/import publishes it; apply/import uses a private temporary source.
+Existing exports are never replaced. Encrypted sources produce age archives.
+.TP
+.B identity_files, protected_paths
+Absolute connection identity paths and additional protected physical paths.
+These input-owned lists have LYFY_IDENTITY_FILES/LYFY_PROTECTED_PATHS overrides.
+Active identities and AWS shared credential files are always excluded.
+Directory/S3 recipients select native age encryption; Git remains readable.
+Credentials are read from AWS ENV or a shared profile, never from snapshots.
 .TP
 .B host
 Host identifier, defaulting to the trimmed contents of
@@ -117,7 +141,7 @@ Missing optional paths are skipped.
 .TP
 .B exclude
 Prefixes omitted from capture and reconciliation.
-Defaults include ~/Projects, ~/.cache, ~/.local/state, ~/.ssh, ~/.gnupg,
+Defaults include ~/Projects, ~/.cache, ~/.local/state, ~/.ssh, ~/.gnupg, ~/.aws,
 /etc/shadow, /etc/shadow-, /etc/gshadow, /etc/gshadow-, /etc/ssh,
 /etc/ssl/private, /etc/credstore, /etc/credstore.encrypted,
 /etc/pacman.d/gnupg and /etc/machine-id.
@@ -158,7 +182,13 @@ Untracked files are retained and directory deletion is nonrecursive.
 .TP
 .B max_file_bytes
 Maximum regular-file bytes during capture and planning.
-The default is 16777216 (16 MiB).
+The default is 0, unlimited locally. Content streams with bounded buffers.
+S3 single payloads have a separate 5 GiB limit including encryption overhead.
+.TP
+.B capture_errors
+strict (default) blocks incomplete snapshot publication.
+Explicit skip records diagnostics and returns exit 2. Incomplete snapshots
+cannot be applied. Previously saved unreadable paths are not deletions.
 .TP
 .B disabled_rules
 List of validated rule IDs excluded from inspection; default empty.
@@ -213,7 +243,7 @@ check_packages = true
 install_packages = false
 overwrite = false
 prune = false
-max_file_bytes = 16777216
+max_file_bytes = 0
 format = "text"
 progress = "auto"
 fail_on = "warning"

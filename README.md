@@ -72,8 +72,10 @@ lyfy fmt
   counts on stderr. The final report explains findings and remedies. Export
   text, JSON, TOML, YAML, Markdown or SARIF with `--format` and `--output_file`;
   see [lint reports](docs/lint.md).
-- `save` captures concrete state and commits the host's files and metadata in
-  the configured Git repository. An unchanged state creates no empty commit.
+- `save` previews or captures concrete state, reports file deltas and publishes
+  host metadata/content. Git and directory reuse unchanged snapshots. Nested VFS
+  mounts can route to independent Git/directory/S3 backends, with retention,
+  replicas, age encryption and portable exports. See the [save guide](docs/save.md).
 - `apply` returns a file plan and package comparison. `--write` executes the file
   plan, with conflict checks, preimage backups and a transaction journal.
 - `fmt` returns supported policy fixes. `--write` currently removes only pacnew
@@ -105,6 +107,11 @@ the request; refusal or failure stops that launch. When scanning without sudo,
 inaccessible paths become separate coverage diagnostics and accessible
 checks continue; partial coverage returns exit code 2. Running `sudo lyfy lint`
 directly is possible but may use root's HOME/XDG defaults instead of yours.
+
+Interactive live-system save also supports `--elevate=auto|never|required`.
+Only protected capture runs with sudo; the original caller verifies a private
+capture archive and publishes using their own repository/cloud credentials.
+`lyfy save --dry_run` previews without writing repositories, state or exports.
 
 Exit codes: 0 means the requested operation succeeded, 1 means findings at or
 above fail_on (default warning) or conflicts remain, 2 means incomplete coverage
@@ -140,7 +147,8 @@ No shell expansion occurs; `~` is supported only in managed scope lists.
 Persistent content lives in `$XDG_DATA_HOME/lyfy` (default `~/.local/share/lyfy`).
 By default this is a Git worktree; `storage_format = "directory"` selects the
 alternative immutable JSON/content-object store. Both path and format have flag
-and ENV overrides. See the [storage contract](docs/storage.md).
+and ENV overrides. Named VFS mounts can select other backends independently.
+See the [storage contract](docs/storage.md) and [save guide](docs/save.md).
 Receipts, locks and recovery journals live in `$XDG_STATE_HOME/lyfy` (default
 `~/.local/state/lyfy`). Newly created application directories are private.
 No cache or runtime directory is created when it is not needed.
@@ -202,11 +210,13 @@ files and common identity/secret locations are excluded. Additional paths can
 be managed through include/exclude lists. This is a configuration/state tool,
 not a disk image or a package-cache backup.
 
-Regular files, directories, symlinks, normal Unix modes and ownership are
-supported. Hardlinks, extended attributes/ACLs on regular files/directories,
-special permission bits, special files and non-UTF-8 names fail capture instead
-of being silently flattened. Unsupported symlink attributes are not preserved.
-Read errors and oversized files abort save; there is no partial-success snapshot.
+Regular files stream with bounded buffers; max_file_bytes=0 is unlimited locally.
+Directories, symlinks, Unix modes including special bits, ownership, hardlinks
+within a scope and file/directory ACLs/xattr are preserved. Sockets, devices,
+unsupported symlink attributes and non-UTF-8 names produce explicit diagnostics.
+Strict capture blocks publication on errors. Explicit capture_errors="skip"
+records an incomplete snapshot and returns 2; apply refuses incomplete snapshots.
+Active connection/identity files are always protected from capture.
 
 Target access uses descriptor-relative operations and refuses symlink parents.
 Individual replacements are atomic. A multi-file operation is not one atomic
