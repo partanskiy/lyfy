@@ -37,6 +37,15 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
     let saved = execute(&context, Request::Save { dry_run: false }).unwrap();
     assert_eq!(saved.exit_code, 0);
     assert!(matches!(saved.data, Data::Save(_)));
+    let view = context.snapshot("default").unwrap();
+    let lyfy::Content::File { sha256 } = &view.state().tree["home/.config/app"].content else {
+        panic!("expected file")
+    };
+    let mut reader = view.open_content(sha256).unwrap();
+    let mut bytes = String::new();
+    std::io::Read::read_to_string(&mut reader, &mut bytes).unwrap();
+    assert_eq!(bytes, "saved\n");
+    assert!(view.open_content(&"0".repeat(64)).is_err());
     fs::write(root.join("home/test/.config/app"), "local edit\n").unwrap();
     let plan = execute(&context, Request::Apply { write: false }).unwrap();
     assert_eq!(plan.exit_code, 1);

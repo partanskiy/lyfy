@@ -12,6 +12,26 @@ pub struct Context {
     pub(crate) repository: crate::infrastructure::store::Store,
 }
 
+/// Read-only access to one committed state, independent of its backend encoding.
+pub struct SnapshotView {
+    context: Context,
+    state: crate::domain::state::SnapshotState,
+}
+
+impl SnapshotView {
+    pub fn state(&self) -> &crate::domain::state::SnapshotState {
+        &self.state
+    }
+
+    pub fn open_content(&self, hash: &str) -> Result<impl std::io::Read> {
+        anyhow::ensure!(
+            self.state.sizes.contains_key(hash),
+            "content is not part of this snapshot"
+        );
+        self.context.repository.object_file(hash)
+    }
+}
+
 impl Context {
     pub fn new(config: Config) -> Result<Self> {
         config.validate()?;
@@ -30,6 +50,17 @@ impl Context {
     pub fn with_access(mut self, access: crate::domain::access::Access) -> Self {
         self.access = access;
         self
+    }
+
+    pub fn snapshot(&self, mount: &str) -> Result<SnapshotView> {
+        let mut config = self.config.clone();
+        config.selected_mounts = vec![mount.into()];
+        let selection = Context::new(config)?.with_access(self.access.clone());
+        let mut scopes = crate::services::routing::scopes(&selection, false)?;
+        anyhow::ensure!(scopes.len() == 1, "select exactly one snapshot mount");
+        let context = scopes.remove(0).context;
+        let state = crate::services::snapshots::view(&context)?;
+        Ok(SnapshotView { context, state })
     }
 }
 

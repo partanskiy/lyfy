@@ -13,6 +13,38 @@ pub struct Baseline {
     pub tree: Tree,
 }
 
+pub fn view(context: &Context) -> Result<crate::domain::state::SnapshotState> {
+    let config = &context.config;
+    let id = if config.snapshot == "latest" {
+        context.repository.head(&config.host)?
+    } else {
+        config.snapshot.clone()
+    };
+    let (snapshot, tree) = context.repository.effective(&config.host, &id)?;
+    let mut sizes = BTreeMap::new();
+    for node in tree.values() {
+        if let crate::domain::state::Content::File { sha256 } = &node.content {
+            if !sizes.contains_key(sha256) {
+                sizes.insert(
+                    sha256.clone(),
+                    context.repository.object_file(sha256)?.metadata()?.len(),
+                );
+            }
+        }
+    }
+    Ok(crate::domain::state::SnapshotState {
+        schema: 1,
+        system: snapshot.system,
+        host: config.host.clone(),
+        source_snapshot: id.clone(),
+        tree,
+        deletions: context.repository.tombstones(&config.host, &id)?,
+        packages: snapshot.packages,
+        diagnostics: snapshot.diagnostics,
+        sizes,
+    })
+}
+
 pub fn baseline(context: &Context) -> Result<Baseline> {
     let config = &context.config;
     let store = &context.repository;
