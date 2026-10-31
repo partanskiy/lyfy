@@ -25,6 +25,8 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
     for scope in scopes {
         let source = if context.config.import_file.is_some() {
             archives::apply_source(scope.context)
+        } else if let Some(error) = &scope.error {
+            Err(anyhow::anyhow!("{error}"))
         } else {
             Ok(scope.context)
         };

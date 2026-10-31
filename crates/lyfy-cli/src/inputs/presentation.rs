@@ -212,6 +212,20 @@ pub fn save(result: &lyfy::Saved) -> String {
             let _ = writeln!(out, "FAILED: {}", safe(error));
         }
     }
+    if let Some(path) = &result.exported {
+        let _ = writeln!(out, "Export: {}", safe(&path.to_string_lossy()));
+    }
+    for replica in &result.replicas {
+        let _ = writeln!(
+            out,
+            "Replica {}: {:?}",
+            safe(&replica.backend),
+            replica.status
+        );
+        if let Some(error) = &replica.error {
+            let _ = writeln!(out, "  {}", safe(error));
+        }
+    }
     if result.dry_run {
         let _ = writeln!(
             out,
