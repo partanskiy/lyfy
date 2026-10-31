@@ -30,7 +30,7 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
         fail_on: lyfy::Severity::Warning,
     };
     let context = Context::new(config).unwrap();
-    let saved = execute(&context, Request::Save).unwrap();
+    let saved = execute(&context, Request::Save { dry_run: false }).unwrap();
     assert_eq!(saved.exit_code, 0);
     assert!(matches!(saved.data, Data::Save(_)));
     fs::write(root.join("home/test/.config/app"), "local edit\n").unwrap();

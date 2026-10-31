@@ -61,3 +61,27 @@ fn overlay_size_is_independent_of_changes_since_the_previous_save() {
     assert_eq!(second["snapshot"], first["snapshot"]);
     assert_eq!(second["changes"], 0);
 }
+
+#[test]
+fn preview_never_creates_repositories_or_state_and_matches_real_save() {
+    for backend in ["git", "directory"] {
+        let f = setup();
+        let preview = f.ok(&["save", "--dry_run", "--storage_format", backend]);
+        assert_eq!(preview["dry_run"], true);
+        assert_eq!(preview["created"], false);
+        assert_eq!(preview["snapshot"], Value::Null);
+        assert!(!f.data.exists());
+        assert!(!f.state.exists());
+        let saved = f.ok(&["save", "--storage_format", backend]);
+        assert_eq!(preview["files"], saved["files"]);
+        let unchanged = f.ok(&["save", "--dry_run", "--storage_format", backend]);
+        assert_eq!(unchanged["snapshot"], saved["snapshot"]);
+        assert_eq!(unchanged["changed"], false);
+        f.write("etc/example.conf", "previewed\n");
+        let changed = f.ok(&["save", "--dry_run", "--storage_format", backend]);
+        assert_eq!(changed["modified"], 1);
+        assert_eq!(changed["changed"], true);
+        let saved_again = f.ok(&["save", "--storage_format", backend]);
+        assert_eq!(changed["files"], saved_again["files"]);
+    }
+}
