@@ -175,3 +175,50 @@ fn public_command_identity_is_independent_of_the_package_name() {
     assert!(help.contains("Usage: lyfy "));
     assert!(!help.contains("lyfy-cli"));
 }
+
+#[test]
+fn unrelated_operations_and_archive_restore_do_not_load_cloud_credentials() {
+    use std::io::Write;
+    let f = Fixture::new();
+    let unavailable = f.temp.path().join("unavailable-credentials");
+    fs::create_dir(&unavailable).unwrap();
+    writeln!(fs::OpenOptions::new().append(true).open(&f.config).unwrap(),
+        "[[backends]]\nname = 'remote'\nkind = 's3'\n[backends.s3]\nbucket = 'private-state'\nendpoint = 'https://s3.example.invalid'\nregion = 'test-region'").unwrap();
+    for operation in ["lint", "fmt", "save"] {
+        let output = f
+            .command()
+            .env("AWS_SHARED_CREDENTIALS_FILE", &unavailable)
+            .arg(operation)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{operation}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    let archive = f.temp.path().join("export.lyfy");
+    f.ok(&["save", "--export_file", archive.to_str().unwrap()]);
+    writeln!(
+        fs::OpenOptions::new().append(true).open(&f.config).unwrap(),
+        "[[mounts]]\nname = 'remote'\npath = '/'\nbackend = 'remote'\napply = true"
+    )
+    .unwrap();
+    let output = f
+        .command()
+        .env("AWS_SHARED_CREDENTIALS_FILE", unavailable)
+        .args([
+            "apply",
+            "--selected_mounts",
+            "remote",
+            "--import_file",
+            archive.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

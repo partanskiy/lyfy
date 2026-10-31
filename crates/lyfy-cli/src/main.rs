@@ -18,11 +18,7 @@ fn run() -> Result<u8> {
             ..
         }
     );
-    let launch = if capture_only {
-        configuration::resolve_capture(cli.options)?
-    } else {
-        configuration::resolve(cli.options)?
-    };
+    let launch = configuration::resolve(cli.options, &cli.command)?;
     if capture_only {
         use std::io::{IsTerminal, Write};
         ensure!(
