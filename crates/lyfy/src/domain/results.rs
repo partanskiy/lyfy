@@ -57,6 +57,9 @@ pub fn save_diff(before: &Tree, after: &Tree) -> Vec<SavedChange> {
                 if old.owner != new.owner {
                     fields.push("owner");
                 }
+                if old.attributes != new.attributes {
+                    fields.push("attributes");
+                }
             }
             Some(SavedChange {
                 key: key.clone(),

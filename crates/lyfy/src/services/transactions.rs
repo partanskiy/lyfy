@@ -106,7 +106,8 @@ fn execute(
                     }
                 }
                 Content::File { sha256 } => {
-                    root.put(&path, Some(&store.object(sha256)?), None, node.mode, owner)?
+                    root.put(&path, Some(&store.object(sha256)?), None, node.mode, owner)?;
+                    root.set_attributes(&path, &node.attributes)?;
                 }
                 Content::Symlink { target } => {
                     root.put(&path, None, Some(target), node.mode, owner)?
@@ -126,6 +127,7 @@ fn execute(
                 node.mode,
                 node.owner.or(Some((home.st_uid, home.st_gid))),
             )?;
+            root.set_attributes(&config.path_for_key(&change.key)?, &node.attributes)?;
         }
     }
     let receipt = Receipt {

@@ -1,4 +1,5 @@
 //! Descriptor-relative access: parent symlinks cannot redirect writes out of root.
+mod attributes;
 mod hash;
 mod identity;
 pub use identity::IdentityView;
@@ -133,15 +134,6 @@ impl Root {
             "expected regular file: {}",
             path.display()
         );
-        // SAFETY: query the size of extended attributes without reading their values.
-        let attrs = unsafe { libc::flistxattr(file.as_raw_fd(), std::ptr::null_mut(), 0) };
-        ensure!(
-            attrs == 0
-                || (attrs < 0
-                    && std::io::Error::last_os_error().raw_os_error() == Some(libc::EOPNOTSUPP)),
-            "extended attributes are not supported: {}",
-            path.display()
-        );
         let mut bytes = vec![];
         file.take(limit.saturating_add(1)).read_to_end(&mut bytes)?;
         ensure!(
@@ -173,24 +165,21 @@ impl Root {
         Ok(String::from_utf8(bytes)?)
     }
 
-    pub fn check_directory_attributes(&self, path: &Path) -> Result<()> {
+    pub fn check_symlink_attributes(&self, path: &Path) -> Result<()> {
         let (dir, leaf) = self.parent(path, false)?;
-        // SAFETY: open only the directory itself without following a leaf symlink.
-        let file = checked(unsafe {
-            libc::openat(
-                dir.as_raw_fd(),
-                leaf.as_ptr(),
-                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
-            )
-        })?;
-        // SAFETY: query only attribute names' buffer size; no attribute values are read.
-        let count = unsafe { libc::flistxattr(file.as_raw_fd(), std::ptr::null_mut(), 0) };
+        let path = CString::new(format!(
+            "/proc/self/fd/{}/{}",
+            dir.as_raw_fd(),
+            leaf.to_str()?
+        ))?;
+        // SAFETY: the parent is held open and llistxattr never follows the leaf.
+        let count = unsafe { libc::llistxattr(path.as_ptr(), std::ptr::null_mut(), 0) };
         ensure!(
             count == 0
                 || (count < 0
                     && std::io::Error::last_os_error().raw_os_error() == Some(libc::EOPNOTSUPP)),
-            "directory extended attributes are unsupported: {}",
-            path.display()
+            "symlink extended attributes are unsupported: {}",
+            path.to_string_lossy()
         );
         Ok(())
     }
