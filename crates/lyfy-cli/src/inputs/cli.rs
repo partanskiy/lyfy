@@ -88,7 +88,11 @@ pub enum Command {
         elevate: Elevation,
     },
     /// Save concrete file changes and a package inventory for this host.
-    Save,
+    Save {
+        /// Inspect changes without writing snapshots, locks or exports.
+        #[arg(long = "dry_run", visible_alias = "dry-run")]
+        dry_run: bool,
+    },
     /// Plan reconciliation with a saved host snapshot.
     Apply {
         /// Execute the displayed file plan, with backups. Never implied by ENV/config.
@@ -106,7 +110,7 @@ impl From<Command> for lyfy::Request {
     fn from(command: Command) -> Self {
         match command {
             Command::Lint { .. } => Self::Lint,
-            Command::Save => Self::Save,
+            Command::Save { dry_run } => Self::Save { dry_run },
             Command::Fmt { write } => Self::Fmt { write },
             Command::Apply { write } => Self::Apply { write },
         }

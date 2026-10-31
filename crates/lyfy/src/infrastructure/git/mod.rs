@@ -118,6 +118,12 @@ impl Repository {
     }
     pub fn has_head(&self, host: &str) -> Result<bool> {
         identifier(host)?;
+        if Root::open(Path::new("/"))?
+            .metadata(&self.path.join(".git"))?
+            .is_none()
+        {
+            return Ok(false);
+        }
         self.verify()?;
         if self.run(&["rev-parse", "--verify", "HEAD"])?.code != 0 {
             return Ok(false);

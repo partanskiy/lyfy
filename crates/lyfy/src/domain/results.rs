@@ -4,7 +4,7 @@ use serde::Serialize;
 #[derive(Debug, Serialize)]
 pub struct Saved {
     pub host: String,
-    pub snapshot: String,
+    pub snapshot: Option<String>,
     pub entries: usize,
     pub changes: usize,
     pub deletions: usize,
@@ -13,6 +13,8 @@ pub struct Saved {
     pub created: bool,
     pub packages_changed: bool,
     pub files: Vec<SavedChange>,
+    pub dry_run: bool,
+    pub changed: bool,
 }
 
 #[derive(Debug, Serialize)]

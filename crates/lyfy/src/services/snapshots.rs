@@ -53,6 +53,7 @@ pub fn commit(
     changes: BTreeMap<String, Option<Node>>,
     packages: Option<Vec<Package>>,
     entries: usize,
+    dry_run: bool,
 ) -> Result<Saved> {
     let config = &context.config;
     let snapshot = Snapshot {
@@ -93,13 +94,24 @@ pub fn commit(
         }
     }
     let files = save_diff(&before, &after);
-    let packages_changed =
-        previous.as_ref().map(|(_, (s, _))| &s.packages) != Some(&snapshot.packages);
-    let id = context.repository.save(&snapshot)?;
+    let packages_changed = previous
+        .as_ref()
+        .and_then(|(_, (s, _))| s.packages.as_ref())
+        != snapshot.packages.as_ref();
+    let changed = previous
+        .as_ref()
+        .is_none_or(|(_, (old, _))| !old.same_state(&snapshot));
+    let id = if dry_run {
+        previous.as_ref().map(|(id, _)| id.clone())
+    } else {
+        Some(context.repository.save(&snapshot)?)
+    };
     Ok(Saved {
         host: config.host.clone(),
-        created: previous.as_ref().is_none_or(|(old, _)| old != &id),
+        created: !dry_run && changed,
         snapshot: id,
+        dry_run,
+        changed,
         entries,
         changes: files.len(),
         deletions: files

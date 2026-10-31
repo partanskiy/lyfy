@@ -31,7 +31,7 @@ impl Context {
 pub enum Request {
     Lint,
     Fmt { write: bool },
-    Save,
+    Save { dry_run: bool },
     Apply { write: bool },
 }
 
@@ -72,7 +72,10 @@ pub fn execute_observed(
             let failed = result.report.exit_code();
             (Data::Fmt(result), failed)
         }
-        Request::Save => (Data::Save(crate::application::save::run(context)?), 0),
+        Request::Save { dry_run } => (
+            Data::Save(crate::application::save::run(context, dry_run, observer)?),
+            0,
+        ),
         Request::Apply { write } => {
             let result = crate::application::apply::run(context, write)?;
             let failed = result.plan.changes.iter().any(|c| c.conflict.is_some());

@@ -1,18 +1,23 @@
 use crate::Context;
+use crate::domain::observation::Observation;
 use crate::domain::results::Saved;
 use crate::services::{capture, packages, session, snapshots};
 use anyhow::{Result, ensure};
 use std::collections::BTreeMap;
 
-pub(crate) fn run(context: &Context) -> Result<Saved> {
+pub(crate) fn run(
+    context: &Context,
+    dry_run: bool,
+    observer: &mut dyn FnMut(Observation<'_>),
+) -> Result<Saved> {
     let config = &context.config;
-    let _locks = session::lock(context)?;
+    let _locks = (!dry_run).then(|| session::lock(context)).transpose()?;
     ensure!(
         config.snapshot == "latest",
         "save always creates a new immutable snapshot"
     );
     let base = snapshots::baseline(context)?;
-    let current = capture::scan(context)?;
+    let current = capture::scan(context, !dry_run, observer)?;
     let mut changes = BTreeMap::new();
     for (key, node) in &current {
         if base.tree.get(key) != Some(node) {
@@ -26,11 +31,19 @@ pub(crate) fn run(context: &Context) -> Result<Saved> {
             changes.insert(key, None);
         }
     }
+    observer(Observation::SaveStage("capturing package inventory"));
+    let inventory = packages::capture(config)?;
+    observer(Observation::SaveStage(if dry_run {
+        "comparing snapshots"
+    } else {
+        "publishing snapshot"
+    }));
     snapshots::commit(
         context,
         base.reference,
         changes,
-        packages::capture(config)?,
+        inventory,
         current.len(),
+        dry_run,
     )
 }
