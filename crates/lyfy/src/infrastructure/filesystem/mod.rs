@@ -91,6 +91,16 @@ impl Root {
     }
 
     pub fn metadata(&self, path: &Path) -> Result<Option<libc::stat>> {
+        if path == Path::new("/") {
+            let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
+            // SAFETY: the held root descriptor is valid and stat is writable.
+            ensure!(
+                unsafe { libc::fstat(self.directory.as_raw_fd(), stat.as_mut_ptr()) } == 0,
+                "inspect root metadata"
+            );
+            // SAFETY: successful fstat initialized stat.
+            return Ok(Some(unsafe { stat.assume_init() }));
+        }
         let (dir, leaf) = match self.parent(path, false) {
             Ok(p) => p,
             Err(e)

@@ -153,3 +153,24 @@ fn unavailable_remote_does_not_hide_committed_local_scopes() {
     assert!(remote["error"].as_str().unwrap().contains("credentials"));
     assert!(f.data.join("hosts/laptop/HEAD").exists());
 }
+
+#[test]
+fn root_vfs_mount_captures_children_and_defers_nested_points() {
+    let f = setup();
+    writeln!(
+        fs::OpenOptions::new().append(true).open(&f.config).unwrap(),
+        "[[mounts]]\nname = 'whole'\npath = '/'\nbackend = 'local'"
+    )
+    .unwrap();
+    let result = f.ok(&["save", "--selected_mounts", "whole"]);
+    assert_eq!(result["complete"], true);
+    let state = snapshot(&f.temp.path().join("backend/mounts/whole/hosts/laptop"));
+    assert!(
+        state["changes"]
+            .get("system/etc/tree-other/sibling")
+            .is_some()
+    );
+    assert!(state["changes"].get("system/etc/tree/parent").is_none());
+    assert!(state["changes"].get("home/.config/app.conf").is_some());
+    assert!(state["changes"].get("system/").is_none());
+}
