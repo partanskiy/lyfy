@@ -62,6 +62,7 @@ paths are skipped. The root and home directory nodes themselves are never
 restored as files, but their children can be managed using `/` or `~` scopes.
 
 Defaults exclude ~/Projects, ~/.cache, ~/.local/state, ~/.ssh, ~/.gnupg, ~/.aws,
+~/.config/lyfy/keys and the corresponding current XDG_CONFIG_HOME/lyfy/keys,
 /etc/shadow and shadow-, /etc/gshadow and gshadow-, /etc/ssh, /etc/ssl/private,
 /etc/credstore, /etc/credstore.encrypted, /etc/pacman.d/gnupg and /etc/machine-id.
 Associated pacnew/pacsave files inherit exclusion of their active path. This
