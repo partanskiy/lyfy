@@ -46,7 +46,6 @@ impl Config {
             self.snapshot == "latest" || is_revision(&self.snapshot),
             "invalid snapshot id"
         );
-        ensure!(self.max_file_bytes > 0, "max_file_bytes must be positive");
         ensure!(
             self.data_dir != self.state_dir,
             "data_dir and state_dir must differ"

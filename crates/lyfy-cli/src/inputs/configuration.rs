@@ -70,7 +70,7 @@ pub(super) fn defaults() -> Config {
         install_packages: false,
         overwrite: false,
         prune: false,
-        max_file_bytes: 16 * 1024 * 1024,
+        max_file_bytes: 0,
         disabled_rules: vec![],
         fail_on: lyfy::Severity::Warning,
     }
