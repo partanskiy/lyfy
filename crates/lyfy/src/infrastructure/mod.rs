@@ -3,6 +3,8 @@ pub(crate) mod filesystem;
 pub(crate) mod git;
 pub(crate) mod pacman;
 pub(crate) mod process;
+pub(crate) mod s3;
+mod s3_http;
 pub(crate) mod store;
 mod store_history;
 mod store_payload;
