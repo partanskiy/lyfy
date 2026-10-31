@@ -82,6 +82,7 @@ pub struct Store {
     pub(crate) remote: Option<std::rc::Rc<crate::infrastructure::s3::S3>>,
     pub history: crate::domain::storage::History,
     pub retain: usize,
+    pub temporary: Option<tempfile::TempDir>,
 }
 
 pub struct RepositoryLock {
@@ -100,6 +101,7 @@ impl Store {
             git: None,
             age: None,
             remote: None,
+            temporary: None,
             history: Default::default(),
             retain: 0,
         }
@@ -116,6 +118,7 @@ impl Store {
             git,
             age: None,
             remote: None,
+            temporary: None,
             history: Default::default(),
             retain: 0,
         }

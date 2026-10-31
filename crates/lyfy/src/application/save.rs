@@ -1,7 +1,7 @@
 use crate::Context;
 use crate::domain::observation::Observation;
 use crate::domain::results::{CaptureDiagnostic, MountedSave, Saved};
-use crate::services::{capture, packages, routing, session, snapshots};
+use crate::services::{archives, capture, packages, routing, session, snapshots};
 use anyhow::{Result, ensure};
 use std::collections::BTreeMap;
 
@@ -11,7 +11,9 @@ pub(crate) fn run(
     observer: &mut dyn FnMut(Observation<'_>),
 ) -> Result<Saved> {
     let mut combined = Saved::empty(&context.config.host, dry_run);
-    for scope in routing::scopes(context, false)? {
+    let scopes = routing::scopes(context, false)?;
+    archives::prepare(context, scopes.len())?;
+    for scope in scopes {
         let outcome = capture_and_publish(&scope.context, dry_run, observer);
         if scope.name == "default" && context.config.mounts.is_empty() {
             return outcome;
@@ -65,8 +67,13 @@ fn capture_and_publish(
     );
     let base = snapshots::baseline(context)?;
     let mut previous = snapshots::previous_keys(context)?;
-    let captured = capture::scan(context, !dry_run, observer)?;
+    let captured = if config.import_file.is_some() {
+        archives::capture(context, !dry_run)?
+    } else {
+        capture::scan(context, !dry_run, observer)?
+    };
     let current = captured.tree;
+    previous.extend(captured.deletions);
     let mut changes = BTreeMap::new();
     for (key, node) in &current {
         if base.tree.get(key) != Some(node) {
@@ -80,7 +87,10 @@ fn capture_and_publish(
         }
     }
     observer(Observation::SaveStage("capturing package inventory"));
-    let inventory = packages::capture(config)?;
+    let inventory = match captured.inventory {
+        Some(inventory) => inventory,
+        None => packages::capture(config)?,
+    };
     observer(Observation::SaveStage(if dry_run {
         "comparing snapshots"
     } else {
@@ -95,6 +105,7 @@ fn capture_and_publish(
         dry_run,
         captured.diagnostics,
     )?;
+    archives::export(context, &mut result);
     if let Some(locks) = &mut locks
         && let Err(error) = session::release(locks)
     {

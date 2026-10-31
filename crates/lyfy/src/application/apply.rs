@@ -3,7 +3,7 @@ use crate::domain::{
     plan::Plan,
     results::{Applied, MountedApply},
 };
-use crate::services::{packages, reconciliation, routing, session, transactions};
+use crate::services::{archives, packages, reconciliation, routing, session, transactions};
 use anyhow::{Context as _, Result};
 
 pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
@@ -20,8 +20,15 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
         transaction: None,
         mounts: vec![],
     };
-    for scope in routing::scopes(context, true)? {
-        let outcome = reconcile(&scope.context, write);
+    let scopes = routing::scopes(context, true)?;
+    archives::prepare(context, scopes.len())?;
+    for scope in scopes {
+        let source = if context.config.import_file.is_some() {
+            archives::apply_source(scope.context)
+        } else {
+            Ok(scope.context)
+        };
+        let outcome = source.and_then(|source| reconcile(&source, write));
         if scope.name == "default" && context.config.mounts.is_empty() {
             return outcome;
         }

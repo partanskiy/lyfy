@@ -16,6 +16,7 @@ impl Root {
             link,
             mode,
             owner,
+            true,
         )
     }
 
@@ -26,6 +27,7 @@ impl Root {
         link: Option<&str>,
         mode: u32,
         owner: Option<(u32, u32)>,
+        replace: bool,
     ) -> Result<()> {
         let (dir, leaf) = self.parent(path, true)?;
         let temp = CString::new(format!(
@@ -89,11 +91,12 @@ impl Root {
             // SAFETY: rename atomically within an open directory.
             ensure!(
                 unsafe {
-                    libc::renameat(
+                    libc::renameat2(
                         dir.as_raw_fd(),
                         temp.as_ptr(),
                         dir.as_raw_fd(),
                         leaf.as_ptr(),
+                        if replace { 0 } else { libc::RENAME_NOREPLACE },
                     )
                 } == 0,
                 "replace {}: {}",

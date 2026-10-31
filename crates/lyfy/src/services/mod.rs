@@ -1,3 +1,4 @@
+pub(crate) mod archives;
 pub(crate) mod capture;
 pub(crate) mod files;
 pub(crate) mod inspection;
