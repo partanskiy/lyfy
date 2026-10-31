@@ -25,7 +25,19 @@ fn age_storage_encrypts_manifests_and_payloads_and_restores_verified_content() {
     let backend = f.temp.path().join("encrypted");
     writeln!(fs::OpenOptions::new().append(true).open(&f.config).unwrap(),
         "identity_files = [{:?}]\n[[backends]]\nname = 'encrypted'\nkind = 'directory'\npath = {:?}\nrecipients = [{:?}]\n[[mounts]]\nname = 'config'\npath = '/etc'\nbackend = 'encrypted'\napply = true", identity, backend, recipient.trim()).unwrap();
-    let first = f.ok(&["save", "--selected_mounts", "config"]);
+    let export = f.temp.path().join("encrypted.lyfy.age");
+    let first = f.ok(&[
+        "save",
+        "--selected_mounts",
+        "config",
+        "--export_file",
+        export.to_str().unwrap(),
+    ]);
+    assert!(
+        fs::read(&export)
+            .unwrap()
+            .starts_with(b"age-encryption.org/v1")
+    );
     assert_eq!(first["complete"], true);
     let host = backend.join("mounts/config/hosts/laptop");
     let head = fs::read(host.join("HEAD")).unwrap();
@@ -56,6 +68,18 @@ fn age_storage_encrypts_manifests_and_payloads_and_restores_verified_content() {
         "apply",
         "--selected_mounts",
         "config",
+        "--overwrite",
+        "true",
+        "--write",
+    ]);
+    assert_eq!(f.read("etc/example.conf"), "common\n");
+    f.write("etc/example.conf", "another edit\n");
+    f.ok(&[
+        "apply",
+        "--selected_mounts",
+        "config",
+        "--import_file",
+        export.to_str().unwrap(),
         "--overwrite",
         "true",
         "--write",

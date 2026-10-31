@@ -40,6 +40,10 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
         }
     }
     let mut fallback = config.clone();
+    if config.mounts.iter().any(|m| m.packages) {
+        fallback.check_packages = false;
+        fallback.install_packages = false;
+    }
     fallback
         .exclude
         .extend(roots.iter().map(|p| p.to_string_lossy().into_owned()));

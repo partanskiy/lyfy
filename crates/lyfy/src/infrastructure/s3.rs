@@ -95,6 +95,10 @@ impl S3 {
         }
         let response = response.success()?;
         if key.ends_with("/HEAD") {
+            ensure!(
+                response.etag.is_some(),
+                "S3 provider omitted current-pointer ETag"
+            );
             self.expected
                 .borrow_mut()
                 .entry(key.into())
@@ -122,7 +126,25 @@ impl S3 {
         } else {
             "If-None-Match: *".into()
         };
-        let response = self.request("PUT", key, Some(file), Some(&header), None)?;
+        let response = match self.request("PUT", key, Some(file), Some(&header), None) {
+            Ok(response) => response,
+            Err(_) if key.ends_with("/HEAD") => {
+                // A lost response can follow a successful publication. Confirm
+                // the exact transmitted pointer before reporting its outcome.
+                let expected = crate::infrastructure::filesystem::hash_file(file, 0)?;
+                if let Some(mut current) = self.get(key).map_err(|_| anyhow::anyhow!("S3 publication outcome is unknown; review the remote current pointer before retrying"))?
+                    && crate::infrastructure::filesystem::hash_file(&mut current.body, 0)?
+                        == expected
+                {
+                    self.expected.borrow_mut().insert(key.into(), current.etag);
+                    return Ok(());
+                }
+                anyhow::bail!(
+                    "S3 publication was not confirmed; review the remote current pointer before retrying"
+                );
+            }
+            Err(error) => return Err(error),
+        };
         if response.status == 412 && !key.ends_with("/HEAD") {
             return Ok(());
         }

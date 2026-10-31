@@ -78,7 +78,7 @@ pub fn capture(context: &Context, persist: bool) -> Result<Captured> {
         persist.then_some(&context.repository),
         context.capture_source.is_some(),
     )?;
-    Ok(Captured {
+    let mut captured = Captured {
         tree: state.tree,
         diagnostics: state.diagnostics,
         inventory: Some(if context.config.check_packages {
@@ -87,7 +87,11 @@ pub fn capture(context: &Context, persist: bool) -> Result<Captured> {
             None
         }),
         deletions: state.deletions,
-    })
+    };
+    if context.capture_source.is_some() {
+        crate::services::capture::retain_previous(context, &mut captured)?;
+    }
+    Ok(captured)
 }
 
 pub fn export(context: &Context, result: &mut Saved) {

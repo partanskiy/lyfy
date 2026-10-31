@@ -127,6 +127,16 @@ pub fn scan(
         }
     }
     crate::services::files::link_tree(config, &root, &mut captured.tree)?;
+    retain_previous(context, &mut captured)?;
+    captured
+        .diagnostics
+        .sort_by(|a, b| a.path.cmp(&b.path).then(a.detail.cmp(&b.detail)));
+    captured.diagnostics.dedup();
+    Ok(captured)
+}
+
+pub fn retain_previous(context: &Context, captured: &mut Captured) -> Result<()> {
+    let config = &context.config;
     // A skipped subtree must not turn its previously saved files into deletions.
     if !captured.diagnostics.is_empty() && context.repository.has_head(&config.host)? {
         let id = context.repository.head(&config.host)?;
@@ -143,9 +153,5 @@ pub fn scan(
             }
         }
     }
-    captured
-        .diagnostics
-        .sort_by(|a, b| a.path.cmp(&b.path).then(a.detail.cmp(&b.detail)));
-    captured.diagnostics.dedup();
-    Ok(captured)
+    Ok(())
 }
