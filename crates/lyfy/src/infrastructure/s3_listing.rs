@@ -1,7 +1,23 @@
 use crate::infrastructure::s3::S3;
 use anyhow::{Result, ensure};
-use quick_xml::{Reader, events::Event};
+use serde::Deserialize;
 use std::io::BufReader;
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct Page {
+    #[serde(default)]
+    contents: Vec<Key>,
+    #[serde(default)]
+    next_continuation_token: Option<String>,
+    is_truncated: bool,
+}
+
+#[derive(Deserialize)]
+struct Key {
+    #[serde(rename = "Key")]
+    value: String,
+}
 
 impl S3 {
     pub fn list(&self, prefix: &str) -> Result<Vec<String>> {
@@ -20,45 +36,22 @@ impl S3 {
                 response.body.metadata()?.len() <= 8 * 1024 * 1024,
                 "S3 listing page is oversized"
             );
-            let mut reader = Reader::from_reader(BufReader::new(response.body));
-            let mut buffer = vec![];
-            let mut field = Vec::new();
-            let mut next = None;
-            let mut truncated = false;
-            loop {
-                match reader.read_event_into(&mut buffer)? {
-                    Event::Start(event) => field = event.name().as_ref().to_vec(),
-                    Event::End(_) => field.clear(),
-                    Event::Text(event) => {
-                        let decoded = event.decode()?;
-                        let text = quick_xml::escape::unescape(&decoded)?;
-                        match field.as_slice() {
-                            b"Key" => {
-                                ensure!(
-                                    text.starts_with(&self.prefix),
-                                    "S3 listing escaped the collection prefix"
-                                );
-                                keys.push(text[self.prefix.len()..].to_owned());
-                            }
-                            b"NextContinuationToken" => next = Some(text.into_owned()),
-                            b"IsTruncated" => truncated = text == "true",
-                            _ => {}
-                        }
-                    }
-                    Event::DocType(_) => anyhow::bail!("S3 listing must not contain a DTD"),
-                    Event::Eof => break,
-                    _ => {}
-                }
-                buffer.clear();
+            let page: Page = quick_xml::de::from_reader(BufReader::new(response.body))?;
+            for key in page.contents {
+                ensure!(
+                    key.value.starts_with(&self.prefix),
+                    "S3 listing escaped the collection prefix"
+                );
+                keys.push(key.value[self.prefix.len()..].to_owned());
             }
-            if !truncated {
+            if !page.is_truncated {
                 break;
             }
             ensure!(
-                next.is_some() && next != token,
+                page.next_continuation_token.is_some() && page.next_continuation_token != token,
                 "invalid S3 listing continuation"
             );
-            token = next;
+            token = page.next_continuation_token;
         }
         Ok(keys)
     }
