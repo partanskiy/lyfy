@@ -153,9 +153,11 @@ age-keygen -y ~/.config/lyfy/keys/backup.agekey
 Private keys never enter manifests or ordinary reports. Active identity files,
 their canonical targets and loaded AWS credential files are protected from
 capture, including sudo capture. Additional physical files can be protected
-with protected_paths. Encryption covers payloads, manifests and current pointers;
+with protected_paths.
 The default lyfy/keys configuration directory is excluded even before an
 identity is configured, so generating a key does not add it to the next save.
+
+Encryption covers payloads, manifests and current pointers;
 host/object names, hashes and stored sizes remain visible. An encoding marker
 prevents silently changing encryption/recipient policy in an existing backend.
 Use export/import into a new destination when changing that policy.
