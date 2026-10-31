@@ -13,6 +13,8 @@ name = "lyfy"
 path = "src/lib.rs"
 
 [dependencies]
+url = "2"
+quick-xml = "0.41"
 alpm = { version = "5.0.2", features = ["mtree"] }
 libarchive = "0.1.1"
 libarchive3-sys = "0.1.2"
