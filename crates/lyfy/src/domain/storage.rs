@@ -64,6 +64,12 @@ pub struct Mount {
     pub max_file_bytes: Option<u64>,
     #[serde(default)]
     pub replicas: Vec<String>,
+    #[serde(default = "required_replicas")]
+    pub replicas_required: bool,
+}
+
+fn required_replicas() -> bool {
+    true
 }
 
 pub fn validate(config: &Config) -> Result<()> {
@@ -144,6 +150,16 @@ pub fn validate(config: &Config) -> Result<()> {
             ensure!(
                 backends.contains(replica) && replica != &mount.backend && replicas.insert(replica),
                 "invalid or duplicate replica destination"
+            );
+            let destination = config
+                .backends
+                .iter()
+                .find(|b| b.name == *replica)
+                .expect("validated replica backend");
+            ensure!(
+                destination.kind != BackendKind::Git
+                    || (mount.history == History::Retained && mount.retain == 0),
+                "Git replicas preserve history and cannot prune commits implicitly"
             );
         }
     }

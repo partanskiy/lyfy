@@ -1,7 +1,7 @@
 use crate::Context;
 use crate::domain::observation::Observation;
 use crate::domain::results::{CaptureDiagnostic, MountedSave, Saved};
-use crate::services::{archives, capture, packages, routing, session, snapshots};
+use crate::services::{archives, capture, packages, replicas, routing, session, snapshots};
 use anyhow::{Result, ensure};
 use std::collections::BTreeMap;
 
@@ -18,7 +18,11 @@ pub(crate) fn run(
     let scopes = routing::scopes(context, false)?;
     archives::prepare(context, scopes.len())?;
     for scope in scopes {
-        let outcome = capture_and_publish(&scope.context, dry_run, observer);
+        let outcome = if let Some(error) = &scope.error {
+            Err(anyhow::anyhow!("{error}"))
+        } else {
+            capture_and_publish(&scope.context, dry_run, observer)
+        };
         if scope.name == "default" && context.config.mounts.is_empty() {
             return outcome;
         }
@@ -110,6 +114,8 @@ fn capture_and_publish(
         captured.diagnostics,
     )?;
     archives::export(context, &mut result);
+    observer(Observation::SaveStage("replicating committed snapshot"));
+    replicas::publish(context, &mut result);
     if let Some(locks) = &mut locks
         && let Err(error) = session::release(locks)
     {

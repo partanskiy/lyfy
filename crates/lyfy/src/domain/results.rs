@@ -20,6 +20,8 @@ pub struct Saved {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub mounts: Vec<MountedSave>,
     pub exported: Option<std::path::PathBuf>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub replicas: Vec<ReplicaState>,
 }
 
 #[derive(Debug, Serialize)]
@@ -49,6 +51,7 @@ impl Saved {
             diagnostics: vec![],
             mounts: vec![],
             exported: None,
+            replicas: vec![],
         }
     }
 }
@@ -58,6 +61,23 @@ impl Saved {
 pub struct CaptureDiagnostic {
     pub path: String,
     pub detail: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ReplicaState {
+    pub backend: String,
+    pub source_snapshot: Option<String>,
+    pub snapshot: Option<String>,
+    pub status: ReplicaStatus,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReplicaStatus {
+    Planned,
+    Complete,
+    Failed,
 }
 
 #[derive(Debug, Serialize)]

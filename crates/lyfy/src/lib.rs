@@ -48,6 +48,7 @@ pub use domain::results::{
     Applied, CaptureDiagnostic, Formatted, MountedApply, MountedSave, SaveChangeKind, Saved,
     SavedChange,
 };
+pub use domain::results::{ReplicaState, ReplicaStatus};
 pub use domain::rules::{Category, FixAction, FixKind, RuleId, RuleSpec, Severity, SubjectKind};
-pub use domain::state::{Content, Node, SnapshotState, Tree};
+pub use domain::state::{Content, Node, ReplicaSource, SnapshotState, Tree};
 pub use domain::storage::{Backend, BackendKind, History, Mount, S3Connection};
