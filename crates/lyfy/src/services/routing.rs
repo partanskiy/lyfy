@@ -133,6 +133,10 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
                         .get(&backend.name)
                         .cloned()
                         .ok_or_else(|| {
+                            if let Some(error) = context.access.connection_errors.get(&backend.name)
+                            {
+                                return anyhow::anyhow!("S3 backend {}: {error}", backend.name);
+                            }
                             anyhow::anyhow!(
                                 "S3 backend {} requires environment/profile credentials",
                                 backend.name
