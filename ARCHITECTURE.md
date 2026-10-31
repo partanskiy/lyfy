@@ -232,10 +232,21 @@ than reaching into inspection implementations.
 
 ## Storage evolution
 
-[The storage design](docs/storage-design.md) separates the shared state model,
-collections, backend capabilities and history policy. It is a design for a
-future iteration; docs/storage.md describes implemented behavior. New backends
-and routing require their own implementation and compatibility review.
+[The storage design](docs/storage-design.md) defines the accepted direction for
+save evolution. On 2026-10-31 the user approved arbitrary nested VFS mount
+points, independent Git/directory/S3 destinations, history/current-only policy,
+age encryption, complete exports/imports and strict capture with explicit skips.
+The most specific mount owns a path; configured nested mounts are never captured
+by a parent, including when the child is not selected for an operation.
+docs/storage.md describes implemented behavior as each part lands.
+
+Save supports an explicit read-only preview and reports changes against the
+previous effective state, separately from its persisted base overlay. Preview
+must not initialize or modify repositories, state directories or export files.
+Capture feedback uses the existing per-call observer; rendering remains in inputs.
+Input-owned elevation may delegate read-only capture, while the original caller
+owns publication and exports. No elevated process writes to user repositories.
+Credentials/identity material never enter snapshots, ordinary reports or logs.
 
 ## Enforcement
 

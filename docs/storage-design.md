@@ -1,8 +1,9 @@
 # Storage design: collections and backends
 
-Status: design proposal for a later implementation. The current iteration changes
-core structure and public API boundaries only. Implemented Git/directory behavior
-is documented in storage.md; this document introduces no runtime settings.
+Status: implementation contract accepted by the user on 2026-10-31, with the
+nested VFS routing correction below. Implemented behavior and compatibility are
+documented in storage.md as features land. Examples are arbitrary paths, not
+built-in collection names.
 
 ## Shared state model, independent storage
 
@@ -43,8 +44,12 @@ the current bounded config-file capture is not a suitable implementation for
 large photo/project collections. Large content must stream with bounded memory.
 Chunking, compression and encryption need separate implementation decisions.
 
-Reject overlapping collection roots initially. There is no implicit first-match
-or longest-prefix rule that could silently capture a path under another policy.
+Route arbitrary VFS mount points using the longest component-prefix match.
+Nested mounts explicitly override their ancestors. Reject duplicate logical
+roots and duplicate identities. Exclude each nested mount from its ancestor
+before walking, even if that nested mount is not selected. This prevents a
+disabled child from leaking into a parent's backend. A sibling prefix such as
+~/Pictures-old is not a child of ~/Pictures.
 Paths use the same validated home/system namespaces and no-follow rules as the
 current core. All local backend/cache roots and runtime transaction paths are
 excluded before walking any collection, preventing recursive capture. Default
@@ -155,6 +160,22 @@ Authentication is an input-provided connection concern; credentials never enter
 state manifests or ordinary reports.
 
 ## Implementation checkpoints
+
+The accepted implementation uses strict capture by default. Unsupported sockets
+and devices produce diagnostics; an explicit skip policy reports incomplete
+capture and a nonzero result. Preserve ACL/xattr, hardlinks and special mode bits
+without silently flattening them. Content access must stream large files.
+
+Age recipients are public connection policy. Identities and S3 credentials are
+input-provided connection secrets, never manifest data. Remote publication uses
+conditional current-pointer updates. Replicas record the exact source generation;
+failures remain visible and cannot recapture a different generation implicitly.
+Retention preserves generations reachable through pinned base references.
+
+Legacy storage_format/include/exclude remain a fallback scope. Explicit VFS
+mounts take ownership before that scope is scanned. Data restore requires an
+explicitly selected mount unless it was configured to participate in apply.
+Export/import carry manifests, verified content and pinned bases, not reports.
 
 Before implementing routing/backends, agree on publication capability contracts,
 current-only retention with pinned bases, collection restore semantics, replica
