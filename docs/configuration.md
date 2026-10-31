@@ -26,7 +26,7 @@ See [the library boundary](library.md).
 | install_packages | false | Permit supported native package restoration with apply --write |
 | overwrite | false | Permit replacing live content that conflicts with the receipt |
 | prune | false | Permit deleting explicitly tracked paths absent from desired state |
-| max_file_bytes | 16777216 | Maximum regular-file bytes during capture/planning |
+| max_file_bytes | 0 | Maximum regular-file bytes during capture/planning; 0 is unlimited |
 | disabled_rules | [] | Validated rule IDs excluded from inspection |
 | fail_on | warning | Fail a complete scan at info, warning or error |
 | format | text | Lint: text, json, toml, yaml, markdown or sarif; CLI only |

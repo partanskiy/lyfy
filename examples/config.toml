@@ -24,7 +24,7 @@ check_packages = true
 install_packages = false
 overwrite = false
 prune = false
-max_file_bytes = 16777216
+max_file_bytes = 0
 format = "text"
 
 # Lint policy and launch presentation.

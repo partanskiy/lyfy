@@ -110,3 +110,36 @@ fn text_save_shows_file_changes_and_progress_without_dumping_contents() {
     assert!(silent.stderr.is_empty());
     serde_json::from_slice::<Value>(&silent.stdout).unwrap();
 }
+
+#[test]
+fn large_files_stream_through_save_preview_and_apply() {
+    for backend in ["git", "directory"] {
+        let f = setup();
+        let path = f.root.join("etc/large.bin");
+        fs::File::create(&path)
+            .unwrap()
+            .set_len(40 * 1024 * 1024)
+            .unwrap();
+        let saved = f.ok(&["save", "--storage_format", backend]);
+        assert_eq!(saved["created"], true);
+        assert_eq!(
+            f.run(&[
+                "save",
+                "--storage_format",
+                backend,
+                "--max_file_bytes",
+                "1024"
+            ])
+            .status
+            .code(),
+            Some(2)
+        );
+        fs::remove_file(&path).unwrap();
+        f.ok(&["apply", "--storage_format", backend, "--write"]);
+        assert_eq!(fs::metadata(path).unwrap().len(), 40 * 1024 * 1024);
+        assert_eq!(
+            f.ok(&["save", "--storage_format", backend, "--dry_run"])["changes"],
+            0
+        );
+    }
+}
