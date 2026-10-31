@@ -8,3 +8,4 @@ pub mod plan;
 pub mod results;
 pub mod rules;
 pub mod state;
+pub mod storage;

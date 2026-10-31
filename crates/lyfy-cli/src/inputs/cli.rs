@@ -63,6 +63,19 @@ pub struct Options {
     /// strict blocks publication on capture errors; skip publishes an incomplete snapshot.
     #[arg(long, env = "LYFY_CAPTURE_ERRORS", global = true)]
     pub capture_errors: Option<String>,
+    /// JSON list of VFS mount policies; replaces the configured list.
+    #[arg(long, env = "LYFY_MOUNTS", global = true, value_parser = parse_mounts)]
+    pub mounts: Option<serde_json::Value>,
+    /// JSON list of named storage destinations; replaces the configured list.
+    #[arg(long, env = "LYFY_BACKENDS", global = true, value_parser = parse_backends)]
+    pub backends: Option<serde_json::Value>,
+    #[arg(
+        long,
+        env = "LYFY_SELECTED_MOUNTS",
+        global = true,
+        value_delimiter = ','
+    )]
+    pub selected_mounts: Option<Vec<String>>,
     #[arg(long, env = "LYFY_FORMAT", global = true)]
     pub format: Option<String>,
     /// Write a lint report to a new private file; - means stdout.
@@ -80,6 +93,18 @@ pub struct Options {
     pub disabled_rules: Option<Vec<String>>,
     #[arg(long, env = "LYFY_FAIL_ON", global = true)]
     pub fail_on: Option<lyfy::Severity>,
+}
+
+fn parse_mounts(value: &str) -> Result<serde_json::Value, String> {
+    let mounts: Vec<lyfy::Mount> =
+        serde_json::from_str(value).map_err(|e| format!("invalid mounts JSON: {e}"))?;
+    serde_json::to_value(mounts).map_err(|e| e.to_string())
+}
+
+fn parse_backends(value: &str) -> Result<serde_json::Value, String> {
+    let backends: Vec<lyfy::Backend> =
+        serde_json::from_str(value).map_err(|e| format!("invalid backends JSON: {e}"))?;
+    serde_json::to_value(backends).map_err(|e| e.to_string())
 }
 
 #[derive(Debug, Subcommand)]

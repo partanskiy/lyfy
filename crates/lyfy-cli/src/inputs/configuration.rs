@@ -72,6 +72,9 @@ pub(super) fn defaults() -> Config {
         prune: false,
         max_file_bytes: 0,
         capture_errors: "strict".into(),
+        mounts: vec![],
+        backends: vec![],
+        selected_mounts: vec![],
         disabled_rules: vec![],
         fail_on: lyfy::Severity::Warning,
     }
