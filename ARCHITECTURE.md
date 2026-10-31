@@ -251,6 +251,9 @@ SnapshotView is an explicit read-only API over one resolved committed generation
 Its content access returns an opaque std::io::Read; I/O still delegates entirely
 to infrastructure. This read trait in the API signature is not an OS mechanism
 implemented in api.rs. Exporters use this state/content contract.
+The S3 adapter uses url and its transitive percent-encoding codec for object
+paths. These pure URL codecs are shared infrastructure dependencies; report
+rendering, SARIF construction and launch parsing remain in inputs.
 
 ## Enforcement
 
