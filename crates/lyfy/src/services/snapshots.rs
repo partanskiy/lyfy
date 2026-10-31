@@ -58,7 +58,7 @@ pub fn commit(
 ) -> Result<Saved> {
     let config = &context.config;
     let snapshot = Snapshot {
-        schema: 1,
+        schema: 2,
         system: "arch".into(),
         host: config.host.clone(),
         created_ns: timestamp(),

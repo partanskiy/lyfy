@@ -69,13 +69,24 @@ pub fn build(context: &Context) -> Result<Plan> {
     let mut keys: BTreeSet<String> = desired.keys().chain(previous.keys()).cloned().collect();
     keys.extend(store.tombstones(&config.host, &id)?);
     let mut changes = vec![];
+    crate::domain::state::validate_tree(&desired)?;
+    let mut live = Tree::new();
+    for key in &keys {
+        let path = config.path_for_key(key)?;
+        if config.managed(&path)
+            && let Some((node, _)) = observe(config, &root, &path)?
+        {
+            live.insert(key.clone(), node);
+        }
+    }
+    crate::services::files::link_tree(config, &root, &mut live)?;
     for key in keys {
         let path = config.path_for_key(&key)?;
         ensure!(config.key(&path)? == key, "noncanonical target namespace");
         if !config.managed(&path) {
             continue;
         }
-        let before = observe(config, &root, &path)?.map(|(node, _)| node);
+        let before = live.get(&key).cloned();
         let after = desired.get(&key).cloned();
         if before == after {
             continue;
@@ -117,14 +128,16 @@ pub fn build(context: &Context) -> Result<Plan> {
         let depth = c.key.matches('/').count();
         let group = if c.after.as_ref().is_some_and(Node::directory) {
             0
+        } else if c.after.as_ref().is_some_and(|n| n.hardlink.is_some()) {
+            2
         } else if c.after.is_some() {
             1
         } else {
-            2
+            3
         };
         (
             group,
-            if group == 2 {
+            if group == 3 {
                 usize::MAX - depth
             } else {
                 depth

@@ -190,7 +190,7 @@ impl Store {
         ensure!(digest(&bytes) == id, "corrupt snapshot manifest");
         let snapshot: Snapshot = serde_json::from_slice(&bytes)?;
         ensure!(
-            snapshot.schema == 1 && snapshot.system == "arch" && snapshot.host == host,
+            [1, 2].contains(&snapshot.schema) && snapshot.system == "arch" && snapshot.host == host,
             "unsupported or mismatched snapshot"
         );
         for node in snapshot.changes.values().flatten() {
@@ -199,7 +199,9 @@ impl Store {
         Ok(snapshot)
     }
     pub fn effective(&self, host: &str, id: &str) -> Result<(Snapshot, Tree)> {
-        self.resolve(host, id, 0)
+        let result = self.resolve(host, id, 0)?;
+        crate::domain::state::validate_tree(&result.1)?;
+        Ok(result)
     }
     pub fn tombstones(&self, host: &str, id: &str) -> Result<std::collections::BTreeSet<String>> {
         self.deleted(host, id, 0)

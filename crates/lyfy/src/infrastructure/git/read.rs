@@ -17,7 +17,7 @@ impl Repository {
         let mut snapshot: Snapshot =
             serde_json::from_slice(&bytes).context("invalid Git state manifest")?;
         ensure!(
-            snapshot.schema == 1 && snapshot.system == "arch" && snapshot.host == host,
+            [1, 2].contains(&snapshot.schema) && snapshot.system == "arch" && snapshot.host == host,
             "unsupported or mismatched Git state manifest"
         );
         let mut expected = BTreeSet::new();
