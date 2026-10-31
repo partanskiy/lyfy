@@ -17,6 +17,39 @@ pub struct BytesOutput {
     pub stderr: String,
 }
 
+/// Stream payloads to a private file instead of buffering command output.
+pub fn stream(mut command: Command, input: Option<std::fs::File>) -> Result<std::fs::File> {
+    let mut output = tempfile::tempfile()?;
+    let error = tempfile::tempfile()?;
+    let mut child = command
+        .env("LC_ALL", "C")
+        .stdin(input.map(Stdio::from).unwrap_or_else(Stdio::null))
+        .stdout(output.try_clone()?)
+        .stderr(error.try_clone()?)
+        .spawn()
+        .context("cannot execute streaming tool")?;
+    let start = Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break status;
+        }
+        if start.elapsed() > Duration::from_secs(3600) || error.metadata()?.len() > 65536 {
+            child.kill()?;
+            child.wait()?;
+            anyhow::bail!("streaming tool exceeded time/error-output limit");
+        }
+        std::thread::sleep(Duration::from_millis(2));
+    };
+    // External tools can include sensitive data in diagnostics. Keep it private.
+    ensure!(
+        status.success(),
+        "streaming tool failed (exit {})",
+        status.code().unwrap_or(-1)
+    );
+    output.rewind()?;
+    Ok(output)
+}
+
 // Files avoid pipe-buffer deadlocks on large pacman inventories.
 pub fn run(program: &str, args: &[&str]) -> Result<Output> {
     let mut command = Command::new(program);
