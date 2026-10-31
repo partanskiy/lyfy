@@ -174,3 +174,32 @@ fn root_vfs_mount_captures_children_and_defers_nested_points() {
     assert!(state["changes"].get("home/.config/app.conf").is_some());
     assert!(state["changes"].get("system/").is_none());
 }
+
+#[test]
+fn protected_mount_roots_fail_instead_of_publishing_empty_backups() {
+    let f = setup();
+    writeln!(
+        fs::OpenOptions::new().append(true).open(&f.config).unwrap(),
+        "[[mounts]]\nname = 'runtime'\npath = '/run/private'\nbackend = 'local'"
+    )
+    .unwrap();
+    let output = f.run(&["save", "--selected_mounts", "runtime"]);
+    assert_eq!(output.status.code(), Some(2));
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(
+        result["mounts"][0]["error"]
+            .as_str()
+            .unwrap()
+            .contains("excluded")
+    );
+    assert!(!f.temp.path().join("backend").exists());
+    let captured = f.run(&[
+        "save",
+        "--selected_mounts",
+        "runtime",
+        "--capture_only",
+        "--elevate=never",
+    ]);
+    assert_eq!(captured.status.code(), Some(2));
+    assert!(captured.stdout.is_empty());
+}

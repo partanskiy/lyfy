@@ -117,11 +117,14 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
             }
         }
         protect(&mut scoped, &protected);
+        let root_excluded = scoped.excluded(root);
         let mut scoped_context = Context::new(scoped)?.with_access(context.access.clone())?;
         scoped_context.repository.history = mount.history;
         scoped_context.repository.retain = mount.retain;
-        let mut error = None;
-        if backend.kind == BackendKind::S3 && !capture_only {
+        let mut error = root_excluded.then(|| {
+            "VFS mount root is excluded by runtime, storage, connection or mount policy".into()
+        });
+        if backend.kind == BackendKind::S3 && !capture_only && error.is_none() {
             let connection = (|| {
                 let credentials =
                     context
