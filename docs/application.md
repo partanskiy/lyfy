@@ -52,15 +52,16 @@ user launch defaults. Those belong to lyfy-cli; see library.md.
 
 execute delegates to execute_observed with a no-op observer. An exhaustive
 Request match selects one operation. The observer supplies synchronous inspection
-feedback, currently for lint; it cannot dispatch another command. Internal
+and capture feedback; explicit capture_only requests use private archive chunks.
+The observer cannot dispatch another command. Internal
 operations return concrete result types which the API wraps in Data/Outcome.
 
 | Operation | Coordination | Concrete result |
 | --- | --- | --- |
 | lint | Inspect selected Arch checks and return findings/coverage | Report |
 | fmt | Lock when writing, inspect/plan, optionally execute and verify | Formatted |
-| save | Lock repository/state, capture host overlay and packages, commit snapshot | Saved |
-| apply | Lock when writing, reconcile desired/live/receipt, optionally execute | Applied |
+| save | Route scopes, preview or capture overlays/inventory, publish and replicate | Saved |
+| apply | Select managed/data scopes or an archive, reconcile and optionally execute | Applied |
 
 run is an ordinary function name. It is meaningful in its operation module and
 has no special Rust entry-point behavior. The common name does not require a
@@ -89,9 +90,9 @@ use lyfy::Report;
 ```
 
 Context/Config and operation behavior remain available. The old lyfy::domain
-module path is no longer public. Snapshot file/report encodings are unchanged by
-this source-layout change. Future storage API changes follow storage-design.md
-and require their own implementation/migration.
+module path is no longer public. Storage now supports nested VFS scopes and
+schema 2 metadata; schema 1 remains readable. See save.md for archive migration
+and execution behavior.
 
 The contract is a Rust source API, not a stable binary ABI. pub controls source
 visibility; it does not establish an independently replaceable liblyfy.so ABI.

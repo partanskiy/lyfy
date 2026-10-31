@@ -40,7 +40,9 @@ adapter, because it observes or persists managed system state.
 
 There is no output layer, transport layer, server, RPC protocol or event bus.
 Results remain ordinary return values. An optional synchronous, per-call
-inspection observer exposes check timing, findings and coverage to the caller.
+observer exposes inspection timing/findings/coverage and capture progress.
+Explicit capture-only save requests can emit private archive byte chunks to
+their launch input; ordinary save reports contain no file payloads.
 It cannot dispatch commands. Rendering feedback in the executable does not
 create an application subsystem; the library never renders or elevates.
 
@@ -63,6 +65,9 @@ sudo regardless of those conditions; `--elevate=never` disables the request.
 The child runs only read-only lint with the caller's resolved settings and
 `--elevate=never`. The policy has no configuration key or ENV override; the
 library never decides to elevate or invokes authentication itself.
+Save uses the same input-owned elevation modes for protected capture. Its
+capture_only request writes only disposable private storage and an archive
+observer channel. The caller validates that channel and publishes normally.
 Adding a fifth command requires
 a discussion; helper code must not become an extra command implicitly.
 
@@ -148,7 +153,9 @@ Services are capabilities, not a collection of functions called `utils`,
 capability that owns the invariant. Add a new narrowly named capability only
 when its responsibility cannot be expressed by an existing one.
 
-Infrastructure has five adapters: `filesystem`, `store`, `git`, `process`, `pacman`.
+Infrastructure adapters are `filesystem`, `store`, `git`, `process`, `pacman`,
+`archive`, `encryption` and `s3`. Store history/payload and S3 HTTP/list/lock
+modules are implementation parts of those adapters.
 They implement mechanisms. Policy decisions belong to domain or services.
 The pacman adapter reads state through dynamically linked libalpm and libarchive.
 Only infrastructure may import their Rust bindings or contain their FFI calls.

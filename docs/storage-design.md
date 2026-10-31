@@ -134,7 +134,7 @@ transaction rules. A pictures backup does not automatically become desired
 system configuration or participate in ordinary apply. Data restoration selects
 collections explicitly and previews its own conflicts; absence from a backup
 never silently means delete local photos/projects. The existing four commands
-remain the operation set; this proposal adds no implicit fifth command.
+remain the operation set; the implementation adds no fifth command.
 
 Package inventory belongs to the system/config collection, not every data
 collection. Cross-backend references and restore order must be validated before
@@ -177,13 +177,16 @@ mounts take ownership before that scope is scanned. Data restore requires an
 explicitly selected mount unless it was configured to participate in apply.
 Export/import carry manifests, verified content and pinned bases, not reports.
 
-Before implementing routing/backends, agree on publication capability contracts,
-current-only retention with pinned bases, collection restore semantics, replica
-failure policy and migration from storage_format/include/exclude. New settings
-must keep snake_case flags, LYFY environment overrides and existing precedence;
-exact syntax and per-collection overrides need a separate reviewed change.
+Implemented policies, syntax and compatibility are documented in save.md.
+Nested mounts use longest-prefix ownership. Git retains native history;
+directory/S3 support current-only and bounded history while retaining pins.
+Replicas materialize a confirmed source generation, with explicit required
+versus optional failure policy. Whole-list JSON flag/ENV overrides preserve
+existing precedence. Export/import performs explicit backend/encoding migration.
 
-Start with real Git/directory implementations and contract/round-trip/failure
-tests. Add S3 only after backend publication and concurrency behavior is tested
-against an explicit supported provider. Do not add unused traits, placeholder
-backends, new flags or fake S3 support in this architecture-only iteration.
+Git/directory and authenticated HTTP S3 contract tests cover round trips,
+conditional publication, locking, pagination, retained bases and encryption.
+Live provider compatibility remains an integration responsibility; S3-compatible
+endpoints must implement the advertised conditions and metadata guarantees.
+Multipart transfer, chunking/compression, IAM/SSO discovery and automatic stale
+lock/crash recovery require further implementation and compatibility review.

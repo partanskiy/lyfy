@@ -49,7 +49,13 @@ fn lint(options: Config) -> anyhow::Result<u8> {
 The caller in this example also declares anyhow if it names that error type.
 The complete standalone API fixture is in crates/lyfy/tests/api.rs.
 `execute_observed` additionally accepts synchronous inspection feedback; the
-caller chooses how to present it.
+caller chooses how to present it. Save takes
+`Request::Save { dry_run: false, capture_only: false }`; set dry_run=true for
+a read-only preview. Access holds caller-supplied connection material separately
+from Config and saved state; `Context::with_access` validates absolute paths.
+`Context::snapshot("default")` or a named mount returns SnapshotView with
+resolved SnapshotState and verified content streams. See the complete API test
+for capture/publication separation without CLI or sudo.
 
 The Config/Context API remains available through explicit root exports. Internal
 layer paths, including the old lyfy::domain namespace, are private. See

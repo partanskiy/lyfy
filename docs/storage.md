@@ -84,7 +84,8 @@ existing XDG parent directories or assume Git preserves Unix target metadata.
 Configure remotes, fetch, merge/rebase and push using Git explicitly. This lets
 the state repository follow its own branch/PR policy and avoids hidden network
 activity in save/apply. Keep system state and its history private: ordinary
-configuration files may contain embedded secrets. Encryption is not implemented.
+configuration files may contain embedded secrets. Directory and S3 destinations
+support age encryption; Git keeps readable payloads. See [save](save.md).
 
 Git operations disable hooks, fsmonitor and signing prompts in this adapter.
 Repository-local info/attributes forces raw bytes for hosts/**, preventing line
@@ -104,18 +105,27 @@ The directory backend retains immutable snapshots for local workflows:
 It uses the same domain model and host overlays as Git, with SHA-256 content
 objects and snapshot manifests. It is not a recommended layout to wrap in Git
 for readable configuration diffs. Choose the Git backend for that use case.
-Automatic conversion between existing backend layouts is not implemented;
-choose an empty/new data_dir when changing storage_format.
+Export/import provides explicit conversion between backends. Choose an empty
+destination when changing storage_format or encryption policy; existing data is
+never silently rewritten in place.
 
 Both backends share the same application operations and services. The persistence adapter
 owns encoding and history mechanics. Multi-file target backups and receipts
 remain in state_dir and are not committed as desired system state.
 
 
-## Planned storage evolution
+## VFS mounts and remote storage
 
 storage_format currently chooses Git or directory layout/backend. The CLI
 format setting changes the operation report, not the saved state representation.
-The [collection/backend design](storage-design.md) proposes independent path
-routing, history and backend policies for a later iteration, including object
-storage. It does not introduce implemented S3 support or new runtime settings.
+The [save guide](save.md) documents implemented arbitrary nested VFS mounts,
+Git/directory/S3 backends, history/current-only policy, pinned-base retention,
+replicas, native age encryption and complete archives. Mount names scope host
+state independently; explicit selection controls data restoration. Remote
+publication uses expected ETags and a collection writer lock.
+
+New manifests use schema 2 with file/directory xattr/ACL, special modes,
+hardlink declarations and incomplete-capture/provenance metadata. Schema 1
+remains readable; older binaries cannot read schema 2. Current-only retention
+keeps pinned bases and their content. Store encoding/recipient markers prevent
+accidentally interpreting encrypted content as plaintext or changing policy.

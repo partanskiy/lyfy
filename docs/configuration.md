@@ -27,6 +27,14 @@ See [the library boundary](library.md).
 | overwrite | false | Permit replacing live content that conflicts with the receipt |
 | prune | false | Permit deleting explicitly tracked paths absent from desired state |
 | max_file_bytes | 0 | Maximum regular-file bytes during capture/planning; 0 is unlimited |
+| capture_errors | strict | strict blocks incomplete saves; explicit skip records diagnostics and returns 2 |
+| mounts | [] | Named VFS paths, backend, history, restore and replica policies |
+| backends | [] | Named Git/directory/S3 destinations and public age recipients |
+| selected_mounts | [] | Comma-separated mount names; empty selects normal operation scopes |
+| export_file | unset | Complete archive destination for save; select one scope |
+| import_file | unset | Verified archive source for save/apply; select one scope |
+| identity_files | [] | Absolute age identity paths; input-owned connection material |
+| protected_paths | [] | Extra physical connection paths always excluded from capture; input-owned |
 | disabled_rules | [] | Validated rule IDs excluded from inspection |
 | fail_on | warning | Fail a complete scan at info, warning or error |
 | format | text | Lint: text, json, toml, yaml, markdown or sarif; CLI only |
@@ -53,11 +61,15 @@ Defaults include the current XDG_CONFIG_HOME, ~/.bashrc, ~/.bash_profile,
 paths are skipped. The root and home directory nodes themselves are never
 restored as files, but their children can be managed using `/` or `~` scopes.
 
-Defaults exclude ~/Projects, ~/.cache, ~/.local/state, ~/.ssh, ~/.gnupg,
+Defaults exclude ~/Projects, ~/.cache, ~/.local/state, ~/.ssh, ~/.gnupg, ~/.aws,
 /etc/shadow and shadow-, /etc/gshadow and gshadow-, /etc/ssh, /etc/ssl/private,
 /etc/credstore, /etc/credstore.encrypted, /etc/pacman.d/gnupg and /etc/machine-id.
 Associated pacnew/pacsave files inherit exclusion of their active path. This
 list does not identify every possible secret embedded in application configs.
+Active identity/credential files and configured protected_paths are always
+excluded, including when an explicit mount overrides a default exclusion.
+See [the save guide](save.md) for nested mount routing, complete JSON list
+overrides, encryption, S3 authentication and history/replica policies.
 
 Virtual/runtime/cache trees /proc, /sys, /dev, /run, /tmp, /var/tmp, /var/cache
 and the live /var/lib/pacman database are always excluded from file state.
