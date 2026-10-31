@@ -157,6 +157,12 @@ impl Store {
         if let Some(git) = &self.git {
             return git.save(snapshot);
         }
+        if self.has_head(&snapshot.host)? {
+            let id = self.head(&snapshot.host)?;
+            if self.load(&snapshot.host, &id)?.same_state(snapshot) {
+                return Ok(id);
+            }
+        }
         let bytes = serde_json::to_vec_pretty(snapshot)?;
         let id = digest(&bytes);
         let host = self.host_dir(&snapshot.host)?;

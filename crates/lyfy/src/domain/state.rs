@@ -60,7 +60,7 @@ pub struct Reference {
     pub id: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
     pub schema: u32,
@@ -71,4 +71,15 @@ pub struct Snapshot {
     // None is an explicit deletion relative to the pinned base.
     pub changes: BTreeMap<String, Option<Node>>,
     pub packages: Option<Vec<crate::domain::packages::Package>>,
+}
+
+impl Snapshot {
+    pub fn same_state(&self, other: &Self) -> bool {
+        self.schema == other.schema
+            && self.system == other.system
+            && self.host == other.host
+            && self.base == other.base
+            && self.changes == other.changes
+            && self.packages == other.packages
+    }
 }
