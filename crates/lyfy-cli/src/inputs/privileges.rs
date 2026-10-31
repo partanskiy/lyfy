@@ -114,6 +114,7 @@ mod tests {
             format: "json".into(),
             output_file: Some("/tmp/caller-only-report.json".into()),
             progress: "auto".into(),
+            access: Default::default(),
         };
         let text = resolved_settings(&launch).unwrap();
         let mut value: toml::Value = toml::from_str(&text).unwrap();

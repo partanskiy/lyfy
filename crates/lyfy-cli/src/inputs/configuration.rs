@@ -9,6 +9,7 @@ pub struct Launch {
     pub format: String,
     pub output_file: Option<PathBuf>,
     pub progress: String,
+    pub access: lyfy::Access,
 }
 
 pub fn xdg(name: &str, fallback: &str) -> PathBuf {
@@ -100,6 +101,7 @@ pub fn resolve(options: Options) -> Result<Launch> {
     value["format"] = "text".into();
     value["output_file"] = Value::Null;
     value["progress"] = "auto".into();
+    value["identity_files"] = serde_json::json!([]);
     for path in candidates {
         match fs::read_to_string(&path) {
             Ok(text) => {
@@ -153,14 +155,23 @@ pub fn resolve(options: Options) -> Result<Launch> {
     if value["disabled_rules"] == serde_json::json!([""]) {
         value["disabled_rules"] = serde_json::json!([]);
     }
+    let identity_files = serde_json::from_value(
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("identity_files")
+            .unwrap(),
+    )?;
     let config: Config = serde_json::from_value(value)?;
     config.validate()?;
     ensure!(config.root.is_dir(), "root must be an existing directory");
+    let access = super::credentials::resolve(&config, identity_files)?;
     Ok(Launch {
         config,
         format,
         output_file,
         progress,
+        access,
     })
 }
 
