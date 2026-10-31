@@ -56,12 +56,15 @@ fn capture_and_publish(
     observer: &mut dyn FnMut(Observation<'_>),
 ) -> Result<Saved> {
     let config = &context.config;
-    let _locks = (!dry_run).then(|| session::lock(context)).transpose()?;
+    let mut locks = (!dry_run)
+        .then(|| session::capture_lock(context))
+        .transpose()?;
     ensure!(
         config.snapshot == "latest",
         "save always creates a new immutable snapshot"
     );
     let base = snapshots::baseline(context)?;
+    let mut previous = snapshots::previous_keys(context)?;
     let captured = capture::scan(context, !dry_run, observer)?;
     let current = captured.tree;
     let mut changes = BTreeMap::new();
@@ -70,7 +73,6 @@ fn capture_and_publish(
             changes.insert(key.clone(), Some(node.clone()));
         }
     }
-    let mut previous = snapshots::previous_keys(context)?;
     previous.extend(base.tree.into_keys());
     for key in previous {
         if config.managed(&config.path_for_key(&key)?) && !current.contains_key(&key) {
@@ -84,7 +86,7 @@ fn capture_and_publish(
     } else {
         "publishing snapshot"
     }));
-    snapshots::commit(
+    let mut result = snapshots::commit(
         context,
         base.reference,
         changes,
@@ -92,5 +94,15 @@ fn capture_and_publish(
         current.len(),
         dry_run,
         captured.diagnostics,
-    )
+    )?;
+    if let Some(locks) = &mut locks
+        && let Err(error) = session::release(locks)
+    {
+        result.complete = false;
+        result.diagnostics.push(CaptureDiagnostic {
+            path: config.data_dir.to_string_lossy().into(),
+            detail: format!("snapshot publication finished; remote lock release failed: {error:#}"),
+        });
+    }
+    Ok(result)
 }
