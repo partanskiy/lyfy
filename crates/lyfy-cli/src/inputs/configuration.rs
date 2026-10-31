@@ -84,15 +84,7 @@ pub(super) fn defaults() -> Config {
     }
 }
 
-pub fn resolve(options: Options) -> Result<Launch> {
-    resolve_inner(options, true)
-}
-
-pub fn resolve_capture(options: Options) -> Result<Launch> {
-    resolve_inner(options, false)
-}
-
-fn resolve_inner(options: Options, connections: bool) -> Result<Launch> {
+pub fn resolve(options: Options, command: &super::cli::Command) -> Result<Launch> {
     let explicit = options.config_file.is_some();
     let candidates = if let Some(path) = &options.config_file {
         vec![path.clone()]
@@ -184,14 +176,7 @@ fn resolve_inner(options: Options, connections: bool) -> Result<Launch> {
     let config: Config = serde_json::from_value(value)?;
     config.validate()?;
     ensure!(config.root.is_dir(), "root must be an existing directory");
-    let mut access = if connections {
-        super::credentials::resolve(&config, identity_files)?
-    } else {
-        lyfy::Access {
-            identity_files,
-            ..Default::default()
-        }
-    };
+    let mut access = super::credentials::resolve(&config, command, identity_files)?;
     ensure!(
         protected_paths.iter().all(|p| p.is_absolute()),
         "protected_paths must contain absolute paths"

@@ -2,12 +2,45 @@ use anyhow::{Context, Result, ensure};
 use lyfy::{Access, Config, S3Credentials};
 use std::{env, fs, path::PathBuf};
 
-pub fn resolve(config: &Config, identity_files: Vec<PathBuf>) -> Result<Access> {
+pub fn resolve(
+    config: &Config,
+    command: &super::cli::Command,
+    identity_files: Vec<PathBuf>,
+) -> Result<Access> {
+    use super::cli::Command;
     let mut access = Access {
         identity_files,
         ..Default::default()
     };
-    for backend in &config.backends {
+    let file = env::var_os("AWS_SHARED_CREDENTIALS_FILE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| super::configuration::xdg("HOME", "").join(".aws/credentials"));
+    if config.backends.iter().any(|b| b.s3.is_some()) {
+        access.protected_paths.push(file.clone());
+        if let Ok(canonical) = fs::canonicalize(&file) {
+            access.protected_paths.push(canonical);
+        }
+    }
+    let save = matches!(
+        command,
+        Command::Save {
+            capture_only: false,
+            ..
+        }
+    );
+    let apply = matches!(command, Command::Apply { .. }) && config.import_file.is_none();
+    let mut needed = std::collections::BTreeSet::new();
+    for mount in &config.mounts {
+        let selected =
+            config.selected_mounts.is_empty() || config.selected_mounts.contains(&mount.name);
+        if selected && (save || (apply && (mount.apply || !config.selected_mounts.is_empty()))) {
+            needed.insert(&mount.backend);
+            if save {
+                needed.extend(&mount.replicas);
+            }
+        }
+    }
+    for backend in config.backends.iter().filter(|b| needed.contains(&b.name)) {
         let Some(connection) = &backend.s3 else {
             continue;
         };
@@ -35,14 +68,7 @@ pub fn resolve(config: &Config, identity_files: Vec<PathBuf>) -> Result<Access> 
             .clone()
             .or_else(|| env::var("AWS_PROFILE").ok())
             .unwrap_or_else(|| "default".into());
-        let file = env::var_os("AWS_SHARED_CREDENTIALS_FILE")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| super::configuration::xdg("HOME", "").join(".aws/credentials"));
-        access.protected_paths.push(file.clone());
-        if let Ok(canonical) = fs::canonicalize(&file) {
-            access.protected_paths.push(canonical);
-        }
-        let contents = match fs::read_to_string(file) {
+        let contents = match fs::read_to_string(&file) {
             Ok(contents) => contents,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
             Err(_) => anyhow::bail!("cannot read AWS shared credentials file"),
@@ -76,6 +102,9 @@ pub fn resolve(config: &Config, identity_files: Vec<PathBuf>) -> Result<Access> 
                 },
             );
         }
+    }
+    if !save && !matches!(command, Command::Apply { .. }) {
+        return Ok(access);
     }
     for identity in &access.identity_files {
         ensure!(
