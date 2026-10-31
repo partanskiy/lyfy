@@ -32,7 +32,10 @@ pub struct Config {
 impl Config {
     pub fn validate(&self) -> Result<()> {
         ensure!(self.system == "arch", "only system = arch is supported");
-        ensure!(["strict", "skip"].contains(&self.capture_errors.as_str()), "capture_errors must be strict or skip");
+        ensure!(
+            ["strict", "skip"].contains(&self.capture_errors.as_str()),
+            "capture_errors must be strict or skip"
+        );
         ensure!(
             ["git", "directory"].contains(&self.storage_format.as_str()),
             "storage_format must be git or directory"
@@ -156,7 +159,9 @@ impl Config {
     }
 }
 
-fn strict_capture() -> String { "strict".into() }
+fn strict_capture() -> String {
+    "strict".into()
+}
 
 pub fn absolute(path: &Path) -> Result<()> {
     ensure!(

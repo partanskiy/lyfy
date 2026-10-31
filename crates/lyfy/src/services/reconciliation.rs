@@ -33,6 +33,10 @@ pub fn build(context: &Context) -> Result<Plan> {
         config.snapshot.clone()
     };
     let (snapshot, tree) = store.effective(&config.host, &id)?;
+    ensure!(
+        snapshot.diagnostics.is_empty(),
+        "snapshot has incomplete capture; save a complete generation before apply"
+    );
     let root = Root::open(&config.root)?;
     let receipt_file = receipt_path(config);
     let previous: Tree = if receipt_file.try_exists()? {

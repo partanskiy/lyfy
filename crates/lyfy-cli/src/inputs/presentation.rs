@@ -149,7 +149,11 @@ pub fn safe(text: &str) -> String {
 }
 
 pub fn save(result: &lyfy::Saved) -> String {
-    let status = if result.dry_run {
+    let status = if !result.complete && !result.created {
+        "incomplete capture; no snapshot published"
+    } else if !result.complete {
+        "incomplete snapshot saved"
+    } else if result.dry_run {
         "preview"
     } else if result.created {
         "saved"
@@ -185,6 +189,14 @@ pub fn save(result: &lyfy::Saved) -> String {
     }
     if result.packages_changed {
         let _ = writeln!(out, "Package inventory changed.");
+    }
+    for diagnostic in &result.diagnostics {
+        let _ = writeln!(
+            out,
+            "INCOMPLETE {}: {}",
+            safe(&diagnostic.path),
+            safe(&diagnostic.detail)
+        );
     }
     if result.dry_run {
         let _ = writeln!(

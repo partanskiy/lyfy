@@ -143,3 +143,52 @@ fn large_files_stream_through_save_preview_and_apply() {
         );
     }
 }
+
+#[test]
+fn strict_capture_blocks_publication_and_explicit_skips_remain_incomplete() {
+    let f = setup();
+    let first = f.ok(&["save"]);
+    let fifo = std::ffi::CString::new(f.root.join("etc/runtime.fifo").to_str().unwrap()).unwrap();
+    // SAFETY: fifo is a valid NUL terminated path within the fixture.
+    assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+    let output = f.run(&["save"]);
+    assert_eq!(output.status.code(), Some(2));
+    let failed: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(failed["complete"], false);
+    assert_eq!(failed["created"], false);
+    assert_eq!(failed["snapshot"], first["snapshot"]);
+    assert!(
+        failed["diagnostics"][0]["path"]
+            .as_str()
+            .unwrap()
+            .contains("runtime.fifo")
+    );
+    let output = f.run(&["save", "--capture_errors", "skip"]);
+    assert_eq!(output.status.code(), Some(2));
+    let partial: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(partial["created"], true);
+    assert_ne!(partial["snapshot"], first["snapshot"]);
+    assert!(
+        !f.snapshot("laptop")["diagnostics"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(f.run(&["apply", "--write"]).status.code(), Some(2));
+    fs::remove_file(f.root.join("etc/runtime.fifo")).unwrap();
+    assert_eq!(f.ok(&["save"])["complete"], true);
+}
+
+#[test]
+fn unreadable_previously_saved_files_are_never_recorded_as_deletions() {
+    let f = setup();
+    f.ok(&["save"]);
+    let path = f.root.join("etc/example.conf");
+    fs::set_permissions(&path, fs::Permissions::from_mode(0)).unwrap();
+    let output = f.run(&["save", "--capture_errors", "skip"]);
+    assert_eq!(output.status.code(), Some(2));
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["deletions"], 0);
+    assert!(f.snapshot("laptop")["changes"]["system/etc/example.conf"].is_object());
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).unwrap();
+}

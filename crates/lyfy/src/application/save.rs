@@ -17,7 +17,8 @@ pub(crate) fn run(
         "save always creates a new immutable snapshot"
     );
     let base = snapshots::baseline(context)?;
-    let current = capture::scan(context, !dry_run, observer)?;
+    let captured = capture::scan(context, !dry_run, observer)?;
+    let current = captured.tree;
     let mut changes = BTreeMap::new();
     for (key, node) in &current {
         if base.tree.get(key) != Some(node) {
@@ -45,5 +46,6 @@ pub(crate) fn run(
         inventory,
         current.len(),
         dry_run,
+        captured.diagnostics,
     )
 }
