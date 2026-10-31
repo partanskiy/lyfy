@@ -63,3 +63,34 @@ fn replica_failure_reports_the_committed_primary_and_respects_required_policy() 
         );
     }
 }
+
+#[test]
+fn optional_cloud_credential_errors_do_not_block_primary_publication() {
+    let f = Fixture::new();
+    let unavailable = f.temp.path().join("unavailable-credentials");
+    fs::create_dir(&unavailable).unwrap();
+    writeln!(fs::OpenOptions::new().append(true).open(&f.config).unwrap(),
+        "[[backends]]\nname = 'primary'\nkind = 'directory'\npath = {:?}\n[[backends]]\nname = 'remote'\nkind = 's3'\n[backends.s3]\nbucket = 'private-state'\nendpoint = 'https://s3.example.invalid'\nregion = 'test-region'\n[[mounts]]\nname = 'config'\npath = '/etc'\nbackend = 'primary'\nreplicas = ['remote']\nreplicas_required = false", f.temp.path().join("primary")).unwrap();
+    let output = f
+        .command()
+        .env("AWS_SHARED_CREDENTIALS_FILE", unavailable)
+        .args(["save", "--selected_mounts", "config"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let primary = &result["mounts"][0]["result"];
+    assert_eq!(primary["created"], true);
+    assert!(primary["snapshot"].is_string());
+    assert_eq!(primary["replicas"][0]["status"], "failed");
+    assert!(
+        primary["replicas"][0]["error"]
+            .as_str()
+            .unwrap()
+            .contains("credentials")
+    );
+}

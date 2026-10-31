@@ -1,5 +1,5 @@
 use crate::infrastructure::process;
-use anyhow::{Result, ensure};
+use anyhow::{Context as _, Result, ensure};
 use std::{fs::File, path::PathBuf, process::Command};
 
 pub struct Age {
@@ -19,6 +19,7 @@ impl Age {
             command.arg("--recipient").arg(recipient);
         }
         process::stream(command, Some(file))
+            .context("age encryption failed; check native recipients and the age installation")
     }
 
     pub fn decrypt(&self, file: File) -> Result<File> {
@@ -32,5 +33,6 @@ impl Age {
             command.arg("--identity").arg(identity);
         }
         process::stream(command, Some(file))
+            .context("age decryption failed; check identity_files and the age installation")
     }
 }

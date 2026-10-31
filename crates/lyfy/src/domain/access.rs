@@ -6,6 +6,7 @@ pub struct Access {
     pub identity_files: Vec<PathBuf>,
     pub s3: BTreeMap<String, S3Credentials>,
     pub protected_paths: Vec<PathBuf>,
+    pub connection_errors: BTreeMap<String, String>,
 }
 
 #[derive(Clone)]
