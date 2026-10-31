@@ -6,6 +6,7 @@ pub mod privileges;
 pub mod progress;
 pub mod reporting;
 pub mod sarif;
+pub mod save_privileges;
 
 #[cfg(test)]
 mod tests;

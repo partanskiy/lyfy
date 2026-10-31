@@ -4,14 +4,66 @@ use anyhow::{Result, ensure};
 use clap::Parser;
 use inputs::{
     cli::{Cli, Command},
-    configuration, privileges, progress, reporting,
+    configuration, privileges, progress, reporting, save_privileges,
 };
 use lyfy::Context;
 use std::process::ExitCode;
 
 fn run() -> Result<u8> {
     let cli = Cli::parse();
-    let launch = configuration::resolve(cli.options)?;
+    let capture_only = matches!(
+        cli.command,
+        Command::Save {
+            capture_only: true,
+            ..
+        }
+    );
+    let launch = if capture_only {
+        configuration::resolve_capture(cli.options)?
+    } else {
+        configuration::resolve(cli.options)?
+    };
+    if capture_only {
+        use std::io::{IsTerminal, Write};
+        ensure!(
+            !std::io::stdout().is_terminal(),
+            "capture transport requires redirected stdout"
+        );
+        ensure!(
+            matches!(
+                cli.command,
+                Command::Save {
+                    elevate: privileges::Elevation::Never,
+                    dry_run: false,
+                    ..
+                }
+            ),
+            "capture transport requires elevate=never and cannot preview"
+        );
+        let context = Context::new(launch.config)?;
+        let mut display = progress::Save::new(&launch.progress);
+        let mut error = None;
+        let outcome = lyfy::execute_observed(&context, cli.command.into(), &mut |event| {
+            if let lyfy::Observation::CaptureArchive(bytes) = event {
+                if error.is_none() {
+                    if let Err(e) = std::io::stdout().lock().write_all(bytes) {
+                        error = Some(e);
+                    }
+                }
+            } else {
+                display.observe(event);
+            }
+        })?;
+        if let Some(error) = error {
+            return Err(error.into());
+        }
+        if let lyfy::Data::Save(result) = &outcome.data
+            && !result.complete
+        {
+            eprintln!("{}", inputs::presentation::save(result));
+        }
+        return Ok(outcome.exit_code);
+    }
     let lint = matches!(cli.command, Command::Lint { .. });
     ensure!(
         lint || launch.output_file.is_none(),
@@ -24,6 +76,11 @@ fn run() -> Result<u8> {
     let elevation = match &cli.command {
         Command::Lint { elevate } => Some(*elevate),
         _ => None,
+    };
+    let capture = if let Command::Save { elevate, .. } = &cli.command {
+        save_privileges::capture(&launch, *elevate)?
+    } else {
+        None
     };
     let request = cli.command.into();
     ensure!(
@@ -50,7 +107,10 @@ fn run() -> Result<u8> {
         }
         return Ok(outcome.exit_code);
     }
-    let context = Context::new(launch.config)?.with_access(launch.access);
+    let mut context = Context::new(launch.config)?.with_access(launch.access);
+    if let Some(capture) = &capture {
+        context = context.with_capture_source(capture.path().to_path_buf())?;
+    }
     let outcome = if matches!(request, lyfy::Request::Save { .. }) {
         let mut display = progress::Save::new(&launch.progress);
         lyfy::execute_observed(&context, request, &mut |event| display.observe(event))?

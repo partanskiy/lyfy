@@ -46,7 +46,7 @@ fn input_configuration_is_separate_from_business_settings() {
 }
 
 #[test]
-fn elevation_is_a_lint_launch_policy_only() {
+fn elevation_is_an_input_policy_for_lint_and_save() {
     assert!(matches!(
         Cli::try_parse_from(["lyfy", "lint", "--elevate"])
             .unwrap()
@@ -70,7 +70,8 @@ fn elevation_is_a_lint_launch_policy_only() {
         }
     ));
     assert!(Cli::try_parse_from(["lyfy", "lint", "--elevate=invalid"]).is_err());
-    for operation in ["save", "fmt", "apply"] {
+    assert!(Cli::try_parse_from(["lyfy", "save", "--elevate"]).is_ok());
+    for operation in ["fmt", "apply"] {
         assert!(Cli::try_parse_from(["lyfy", operation, "--elevate"]).is_err());
     }
     let command = Cli::command();
