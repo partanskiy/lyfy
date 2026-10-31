@@ -63,3 +63,64 @@ fn save_apply_preserves_extended_attributes_acls_and_special_modes() {
     assert!(f.ok(&["apply"])["changes"].as_array().unwrap().is_empty());
     assert_eq!(f.ok(&["save"])["changes"], 0);
 }
+
+#[test]
+fn hardlink_topology_is_saved_restored_and_checked_for_drift() {
+    use std::os::unix::fs::MetadataExt;
+    for backend in ["directory", "git"] {
+        let f = Fixture::new();
+        fs::write(
+            f.temp.path().join(".gitconfig"),
+            "[user]\nname = Test\nemail = test@example.invalid\n",
+        )
+        .unwrap();
+        let primary = f.root.join("etc/example.conf");
+        let secondary = f.root.join("etc/second.conf");
+        fs::hard_link(&primary, &secondary).unwrap();
+        f.ok(&["save", "--storage_format", backend]);
+        fs::remove_file(&secondary).unwrap();
+        fs::write(&secondary, "common\n").unwrap();
+        fs::set_permissions(&secondary, fs::Permissions::from_mode(0o640)).unwrap();
+        let plan = f.ok(&["apply", "--storage_format", backend, "--overwrite", "true"]);
+        assert!(
+            plan["changes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|c| c["key"] == "system/etc/second.conf")
+        );
+        f.ok(&[
+            "apply",
+            "--storage_format",
+            backend,
+            "--overwrite",
+            "true",
+            "--write",
+        ]);
+        assert_eq!(
+            fs::metadata(&primary).unwrap().ino(),
+            fs::metadata(&secondary).unwrap().ino()
+        );
+        assert_eq!(f.ok(&["save", "--storage_format", backend])["changes"], 0);
+        fs::write(&primary, "changed together\n").unwrap();
+        f.ok(&[
+            "apply",
+            "--storage_format",
+            backend,
+            "--overwrite",
+            "true",
+            "--write",
+        ]);
+        assert_eq!(f.read("etc/second.conf"), "common\n");
+        assert_eq!(
+            fs::metadata(&primary).unwrap().ino(),
+            fs::metadata(&secondary).unwrap().ino()
+        );
+        assert!(
+            f.ok(&["apply", "--storage_format", backend])["changes"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+    }
+}
