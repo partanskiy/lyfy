@@ -1,3 +1,4 @@
+pub(crate) mod archive;
 pub(crate) mod encryption;
 pub(crate) mod filesystem;
 pub(crate) mod git;

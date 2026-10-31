@@ -76,6 +76,8 @@ pub(super) fn defaults() -> Config {
         mounts: vec![],
         backends: vec![],
         selected_mounts: vec![],
+        export_file: None,
+        import_file: None,
         disabled_rules: vec![],
         fail_on: lyfy::Severity::Warning,
     }

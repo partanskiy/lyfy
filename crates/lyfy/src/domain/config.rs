@@ -31,6 +31,10 @@ pub struct Config {
     pub backends: Vec<crate::domain::storage::Backend>,
     #[serde(default)]
     pub selected_mounts: Vec<String>,
+    #[serde(default)]
+    pub export_file: Option<PathBuf>,
+    #[serde(default)]
+    pub import_file: Option<PathBuf>,
     pub disabled_rules: Vec<crate::domain::rules::RuleId>,
     pub fail_on: crate::domain::rules::Severity,
 }
@@ -48,6 +52,9 @@ impl Config {
             "storage_format must be git or directory"
         );
         for path in [&self.root, &self.home_dir, &self.data_dir, &self.state_dir] {
+            absolute(path)?;
+        }
+        for path in [&self.export_file, &self.import_file].into_iter().flatten() {
             absolute(path)?;
         }
         identifier(&self.host)?;
@@ -149,6 +156,10 @@ impl Config {
             "/var/lib/pacman",
         ];
         protected.iter().any(|p| logical.starts_with(p))
+            || [&self.export_file, &self.import_file]
+                .into_iter()
+                .flatten()
+                .any(|p| physical.starts_with(p))
             || physical.starts_with(&self.data_dir)
             || physical.starts_with(&self.state_dir)
             || self

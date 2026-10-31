@@ -76,6 +76,12 @@ pub struct Options {
         value_delimiter = ','
     )]
     pub selected_mounts: Option<Vec<String>>,
+    /// Export one committed scope as a complete portable archive.
+    #[arg(long, env = "LYFY_EXPORT_FILE", global = true)]
+    pub export_file: Option<PathBuf>,
+    /// Use a verified portable archive as the source for save/apply.
+    #[arg(long, env = "LYFY_IMPORT_FILE", global = true)]
+    pub import_file: Option<PathBuf>,
     /// Native age identity files; used only for decrypting selected storage.
     #[arg(
         long,
