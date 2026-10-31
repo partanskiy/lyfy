@@ -71,6 +71,7 @@ pub(super) fn defaults() -> Config {
         overwrite: false,
         prune: false,
         max_file_bytes: 0,
+        capture_errors: "strict".into(),
         disabled_rules: vec![],
         fail_on: lyfy::Severity::Warning,
     }

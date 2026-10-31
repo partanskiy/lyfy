@@ -123,6 +123,7 @@ mod tests {
             overwrite: false,
             prune: false,
             max_file_bytes: 1024,
+            capture_errors: "strict".into(),
             disabled_rules: vec![],
             fail_on: Severity::Warning,
         };
