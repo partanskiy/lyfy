@@ -206,6 +206,8 @@ numeric. Archives provide an explicit migration path between Git/directory/S3.
 Regular files stream with bounded buffers. max_file_bytes=0 is unlimited locally;
 set a positive cap when desired. Unix modes including special bits, ownership,
 file/directory ACLs and xattr, hardlinks within a scope and symlinks are preserved.
+Hardlink groups extending outside a scope are diagnosed instead of flattened;
+include the complete group in one scope to preserve its topology.
 Sockets, devices, unsupported symlink attributes and non-UTF-8 names are explicit
 capture diagnostics. A scan is verified again but cannot freeze the filesystem;
 pause concurrent editors and package transactions for a coherent capture.
