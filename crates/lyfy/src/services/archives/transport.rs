@@ -47,10 +47,10 @@ pub fn capture_channel(
     }
     let mut sizes = BTreeMap::new();
     for node in tree.values() {
-        if let Content::File { sha256 } = &node.content {
-            if !sizes.contains_key(sha256) {
-                sizes.insert(sha256.clone(), store.object_file(sha256)?.metadata()?.len());
-            }
+        if let Content::File { sha256 } = &node.content
+            && !sizes.contains_key(sha256)
+        {
+            sizes.insert(sha256.clone(), store.object_file(sha256)?.metadata()?.len());
         }
     }
     let state = SnapshotState {

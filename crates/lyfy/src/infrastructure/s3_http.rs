@@ -136,7 +136,7 @@ impl S3 {
                 name.eq_ignore_ascii_case("etag")
                     .then(|| value.trim().to_owned())
             })
-            .last();
+            .next_back();
         if let Some(etag) = &etag {
             ensure!(
                 etag.len() <= 256 && !etag.chars().any(char::is_control),

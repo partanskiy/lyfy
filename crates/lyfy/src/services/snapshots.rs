@@ -28,13 +28,13 @@ pub fn view_at(context: &Context, id: &str) -> Result<crate::domain::state::Snap
     let (snapshot, tree) = context.repository.effective(&config.host, id)?;
     let mut sizes = BTreeMap::new();
     for node in tree.values() {
-        if let crate::domain::state::Content::File { sha256 } = &node.content {
-            if !sizes.contains_key(sha256) {
-                sizes.insert(
-                    sha256.clone(),
-                    context.repository.object_file(sha256)?.metadata()?.len(),
-                );
-            }
+        if let crate::domain::state::Content::File { sha256 } = &node.content
+            && !sizes.contains_key(sha256)
+        {
+            sizes.insert(
+                sha256.clone(),
+                context.repository.object_file(sha256)?.metadata()?.len(),
+            );
         }
     }
     Ok(crate::domain::state::SnapshotState {
@@ -44,7 +44,7 @@ pub fn view_at(context: &Context, id: &str) -> Result<crate::domain::state::Snap
         source_snapshot: id.into(),
         created_ns: snapshot.created_ns,
         tree,
-        deletions: context.repository.tombstones(&config.host, &id)?,
+        deletions: context.repository.tombstones(&config.host, id)?,
         packages: snapshot.packages,
         diagnostics: snapshot.diagnostics,
         sizes,
