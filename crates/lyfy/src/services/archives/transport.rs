@@ -22,6 +22,13 @@ pub fn capture_channel(
     let mut diagnostics = vec![];
     let mut inventory = None;
     for mut scope in routing::capture_scopes(context)? {
+        if let Some(detail) = scope.error {
+            diagnostics.push(crate::domain::results::CaptureDiagnostic {
+                path: scope.path,
+                detail,
+            });
+            continue;
+        }
         scope.context.repository = Store::ephemeral()?;
         let captured = capture::scan(&scope.context, true, observer)?;
         for (key, node) in captured.tree {
