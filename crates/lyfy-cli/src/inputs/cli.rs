@@ -134,6 +134,11 @@ pub enum Command {
         /// Inspect changes without writing snapshots, locks or exports.
         #[arg(long = "dry_run", visible_alias = "dry-run")]
         dry_run: bool,
+        /// Sudo policy for protected capture; publication keeps caller privileges.
+        #[arg(long, value_enum, default_value = "auto", default_missing_value = "required", num_args = 0..=1, require_equals = true)]
+        elevate: Elevation,
+        #[arg(long = "capture_only", hide = true)]
+        capture_only: bool,
     },
     /// Plan reconciliation with a saved host snapshot.
     Apply {
@@ -152,7 +157,14 @@ impl From<Command> for lyfy::Request {
     fn from(command: Command) -> Self {
         match command {
             Command::Lint { .. } => Self::Lint,
-            Command::Save { dry_run } => Self::Save { dry_run },
+            Command::Save {
+                dry_run,
+                capture_only,
+                ..
+            } => Self::Save {
+                dry_run,
+                capture_only,
+            },
             Command::Fmt { write } => Self::Fmt { write },
             Command::Apply { write } => Self::Apply { write },
         }

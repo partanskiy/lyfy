@@ -16,6 +16,8 @@ use std::{
     io::{Read, Seek},
     path::Path,
 };
+mod transport;
+pub use transport::capture_channel;
 
 pub fn prepare(context: &Context, scope_count: usize) -> Result<()> {
     let config = &context.config;
@@ -50,9 +52,9 @@ pub fn prepare(context: &Context, scope_count: usize) -> Result<()> {
 
 fn input(context: &Context) -> Result<File> {
     let path = context
-        .config
-        .import_file
+        .capture_source
         .as_ref()
+        .or(context.config.import_file.as_ref())
         .ok_or_else(|| anyhow::anyhow!("missing import_file"))?;
     let mut file = Root::open(Path::new("/"))?.open_content(path)?;
     let mut prefix = [0; 8];
@@ -74,6 +76,7 @@ pub fn capture(context: &Context, persist: bool) -> Result<Captured> {
         &context.config,
         input(context)?,
         persist.then_some(&context.repository),
+        context.capture_source.is_some(),
     )?;
     Ok(Captured {
         tree: state.tree,
@@ -115,11 +118,9 @@ pub fn export(context: &Context, result: &mut Saved) {
 }
 
 pub fn apply_source(mut context: Context) -> Result<Context> {
-    let temporary = tempfile::tempdir()?;
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::set_permissions(temporary.path(), std::fs::Permissions::from_mode(0o700))?;
-    let mut store = Store::new(temporary.path().to_path_buf());
-    let state: SnapshotState = archive::read(&context.config, input(&context)?, Some(&store))?;
+    let store = Store::ephemeral()?;
+    let state: SnapshotState =
+        archive::read(&context.config, input(&context)?, Some(&store), false)?;
     let mut changes = state
         .tree
         .into_iter()
@@ -138,10 +139,9 @@ pub fn apply_source(mut context: Context) -> Result<Context> {
         packages: state.packages,
         diagnostics: state.diagnostics,
     })?;
-    context.config.data_dir = temporary.path().to_path_buf();
+    context.config.data_dir = store.path.clone();
     context.config.storage_format = "directory".into();
     context.config.snapshot = "latest".into();
-    store.temporary = Some(temporary);
     context.repository = store;
     Ok(context)
 }

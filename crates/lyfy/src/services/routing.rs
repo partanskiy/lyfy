@@ -10,6 +10,14 @@ pub struct Scope {
 }
 
 pub fn scopes(context: &Context, apply: bool) -> Result<Vec<Scope>> {
+    resolve(context, apply, false)
+}
+
+pub fn capture_scopes(context: &Context) -> Result<Vec<Scope>> {
+    resolve(context, false, true)
+}
+
+fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Scope>> {
     let config = &context.config;
     let roots: Vec<_> = config
         .mounts
@@ -41,7 +49,11 @@ pub fn scopes(context: &Context, apply: bool) -> Result<Vec<Scope>> {
         result.push(Scope {
             name: "default".into(),
             path: "/".into(),
-            context: Context::new(fallback)?.with_access(context.access.clone()),
+            context: {
+                let mut fallback = Context::new(fallback)?.with_access(context.access.clone());
+                fallback.capture_source = context.capture_source.clone();
+                fallback
+            },
         });
     }
     for (mount, root) in config.mounts.iter().zip(&roots) {
@@ -95,7 +107,7 @@ pub fn scopes(context: &Context, apply: bool) -> Result<Vec<Scope>> {
         let mut scoped_context = Context::new(scoped)?.with_access(context.access.clone());
         scoped_context.repository.history = mount.history;
         scoped_context.repository.retain = mount.retain;
-        if backend.kind == BackendKind::S3 {
+        if backend.kind == BackendKind::S3 && !capture_only {
             let credentials = context
                 .access
                 .s3
@@ -120,6 +132,7 @@ pub fn scopes(context: &Context, apply: bool) -> Result<Vec<Scope>> {
                 identities: context.access.identity_files.clone(),
             });
         }
+        scoped_context.capture_source = context.capture_source.clone();
         result.push(Scope {
             name: mount.name.clone(),
             path: root.to_string_lossy().into(),

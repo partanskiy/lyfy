@@ -8,8 +8,12 @@ use std::collections::BTreeMap;
 pub(crate) fn run(
     context: &Context,
     dry_run: bool,
+    capture_only: bool,
     observer: &mut dyn FnMut(Observation<'_>),
 ) -> Result<Saved> {
+    if capture_only {
+        return archives::capture_channel(context, observer);
+    }
     let mut combined = Saved::empty(&context.config.host, dry_run);
     let scopes = routing::scopes(context, false)?;
     archives::prepare(context, scopes.len())?;
@@ -67,7 +71,7 @@ fn capture_and_publish(
     );
     let base = snapshots::baseline(context)?;
     let mut previous = snapshots::previous_keys(context)?;
-    let captured = if config.import_file.is_some() {
+    let captured = if config.import_file.is_some() || context.capture_source.is_some() {
         archives::capture(context, !dry_run)?
     } else {
         capture::scan(context, !dry_run, observer)?
