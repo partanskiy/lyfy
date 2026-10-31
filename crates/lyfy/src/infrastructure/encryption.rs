@@ -8,6 +8,10 @@ pub struct Age {
 }
 
 impl Age {
+    pub fn validate(&self) -> Result<()> {
+        self.encrypt(tempfile::tempfile()?)?;
+        Ok(())
+    }
     pub fn encrypt(&self, file: File) -> Result<File> {
         let mut command = Command::new("/usr/bin/age");
         command.args(["--encrypt", "--output", "-"]);

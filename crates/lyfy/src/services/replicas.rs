@@ -21,7 +21,7 @@ fn destination(context: &Context, mount: &Mount, backend: &str) -> Result<Contex
         .expect("selected mount exists");
     selected.backend = backend.into();
     selected.replicas.clear();
-    let selection = Context::new(config)?.with_access(context.access.clone());
+    let selection = Context::new(config)?.with_access(context.access.clone())?;
     let mut scopes = routing::scopes(&selection, false)?;
     ensure!(
         scopes.len() == 1,

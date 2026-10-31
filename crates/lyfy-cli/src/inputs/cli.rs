@@ -90,6 +90,14 @@ pub struct Options {
         value_delimiter = ','
     )]
     pub identity_files: Option<Vec<PathBuf>>,
+    /// Additional physical connection files that capture must always exclude.
+    #[arg(
+        long,
+        env = "LYFY_PROTECTED_PATHS",
+        global = true,
+        value_delimiter = ','
+    )]
+    pub protected_paths: Option<Vec<PathBuf>>,
     #[arg(long, env = "LYFY_FORMAT", global = true)]
     pub format: Option<String>,
     /// Write a lint report to a new private file; - means stdout.

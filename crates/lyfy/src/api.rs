@@ -49,9 +49,12 @@ impl Context {
         &self.config
     }
 
-    pub fn with_access(mut self, access: crate::domain::access::Access) -> Self {
+    pub fn with_access(mut self, access: crate::domain::access::Access) -> Result<Self> {
+        for path in access.identity_files.iter().chain(&access.protected_paths) {
+            crate::domain::config::absolute(path)?;
+        }
         self.access = access;
-        self
+        Ok(self)
     }
 
     pub fn with_capture_source(mut self, path: std::path::PathBuf) -> Result<Self> {
@@ -63,7 +66,7 @@ impl Context {
     pub fn snapshot(&self, mount: &str) -> Result<SnapshotView> {
         let mut config = self.config.clone();
         config.selected_mounts = vec![mount.into()];
-        let selection = Context::new(config)?.with_access(self.access.clone());
+        let selection = Context::new(config)?.with_access(self.access.clone())?;
         let mut scopes = crate::services::routing::scopes(&selection, false)?;
         anyhow::ensure!(scopes.len() == 1, "select exactly one snapshot mount");
         let scope = scopes.remove(0);

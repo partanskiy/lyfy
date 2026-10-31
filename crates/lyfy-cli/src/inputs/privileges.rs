@@ -72,6 +72,14 @@ pub fn elevate(launch: &Launch, mode: Elevation) -> Result<Option<lyfy::Outcome>
 pub(super) fn resolved_settings(launch: &Launch) -> Result<String> {
     let mut settings = toml::Value::try_from(&launch.config)?;
     let table = settings.as_table_mut().unwrap();
+    table.insert(
+        "identity_files".into(),
+        toml::Value::try_from(&launch.access.identity_files)?,
+    );
+    table.insert(
+        "protected_paths".into(),
+        toml::Value::try_from(&launch.access.protected_paths)?,
+    );
     // Only data crosses stdout. The original caller owns rendering and exports.
     table.insert("format".into(), "json".into());
     table.insert("progress".into(), launch.progress.clone().into());
@@ -133,6 +141,8 @@ mod tests {
             Some("json")
         );
         value.as_table_mut().unwrap().remove("progress");
+        value.as_table_mut().unwrap().remove("identity_files");
+        value.as_table_mut().unwrap().remove("protected_paths");
         assert!(!text.contains("output_file"));
         let config: lyfy::Config = value.try_into().unwrap();
         assert_eq!(

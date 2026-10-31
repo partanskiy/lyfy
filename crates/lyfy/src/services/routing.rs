@@ -32,6 +32,13 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
         .collect();
     protected.push(config.data_dir.clone());
     protected.push(config.state_dir.clone());
+    protected.extend(context.access.protected_paths.clone());
+    for identity in &context.access.identity_files {
+        protected.push(identity.clone());
+        if let Ok(canonical) = std::fs::canonicalize(identity) {
+            protected.push(canonical);
+        }
+    }
     let mut fallback = config.clone();
     fallback
         .exclude
@@ -51,7 +58,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
             name: "default".into(),
             path: "/".into(),
             context: {
-                let mut fallback = Context::new(fallback)?.with_access(context.access.clone());
+                let mut fallback = Context::new(fallback)?.with_access(context.access.clone())?;
                 fallback.capture_source = context.capture_source.clone();
                 fallback
             },
@@ -106,7 +113,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
             }
         }
         protect(&mut scoped, &protected);
-        let mut scoped_context = Context::new(scoped)?.with_access(context.access.clone());
+        let mut scoped_context = Context::new(scoped)?.with_access(context.access.clone())?;
         scoped_context.repository.history = mount.history;
         scoped_context.repository.retain = mount.retain;
         let mut error = None;
