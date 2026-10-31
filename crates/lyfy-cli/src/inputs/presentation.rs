@@ -147,6 +147,53 @@ pub fn safe(text: &str) -> String {
         })
         .collect()
 }
+
+pub fn save(result: &lyfy::Saved) -> String {
+    let status = if result.dry_run {
+        "preview"
+    } else if result.created {
+        "saved"
+    } else {
+        "unchanged"
+    };
+    let mut out = format!("lyfy save: {status}\nHost: {}\n", safe(&result.host));
+    if let Some(snapshot) = &result.snapshot {
+        let label = if result.dry_run {
+            "Previous snapshot"
+        } else {
+            "Snapshot"
+        };
+        let _ = writeln!(out, "{label}: {}", safe(snapshot));
+    }
+    let _ = writeln!(
+        out,
+        "{} entries; {} added, {} modified, {} deleted",
+        result.entries, result.added, result.modified, result.deletions
+    );
+    for file in &result.files {
+        let mark = match file.kind {
+            lyfy::SaveChangeKind::Added => '+',
+            lyfy::SaveChangeKind::Modified => '~',
+            lyfy::SaveChangeKind::Deleted => '-',
+        };
+        let fields = if file.fields.is_empty() {
+            String::new()
+        } else {
+            format!(" ({})", file.fields.join(", "))
+        };
+        let _ = writeln!(out, "{mark} {}{fields}", safe(&file.key));
+    }
+    if result.packages_changed {
+        let _ = writeln!(out, "Package inventory changed.");
+    }
+    if result.dry_run {
+        let _ = writeln!(
+            out,
+            "Preview complete; run lyfy save to publish the current state."
+        );
+    }
+    out
+}
 #[cfg(test)]
 mod tests {
     #[test]

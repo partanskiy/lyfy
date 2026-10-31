@@ -85,3 +85,28 @@ fn preview_never_creates_repositories_or_state_and_matches_real_save() {
         assert_eq!(changed["files"], saved_again["files"]);
     }
 }
+
+#[test]
+fn text_save_shows_file_changes_and_progress_without_dumping_contents() {
+    let f = setup();
+    f.write("etc/example.conf", "private-example-value\n");
+    let output = f.run(&[
+        "save",
+        "--dry_run",
+        "--format",
+        "text",
+        "--progress",
+        "plain",
+    ]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("lyfy save: preview"));
+    assert!(stdout.contains("+ system/etc/example.conf"));
+    assert!(!stdout.contains("private-example-value"));
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("capturing files"));
+    assert!(stderr.contains("verifying capture"));
+    let silent = f.run(&["save", "--dry_run", "--progress", "never"]);
+    assert!(silent.stderr.is_empty());
+    serde_json::from_slice::<Value>(&silent.stdout).unwrap();
+}

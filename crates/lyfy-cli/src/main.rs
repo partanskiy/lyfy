@@ -51,8 +51,19 @@ fn run() -> Result<u8> {
         return Ok(outcome.exit_code);
     }
     let context = Context::new(launch.config)?;
-    let outcome = lyfy::execute(&context, request)?;
+    let outcome = if matches!(request, lyfy::Request::Save { .. }) {
+        let mut display = progress::Save::new(&launch.progress);
+        lyfy::execute_observed(&context, request, &mut |event| display.observe(event))?
+    } else {
+        lyfy::execute(&context, request)?
+    };
     let text = match launch.format.as_str() {
+        "text" if matches!(outcome.data, lyfy::Data::Save(_)) => {
+            let lyfy::Data::Save(result) = &outcome.data else {
+                unreachable!()
+            };
+            inputs::presentation::save(result)
+        }
         "json" => serde_json::to_string_pretty(&outcome.data)?,
         "yaml" => serde_yaml_ng::to_string(&outcome.data)?,
         _ => toml::to_string_pretty(&outcome.data)

@@ -124,3 +124,61 @@ fn spinner() -> ProgressStyle {
         .unwrap()
         .tick_strings(&["|", "/", "-", "\\"])
 }
+
+pub struct Save {
+    bar: Option<ProgressBar>,
+    plain: bool,
+    entries: usize,
+}
+
+impl Save {
+    pub fn new(mode: &str) -> Self {
+        let interactive = mode == "auto"
+            && io::stderr().is_terminal()
+            && std::env::var("TERM").is_ok_and(|term| term != "dumb");
+        let bar = interactive.then(|| {
+            let bar = ProgressBar::new_spinner();
+            bar.set_style(spinner());
+            bar.enable_steady_tick(Duration::from_millis(100));
+            bar
+        });
+        Self {
+            bar,
+            plain: mode != "never" && !interactive,
+            entries: 0,
+        }
+    }
+
+    pub fn observe(&mut self, event: Observation<'_>) {
+        match event {
+            Observation::SaveStage(stage) => {
+                if let Some(bar) = &self.bar {
+                    bar.set_message(stage);
+                } else if self.plain {
+                    let _ = writeln!(
+                        io::stderr().lock(),
+                        "lyfy: {stage} ({} entries)",
+                        self.entries
+                    );
+                }
+            }
+            Observation::SaveProgress { entries } => {
+                self.entries = entries;
+                if let Some(bar) = &self.bar {
+                    bar.set_message(format!("capturing files: {entries} entries"));
+                } else if self.plain && entries % 100 == 0 {
+                    let _ = writeln!(io::stderr().lock(), "lyfy: captured {entries} entries");
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+impl Drop for Save {
+    fn drop(&mut self) {
+        if let Some(bar) = &self.bar {
+            bar.finish_and_clear();
+        }
+    }
+}
