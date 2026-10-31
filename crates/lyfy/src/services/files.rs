@@ -13,11 +13,6 @@ pub fn observe(
         return Ok(None);
     };
     let mode = stat.st_mode & 0o7777;
-    ensure!(
-        mode <= 0o777,
-        "special permission bits are unsupported: {}",
-        path.display()
-    );
     let owner = (!path.starts_with(&config.home_dir)).then_some((stat.st_uid, stat.st_gid));
     let (content, bytes) = match stat.st_mode & libc::S_IFMT {
         libc::S_IFREG => {
@@ -34,16 +29,16 @@ pub fn observe(
                 Some(bytes),
             )
         }
-        libc::S_IFDIR => {
-            root.check_directory_attributes(path)?;
-            (Content::Directory, None)
+        libc::S_IFDIR => (Content::Directory, None),
+        libc::S_IFLNK => {
+            root.check_symlink_attributes(path)?;
+            (
+                Content::Symlink {
+                    target: root.read_link(path)?,
+                },
+                None,
+            )
         }
-        libc::S_IFLNK => (
-            Content::Symlink {
-                target: root.read_link(path)?,
-            },
-            None,
-        ),
         _ => bail!("special files are unsupported: {}", path.display()),
     };
     Ok(Some((
@@ -51,6 +46,11 @@ pub fn observe(
             content,
             mode,
             owner,
+            attributes: if stat.st_mode & libc::S_IFMT == libc::S_IFLNK {
+                Default::default()
+            } else {
+                root.attributes(path)?
+            },
         },
         bytes,
     )))

@@ -25,6 +25,8 @@ pub struct Node {
     pub mode: u32,
     // Home ownership is symbolic, mapped to the destination home directory.
     pub owner: Option<(u32, u32)>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub attributes: BTreeMap<String, Vec<u8>>,
 }
 
 impl Node {
@@ -32,10 +34,13 @@ impl Node {
         matches!(self.content, Content::Directory)
     }
     pub fn validate(&self) -> Result<()> {
-        ensure!(
-            self.mode <= 0o777,
-            "special permission bits are unsupported"
-        );
+        ensure!(self.mode <= 0o7777, "invalid Unix permission bits");
+        for (name, value) in &self.attributes {
+            ensure!(
+                !name.is_empty() && !name.contains('\0') && value.len() <= 65536,
+                "invalid extended attribute"
+            );
+        }
         if let Content::File { sha256 } = &self.content {
             ensure!(
                 crate::domain::config::is_digest(sha256),
