@@ -48,3 +48,4 @@ pub use domain::results::{
 };
 pub use domain::rules::{Category, FixAction, FixKind, RuleId, RuleSpec, Severity, SubjectKind};
 pub use domain::state::{Content, Node, Tree};
+pub use domain::storage::{Backend, BackendKind, History, Mount, S3Connection};

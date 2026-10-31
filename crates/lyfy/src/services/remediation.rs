@@ -124,6 +124,9 @@ mod tests {
             prune: false,
             max_file_bytes: 1024,
             capture_errors: "strict".into(),
+            mounts: vec![],
+            backends: vec![],
+            selected_mounts: vec![],
             disabled_rules: vec![],
             fail_on: Severity::Warning,
         };

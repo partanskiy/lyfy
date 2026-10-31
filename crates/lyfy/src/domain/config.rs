@@ -25,12 +25,19 @@ pub struct Config {
     pub max_file_bytes: u64,
     #[serde(default = "strict_capture")]
     pub capture_errors: String,
+    #[serde(default)]
+    pub mounts: Vec<crate::domain::storage::Mount>,
+    #[serde(default)]
+    pub backends: Vec<crate::domain::storage::Backend>,
+    #[serde(default)]
+    pub selected_mounts: Vec<String>,
     pub disabled_rules: Vec<crate::domain::rules::RuleId>,
     pub fail_on: crate::domain::rules::Severity,
 }
 
 impl Config {
     pub fn validate(&self) -> Result<()> {
+        crate::domain::storage::validate(self)?;
         ensure!(self.system == "arch", "only system = arch is supported");
         ensure!(
             ["strict", "skip"].contains(&self.capture_errors.as_str()),
