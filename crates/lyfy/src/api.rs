@@ -79,8 +79,8 @@ pub fn execute_observed(
         }
         Request::Apply { write } => {
             let result = crate::application::apply::run(context, write)?;
-            let failed = result.plan.changes.iter().any(|c| c.conflict.is_some());
-            (Data::Apply(result), u8::from(failed))
+            let code = result.exit_code();
+            (Data::Apply(result), code)
         }
     };
     Ok(Outcome { data, exit_code })
