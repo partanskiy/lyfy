@@ -35,6 +35,10 @@ impl S3 {
         let etag = response
             .etag
             .ok_or_else(|| anyhow::anyhow!("S3 provider omitted writer lock ETag"))?;
+        let lease = Lease {
+            remote: Rc::clone(self),
+            etag: Some(etag),
+        };
         // Probe the advertised condition before any capture/publication. A provider
         // ignoring If-None-Match cannot safely host coherent state.
         let probe = self.request(
@@ -48,10 +52,18 @@ impl S3 {
             probe.status == 412,
             "S3 provider does not enforce conditional writes; writer lock needs review"
         );
-        Ok(Lease {
-            remote: Rc::clone(self),
-            etag: Some(etag),
-        })
+        let probe = self.request(
+            "DELETE",
+            "writer.lock",
+            None,
+            Some("If-Match: \"lyfy-invalid-etag\""),
+            None,
+        )?;
+        ensure!(
+            probe.status == 412,
+            "S3 provider does not enforce conditional deletes; no capture was published"
+        );
+        Ok(lease)
     }
 }
 

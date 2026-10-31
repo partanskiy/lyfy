@@ -21,6 +21,18 @@ fn quote(value: &str) -> Result<String> {
     ))
 }
 
+fn query_component(value: &str) -> String {
+    let mut encoded = String::new();
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || b"-._~".contains(&byte) {
+            encoded.push(byte as char);
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
+}
+
 impl S3 {
     pub(crate) fn request(
         &self,
@@ -38,16 +50,21 @@ impl S3 {
             segments.pop_if_empty();
             for part in self
                 .prefix
+                .trim_end_matches('/')
                 .split('/')
                 .chain(key.split('/'))
-                .filter(|s| !s.is_empty())
             {
                 ensure!(part != "." && part != "..", "unsafe S3 object key");
                 segments.push(part);
             }
         }
         if let Some(query) = query {
-            url.query_pairs_mut().extend_pairs(query.iter().copied());
+            let query = query
+                .iter()
+                .map(|(key, value)| format!("{}={}", query_component(key), query_component(value)))
+                .collect::<Vec<_>>()
+                .join("&");
+            url.set_query(Some(&query));
         }
         let mut settings = tempfile::NamedTempFile::new()?;
         writeln!(

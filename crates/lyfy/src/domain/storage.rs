@@ -73,6 +73,10 @@ fn required_replicas() -> bool {
 }
 
 pub fn validate(config: &Config) -> Result<()> {
+    ensure!(
+        config.mounts.iter().filter(|m| m.packages).count() <= 1,
+        "package inventory can belong to only one explicit mount"
+    );
     let mut backends = BTreeSet::new();
     let mut destinations = BTreeSet::new();
     for backend in &config.backends {
@@ -123,6 +127,10 @@ pub fn validate(config: &Config) -> Result<()> {
     let mut names = BTreeSet::new();
     let mut roots = BTreeSet::new();
     for mount in &config.mounts {
+        ensure!(
+            mount.history != History::CurrentOnly || mount.retain == 0,
+            "retain is only valid with retained history"
+        );
         identifier(&mount.name)?;
         ensure!(
             mount.name != "default" && names.insert(&mount.name),
