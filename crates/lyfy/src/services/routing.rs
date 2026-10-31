@@ -86,12 +86,34 @@ pub fn scopes(context: &Context, apply: bool) -> Result<Vec<Scope>> {
                 }
                 .into();
             }
-            BackendKind::S3 => anyhow::bail!("S3 backend adapter is not available"),
+            BackendKind::S3 => {
+                scoped.data_dir = scoped.state_dir.join("storage-session");
+                scoped.storage_format = "directory".into();
+            }
         }
         protect(&mut scoped, &protected);
         let mut scoped_context = Context::new(scoped)?.with_access(context.access.clone());
         scoped_context.repository.history = mount.history;
         scoped_context.repository.retain = mount.retain;
+        if backend.kind == BackendKind::S3 {
+            let credentials = context
+                .access
+                .s3
+                .get(&backend.name)
+                .cloned()
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "S3 backend {} requires environment/profile credentials",
+                        backend.name
+                    )
+                })?;
+            scoped_context.repository.remote =
+                Some(std::rc::Rc::new(crate::infrastructure::s3::S3::new(
+                    backend.s3.as_ref().expect("validated S3 connection"),
+                    credentials,
+                    &mount.name,
+                )?));
+        }
         if !backend.recipients.is_empty() {
             scoped_context.repository.age = Some(crate::infrastructure::encryption::Age {
                 recipients: backend.recipients.clone(),

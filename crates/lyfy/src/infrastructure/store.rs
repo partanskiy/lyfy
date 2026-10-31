@@ -79,8 +79,14 @@ pub struct Store {
     pub path: PathBuf,
     pub(crate) git: Option<crate::infrastructure::git::Repository>,
     pub(crate) age: Option<crate::infrastructure::encryption::Age>,
+    pub(crate) remote: Option<std::rc::Rc<crate::infrastructure::s3::S3>>,
     pub history: crate::domain::storage::History,
     pub retain: usize,
+}
+
+pub struct RepositoryLock {
+    _local: Lock,
+    pub remote: Option<crate::infrastructure::s3_lease::Lease>,
 }
 impl Store {
     pub fn begin(&self) {
@@ -93,6 +99,7 @@ impl Store {
             path,
             git: None,
             age: None,
+            remote: None,
             history: Default::default(),
             retain: 0,
         }
@@ -108,27 +115,38 @@ impl Store {
             path: config.data_dir.clone(),
             git,
             age: None,
+            remote: None,
             history: Default::default(),
             retain: 0,
         }
     }
-    pub fn lock(&self) -> Result<Lock> {
-        if let Some(git) = &self.git {
+    pub fn lock(&self) -> Result<RepositoryLock> {
+        let local = if let Some(git) = &self.git {
             git.lock()
         } else {
-            let lock = Lock::acquire(&self.path)?;
-            self.check_encoding(true)?;
-            Ok(lock)
-        }
+            Lock::acquire(&self.path)
+        }?;
+        Ok(RepositoryLock {
+            _local: local,
+            remote: None,
+        })
+    }
+    pub fn capture_lock(&self) -> Result<RepositoryLock> {
+        let mut guard = self.lock()?;
+        guard.remote = self
+            .remote
+            .as_ref()
+            .map(|remote| remote.lease())
+            .transpose()?;
+        self.check_encoding(true)?;
+        Ok(guard)
     }
     pub fn has_head(&self, host: &str) -> Result<bool> {
         self.check_encoding(false)?;
         if let Some(git) = &self.git {
             return git.has_head(host);
         }
-        Ok(Root::open(Path::new("/"))?
-            .metadata(&self.host_dir(host)?.join("HEAD"))?
-            .is_some())
+        self.payload_exists(&self.host_dir(host)?.join("HEAD"))
     }
     pub fn host_dir(&self, host: &str) -> Result<PathBuf> {
         identifier(host)?;
@@ -164,11 +182,9 @@ impl Store {
         }
         ensure!(is_digest(hash), "invalid object hash");
         let path = self.path.join("objects").join(hash);
-        if path.exists() {
+        if self.payload_exists(&path)? {
             self.object_file(hash)?;
         } else {
-            private_dir(path.parent().context("missing object directory")?)?;
-            let root = Root::open(Path::new("/"))?;
             self.write_payload(&path, file)?;
             let verified = if self.age.is_some() {
                 hash_file(file, 0)?
@@ -176,7 +192,7 @@ impl Store {
                 hash_file(&mut self.read_payload(&path)?, 0)?
             };
             if verified != hash {
-                root.remove(&path, false)?;
+                self.remove_payload(&path)?;
                 anyhow::bail!("file changed during object capture");
             }
         }
