@@ -76,6 +76,8 @@ pub struct Snapshot {
     // None is an explicit deletion relative to the pinned base.
     pub changes: BTreeMap<String, Option<Node>>,
     pub packages: Option<Vec<crate::domain::packages::Package>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagnostics: Vec<crate::domain::results::CaptureDiagnostic>,
 }
 
 impl Snapshot {
@@ -86,5 +88,6 @@ impl Snapshot {
             && self.base == other.base
             && self.changes == other.changes
             && self.packages == other.packages
+            && self.diagnostics == other.diagnostics
     }
 }

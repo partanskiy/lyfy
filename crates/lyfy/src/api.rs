@@ -72,10 +72,11 @@ pub fn execute_observed(
             let failed = result.report.exit_code();
             (Data::Fmt(result), failed)
         }
-        Request::Save { dry_run } => (
-            Data::Save(crate::application::save::run(context, dry_run, observer)?),
-            0,
-        ),
+        Request::Save { dry_run } => {
+            let result = crate::application::save::run(context, dry_run, observer)?;
+            let code = if result.complete { 0 } else { 2 };
+            (Data::Save(result), code)
+        }
         Request::Apply { write } => {
             let result = crate::application::apply::run(context, write)?;
             let failed = result.plan.changes.iter().any(|c| c.conflict.is_some());

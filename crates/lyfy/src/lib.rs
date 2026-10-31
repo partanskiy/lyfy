@@ -43,6 +43,8 @@ pub use domain::observation::Observation;
 pub use domain::package_files::{FileDifference, PackageEvidence};
 pub use domain::packages::{Package, PackagePlan};
 pub use domain::plan::{Change, Guard, Plan};
-pub use domain::results::{Applied, Formatted, SaveChangeKind, Saved, SavedChange};
+pub use domain::results::{
+    Applied, CaptureDiagnostic, Formatted, SaveChangeKind, Saved, SavedChange,
+};
 pub use domain::rules::{Category, FixAction, FixKind, RuleId, RuleSpec, Severity, SubjectKind};
 pub use domain::state::{Content, Node, Tree};

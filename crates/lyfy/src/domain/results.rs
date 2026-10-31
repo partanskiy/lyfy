@@ -15,6 +15,15 @@ pub struct Saved {
     pub files: Vec<SavedChange>,
     pub dry_run: bool,
     pub changed: bool,
+    pub complete: bool,
+    pub diagnostics: Vec<CaptureDiagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaptureDiagnostic {
+    pub path: String,
+    pub detail: String,
 }
 
 #[derive(Debug, Serialize)]

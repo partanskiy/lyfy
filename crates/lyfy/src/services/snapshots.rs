@@ -1,7 +1,7 @@
 use crate::Context;
 use crate::domain::{
     packages::Package,
-    results::{SaveChangeKind, Saved, save_diff},
+    results::{CaptureDiagnostic, SaveChangeKind, Saved, save_diff},
     state::{Node, Reference, Snapshot, Tree},
 };
 use crate::infrastructure::store::timestamp;
@@ -54,6 +54,7 @@ pub fn commit(
     packages: Option<Vec<Package>>,
     entries: usize,
     dry_run: bool,
+    diagnostics: Vec<CaptureDiagnostic>,
 ) -> Result<Saved> {
     let config = &context.config;
     let snapshot = Snapshot {
@@ -64,6 +65,7 @@ pub fn commit(
         base,
         changes,
         packages,
+        diagnostics,
     };
     let previous = if context.repository.has_head(&config.host)? {
         let id = context.repository.head(&config.host)?;
@@ -101,14 +103,15 @@ pub fn commit(
     let changed = previous
         .as_ref()
         .is_none_or(|(_, (old, _))| !old.same_state(&snapshot));
-    let id = if dry_run {
+    let publish = !dry_run && (snapshot.diagnostics.is_empty() || config.capture_errors == "skip");
+    let id = if !publish {
         previous.as_ref().map(|(id, _)| id.clone())
     } else {
         Some(context.repository.save(&snapshot)?)
     };
     Ok(Saved {
         host: config.host.clone(),
-        created: !dry_run && changed,
+        created: publish && changed,
         snapshot: id,
         dry_run,
         changed,
@@ -128,5 +131,7 @@ pub fn commit(
             .count(),
         packages_changed,
         files,
+        complete: snapshot.diagnostics.is_empty(),
+        diagnostics: snapshot.diagnostics,
     })
 }
