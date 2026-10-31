@@ -9,7 +9,7 @@ mod run;
 use crate::domain::config::Config;
 use crate::domain::diagnostics::Report;
 use crate::domain::observation::Observation;
-use crate::infrastructure::filesystem::Root;
+use crate::infrastructure::filesystem::{Root, hash_file};
 use crate::services::inspection::run::Run;
 use anyhow::Result;
 use std::path::Path;
@@ -154,5 +154,8 @@ pub fn identical_pacnew(config: &Config, root: &Root, path: &Path) -> Result<boo
             return Ok(false);
         }
     }
-    Ok(root.read(path, config.max_file_bytes)? == root.read(&active, config.max_file_bytes)?)
+    Ok(
+        hash_file(&mut root.open_content(path)?, config.max_file_bytes)?
+            == hash_file(&mut root.open_content(&active)?, config.max_file_bytes)?,
+    )
 }

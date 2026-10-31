@@ -181,6 +181,10 @@ fn strict_capture_blocks_publication_and_explicit_skips_remain_incomplete() {
 
 #[test]
 fn unreadable_previously_saved_files_are_never_recorded_as_deletions() {
+    // SAFETY: geteuid has no preconditions. Root bypasses mode-based fixture denials.
+    if unsafe { libc::geteuid() } == 0 {
+        return;
+    }
     let f = setup();
     f.ok(&["save"]);
     let path = f.root.join("etc/example.conf");
