@@ -127,6 +127,27 @@ pub fn scan(
         }
     }
     crate::services::files::link_tree(config, &root, &mut captured.tree)?;
+    let mut groups = std::collections::BTreeMap::<String, Vec<String>>::new();
+    for (key, node) in &captured.tree {
+        if matches!(node.content, Content::File { .. }) {
+            groups
+                .entry(node.hardlink.as_ref().unwrap_or(key).clone())
+                .or_default()
+                .push(key.clone());
+        }
+    }
+    for keys in groups.values() {
+        let path = config.path_for_key(&keys[0])?;
+        if root
+            .metadata(&path)?
+            .is_some_and(|stat| stat.st_nlink as usize > keys.len())
+        {
+            for key in keys {
+                captured.tree.remove(key);
+                captured.issue(&config.path_for_key(key)?, "hardlink group extends outside this VFS scope; include the complete group in one scope");
+            }
+        }
+    }
     retain_previous(context, &mut captured)?;
     captured
         .diagnostics
