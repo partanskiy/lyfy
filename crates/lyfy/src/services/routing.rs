@@ -92,6 +92,12 @@ pub fn scopes(context: &Context, apply: bool) -> Result<Vec<Scope>> {
         let mut scoped_context = Context::new(scoped)?.with_access(context.access.clone());
         scoped_context.repository.history = mount.history;
         scoped_context.repository.retain = mount.retain;
+        if !backend.recipients.is_empty() {
+            scoped_context.repository.age = Some(crate::infrastructure::encryption::Age {
+                recipients: backend.recipients.clone(),
+                identities: context.access.identity_files.clone(),
+            });
+        }
         result.push(Scope {
             name: mount.name.clone(),
             path: root.to_string_lossy().into(),

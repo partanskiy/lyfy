@@ -77,7 +77,8 @@ pub fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T> {
 
 pub struct Store {
     pub path: PathBuf,
-    git: Option<crate::infrastructure::git::Repository>,
+    pub(crate) git: Option<crate::infrastructure::git::Repository>,
+    pub(crate) age: Option<crate::infrastructure::encryption::Age>,
     pub history: crate::domain::storage::History,
     pub retain: usize,
 }
@@ -91,6 +92,7 @@ impl Store {
         Self {
             path,
             git: None,
+            age: None,
             history: Default::default(),
             retain: 0,
         }
@@ -105,6 +107,7 @@ impl Store {
         Self {
             path: config.data_dir.clone(),
             git,
+            age: None,
             history: Default::default(),
             retain: 0,
         }
@@ -113,10 +116,13 @@ impl Store {
         if let Some(git) = &self.git {
             git.lock()
         } else {
-            Lock::acquire(&self.path)
+            let lock = Lock::acquire(&self.path)?;
+            self.check_encoding(true)?;
+            Ok(lock)
         }
     }
     pub fn has_head(&self, host: &str) -> Result<bool> {
+        self.check_encoding(false)?;
         if let Some(git) = &self.git {
             return git.has_head(host);
         }
@@ -133,8 +139,11 @@ impl Store {
             return git.head(host);
         }
         let path = self.host_dir(host)?.join("HEAD");
-        let bytes = Root::open(Path::new("/"))?
-            .read(&path, 128)
+        let mut bytes = vec![];
+        use std::io::Read;
+        self.read_payload(&path)?
+            .take(129)
+            .read_to_end(&mut bytes)
             .with_context(|| format!("no saved snapshot for host {host}"))?;
         let id = String::from_utf8(bytes)?.trim().to_owned();
         ensure!(is_digest(&id), "invalid snapshot HEAD");
@@ -145,8 +154,7 @@ impl Store {
             return git.object_file(hash);
         }
         ensure!(is_digest(hash), "invalid object hash");
-        let mut file =
-            Root::open(Path::new("/"))?.open_content(&self.path.join("objects").join(hash))?;
+        let mut file = self.read_payload(&self.path.join("objects").join(hash))?;
         ensure!(hash_file(&mut file, 0)? == hash, "corrupt object: {hash}");
         Ok(file)
     }
@@ -161,8 +169,13 @@ impl Store {
         } else {
             private_dir(path.parent().context("missing object directory")?)?;
             let root = Root::open(Path::new("/"))?;
-            root.put_file(&path, file, 0o600, None)?;
-            if hash_file(&mut root.open_content(&path)?, 0)? != hash {
+            self.write_payload(&path, file)?;
+            let verified = if self.age.is_some() {
+                hash_file(file, 0)?
+            } else {
+                hash_file(&mut self.read_payload(&path)?, 0)?
+            };
+            if verified != hash {
                 root.remove(&path, false)?;
                 anyhow::bail!("file changed during object capture");
             }
@@ -182,8 +195,8 @@ impl Store {
         let bytes = serde_json::to_vec_pretty(snapshot)?;
         let id = digest(&bytes);
         let host = self.host_dir(&snapshot.host)?;
-        write_bytes(&host.join("snapshots").join(format!("{id}.json")), &bytes)?;
-        write_bytes(&host.join("HEAD"), id.as_bytes())?;
+        self.write_payload_bytes(&host.join("snapshots").join(format!("{id}.json")), &bytes)?;
+        self.write_payload_bytes(&host.join("HEAD"), id.as_bytes())?;
         Ok(id)
     }
     pub fn load(&self, host: &str, id: &str) -> Result<Snapshot> {
@@ -195,9 +208,12 @@ impl Store {
             .host_dir(host)?
             .join("snapshots")
             .join(format!("{id}.json"));
-        let bytes = Root::open(Path::new("/"))?.read(&path, 64 * 1024 * 1024)?;
-        ensure!(digest(&bytes) == id, "corrupt snapshot manifest");
-        let snapshot: Snapshot = serde_json::from_slice(&bytes)?;
+        let mut file = self.read_payload(&path)?;
+        ensure!(
+            hash_file(&mut file, 64 * 1024 * 1024)? == id,
+            "corrupt snapshot manifest"
+        );
+        let snapshot: Snapshot = serde_json::from_reader(file)?;
         ensure!(
             [1, 2].contains(&snapshot.schema) && snapshot.system == "arch" && snapshot.host == host,
             "unsupported or mismatched snapshot"
