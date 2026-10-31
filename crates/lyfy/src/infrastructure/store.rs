@@ -78,6 +78,8 @@ pub fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T> {
 pub struct Store {
     pub path: PathBuf,
     git: Option<crate::infrastructure::git::Repository>,
+    pub history: crate::domain::storage::History,
+    pub retain: usize,
 }
 impl Store {
     pub fn begin(&self) {
@@ -86,7 +88,12 @@ impl Store {
         }
     }
     pub fn new(path: PathBuf) -> Self {
-        Self { path, git: None }
+        Self {
+            path,
+            git: None,
+            history: Default::default(),
+            retain: 0,
+        }
     }
     pub fn configured(config: &Config) -> Self {
         let git = (config.storage_format == "git").then(|| {
@@ -98,6 +105,8 @@ impl Store {
         Self {
             path: config.data_dir.clone(),
             git,
+            history: Default::default(),
+            retain: 0,
         }
     }
     pub fn lock(&self) -> Result<Lock> {

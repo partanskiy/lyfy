@@ -89,10 +89,13 @@ pub fn scopes(context: &Context, apply: bool) -> Result<Vec<Scope>> {
             BackendKind::S3 => anyhow::bail!("S3 backend adapter is not available"),
         }
         protect(&mut scoped, &protected);
+        let mut scoped_context = Context::new(scoped)?;
+        scoped_context.repository.history = mount.history;
+        scoped_context.repository.retain = mount.retain;
         result.push(Scope {
             name: mount.name.clone(),
             path: root.to_string_lossy().into(),
-            context: Context::new(scoped)?,
+            context: scoped_context,
         });
     }
     ensure!(

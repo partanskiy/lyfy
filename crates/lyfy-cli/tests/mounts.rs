@@ -98,3 +98,38 @@ fn apply_uses_mount_routing_and_data_restoration_requires_explicit_selection() {
     ]);
     assert_eq!(f.read("etc/tree/deep/child"), "child\n");
 }
+
+#[test]
+fn current_only_history_keeps_generations_pinned_by_other_hosts() {
+    let f = setup();
+    let original = fs::read_to_string(&f.config).unwrap();
+    fs::write(
+        &f.config,
+        original.replace("apply = true", "apply = true\nhistory = 'current_only'"),
+    )
+    .unwrap();
+    let save = |host: &str, base: Option<&str>| {
+        let mut args = vec!["save", "--selected_mounts", "parent", "--host", host];
+        if let Some(base) = base {
+            args.extend(["--base_host", base]);
+        }
+        f.ok(&args)["mounts"][0]["result"]["snapshot"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let base = save("common", None);
+    f.write("etc/tree/parent", "laptop\n");
+    save("laptop", Some("common"));
+    f.write("etc/tree/parent", "new common\n");
+    let new_base = save("common", None);
+    let manifests = f
+        .temp
+        .path()
+        .join("backend/mounts/parent/hosts/common/snapshots");
+    assert!(manifests.join(format!("{base}.json")).exists());
+    f.write("etc/tree/parent", "another common\n");
+    save("common", None);
+    assert!(manifests.join(format!("{base}.json")).exists());
+    assert!(!manifests.join(format!("{new_base}.json")).exists());
+}
