@@ -26,6 +26,7 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
         overwrite: false,
         prune: false,
         max_file_bytes: 1024,
+        capture_errors: "strict".into(),
         disabled_rules: vec![],
         fail_on: lyfy::Severity::Warning,
     };

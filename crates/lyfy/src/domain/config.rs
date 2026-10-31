@@ -23,6 +23,8 @@ pub struct Config {
     pub overwrite: bool,
     pub prune: bool,
     pub max_file_bytes: u64,
+    #[serde(default = "strict_capture")]
+    pub capture_errors: String,
     pub disabled_rules: Vec<crate::domain::rules::RuleId>,
     pub fail_on: crate::domain::rules::Severity,
 }
@@ -30,6 +32,7 @@ pub struct Config {
 impl Config {
     pub fn validate(&self) -> Result<()> {
         ensure!(self.system == "arch", "only system = arch is supported");
+        ensure!(["strict", "skip"].contains(&self.capture_errors.as_str()), "capture_errors must be strict or skip");
         ensure!(
             ["git", "directory"].contains(&self.storage_format.as_str()),
             "storage_format must be git or directory"
@@ -152,6 +155,8 @@ impl Config {
                 .any(|p| self.logical(p).is_ok_and(|p| logical.starts_with(p)))
     }
 }
+
+fn strict_capture() -> String { "strict".into() }
 
 pub fn absolute(path: &Path) -> Result<()> {
     ensure!(

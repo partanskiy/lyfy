@@ -60,6 +60,9 @@ pub struct Options {
     pub prune: Option<bool>,
     #[arg(long, env = "LYFY_MAX_FILE_BYTES", global = true)]
     pub max_file_bytes: Option<u64>,
+    /// strict blocks publication on capture errors; skip publishes an incomplete snapshot.
+    #[arg(long, env = "LYFY_CAPTURE_ERRORS", global = true)]
+    pub capture_errors: Option<String>,
     #[arg(long, env = "LYFY_FORMAT", global = true)]
     pub format: Option<String>,
     /// Write a lint report to a new private file; - means stdout.
