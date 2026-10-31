@@ -133,5 +133,6 @@ pub fn commit(
         files,
         complete: snapshot.diagnostics.is_empty(),
         diagnostics: snapshot.diagnostics,
+        mounts: vec![],
     })
 }

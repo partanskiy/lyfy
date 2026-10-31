@@ -1,11 +1,56 @@
 use crate::Context;
 use crate::domain::observation::Observation;
-use crate::domain::results::Saved;
-use crate::services::{capture, packages, session, snapshots};
+use crate::domain::results::{CaptureDiagnostic, MountedSave, Saved};
+use crate::services::{capture, packages, routing, session, snapshots};
 use anyhow::{Result, ensure};
 use std::collections::BTreeMap;
 
 pub(crate) fn run(
+    context: &Context,
+    dry_run: bool,
+    observer: &mut dyn FnMut(Observation<'_>),
+) -> Result<Saved> {
+    let mut combined = Saved::empty(&context.config.host, dry_run);
+    for scope in routing::scopes(context, false)? {
+        let outcome = capture_and_publish(&scope.context, dry_run, observer);
+        if scope.name == "default" && context.config.mounts.is_empty() {
+            return outcome;
+        }
+        let (result, error) = match outcome {
+            Ok(result) => {
+                combined.entries += result.entries;
+                combined.changes += result.changes;
+                combined.added += result.added;
+                combined.modified += result.modified;
+                combined.deletions += result.deletions;
+                combined.created |= result.created;
+                combined.changed |= result.changed;
+                combined.packages_changed |= result.packages_changed;
+                combined.complete &= result.complete;
+                combined.diagnostics.extend(result.diagnostics.clone());
+                (Some(Box::new(result)), None)
+            }
+            Err(error) => {
+                combined.complete = false;
+                let detail = format!("{error:#}");
+                combined.diagnostics.push(CaptureDiagnostic {
+                    path: scope.path.clone(),
+                    detail: detail.clone(),
+                });
+                (None, Some(detail))
+            }
+        };
+        combined.mounts.push(MountedSave {
+            name: scope.name,
+            path: scope.path,
+            result,
+            error,
+        });
+    }
+    Ok(combined)
+}
+
+fn capture_and_publish(
     context: &Context,
     dry_run: bool,
     observer: &mut dyn FnMut(Observation<'_>),
