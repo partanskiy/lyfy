@@ -198,6 +198,20 @@ pub fn save(result: &lyfy::Saved) -> String {
             safe(&diagnostic.detail)
         );
     }
+    for mount in &result.mounts {
+        let _ = writeln!(
+            out,
+            "\nMount {} at {}",
+            safe(&mount.name),
+            safe(&mount.path)
+        );
+        if let Some(result) = &mount.result {
+            out.push_str(&save(result));
+        }
+        if let Some(error) = &mount.error {
+            let _ = writeln!(out, "FAILED: {}", safe(error));
+        }
+    }
     if result.dry_run {
         let _ = writeln!(
             out,

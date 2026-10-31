@@ -4,6 +4,7 @@ pub(crate) mod inspection;
 pub(crate) mod packages;
 pub(crate) mod reconciliation;
 pub(crate) mod remediation;
+pub(crate) mod routing;
 pub(crate) mod session;
 pub(crate) mod snapshots;
 pub(crate) mod transactions;

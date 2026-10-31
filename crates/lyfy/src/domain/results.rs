@@ -17,6 +17,38 @@ pub struct Saved {
     pub changed: bool,
     pub complete: bool,
     pub diagnostics: Vec<CaptureDiagnostic>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub mounts: Vec<MountedSave>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MountedSave {
+    pub name: String,
+    pub path: String,
+    pub result: Option<Box<Saved>>,
+    pub error: Option<String>,
+}
+
+impl Saved {
+    pub fn empty(host: &str, dry_run: bool) -> Self {
+        Self {
+            host: host.into(),
+            snapshot: None,
+            entries: 0,
+            changes: 0,
+            deletions: 0,
+            added: 0,
+            modified: 0,
+            created: false,
+            packages_changed: false,
+            files: vec![],
+            dry_run,
+            changed: false,
+            complete: true,
+            diagnostics: vec![],
+            mounts: vec![],
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, Serialize)]
