@@ -55,6 +55,11 @@ pub(super) fn defaults() -> Config {
             "~/.ssh".into(),
             "~/.gnupg".into(),
             "~/.aws".into(),
+            "~/.config/lyfy/keys".into(),
+            xdg("XDG_CONFIG_HOME", ".config")
+                .join("lyfy/keys")
+                .to_string_lossy()
+                .into(),
             "/etc/shadow".into(),
             "/etc/shadow-".into(),
             "/etc/gshadow".into(),

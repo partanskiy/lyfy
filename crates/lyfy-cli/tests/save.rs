@@ -244,3 +244,22 @@ fn connection_identity_files_are_excluded_even_when_inside_a_managed_scope() {
             .any(|w| w == b"fixture identity content")
     );
 }
+
+#[test]
+fn default_key_directory_is_excluded_before_an_identity_is_configured() {
+    let f = setup();
+    let keys = f.root.join("home/test/.config/lyfy/keys");
+    fs::create_dir_all(&keys).unwrap();
+    fs::write(keys.join("backup.agekey"), "fixture inactive identity\n").unwrap();
+    f.ok(&["save"]);
+    assert!(
+        f.snapshot("laptop")["changes"]
+            .get("home/.config/lyfy/keys")
+            .is_none()
+    );
+    assert!(
+        f.snapshot("laptop")["changes"]
+            .get("home/.config/lyfy/keys/backup.agekey")
+            .is_none()
+    );
+}
