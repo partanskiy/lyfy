@@ -215,6 +215,7 @@ mod tests {
         let destination = Destination::prepare(Some(&path)).unwrap();
         fs::write(&path, "another process owns this\n").unwrap();
         let launch = Launch {
+            access: Default::default(),
             config: super::super::configuration::defaults(),
             format: "json".into(),
             output_file: Some(path.clone()),
