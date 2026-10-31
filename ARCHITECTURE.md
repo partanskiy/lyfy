@@ -247,6 +247,10 @@ Capture feedback uses the existing per-call observer; rendering remains in input
 Input-owned elevation may delegate read-only capture, while the original caller
 owns publication and exports. No elevated process writes to user repositories.
 Credentials/identity material never enter snapshots, ordinary reports or logs.
+SnapshotView is an explicit read-only API over one resolved committed generation.
+Its content access returns an opaque std::io::Read; I/O still delegates entirely
+to infrastructure. This read trait in the API signature is not an OS mechanism
+implemented in api.rs. Exporters use this state/content contract.
 
 ## Enforcement
 

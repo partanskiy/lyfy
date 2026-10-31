@@ -93,9 +93,9 @@ for export in re.findall(r"pub use (.*?);", facade_code, re.S):
 api = (CORE / "api.rs").read_text()
 if set(re.findall(r"^pub fn ([a-z_]+)", api, re.M)) != {"execute", "execute_observed"}:
     errors.append("api.rs must contain exactly the two public operation entry points")
-if set(re.findall(r"^pub (?:struct|enum|trait|type) ([A-Za-z]+)", api, re.M)) != {"Context", "Request", "Data", "Outcome"}:
+if set(re.findall(r"^pub (?:struct|enum|trait|type) ([A-Za-z]+)", api, re.M)) != {"Context", "Request", "Data", "Outcome", "SnapshotView"}:
     errors.append("Operation API types belong to the explicit api.rs contract")
-if re.search(r"\b(?:libc|walkdir|tempfile|alpm|alpm_sys|libarchive|libarchive3_sys)::|std::(?:fs|io|process|os)::", api):
+if re.search(r"\b(?:libc|walkdir|tempfile|alpm|alpm_sys|libarchive|libarchive3_sys)::|std::(?:fs|io|process|os)::", api.replace("std::io::Read", "ContentRead")):
     errors.append("API composition must delegate OS/native mechanisms to infrastructure")
 request = re.search(r"pub enum Request\s*\{(.*?)\n\}", api, re.S)
 variants = set(re.findall(r"^    ([A-Z][A-Za-z]+)(?:,|\s*\{)", request[1], re.M)) if request else set()

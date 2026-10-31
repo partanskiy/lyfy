@@ -5,6 +5,21 @@ use std::collections::BTreeMap;
 
 pub type Tree = BTreeMap<String, Node>;
 
+/// A complete, resolved state. Content streams are opened through SnapshotView.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotState {
+    pub schema: u32,
+    pub system: String,
+    pub host: String,
+    pub source_snapshot: String,
+    pub tree: Tree,
+    pub deletions: std::collections::BTreeSet<String>,
+    pub packages: Option<Vec<crate::domain::packages::Package>>,
+    pub diagnostics: Vec<crate::domain::results::CaptureDiagnostic>,
+    pub sizes: BTreeMap<String, u64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Content {

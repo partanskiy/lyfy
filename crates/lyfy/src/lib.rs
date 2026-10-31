@@ -35,7 +35,7 @@ mod domain;
 mod infrastructure;
 mod services;
 
-pub use api::{Context, Data, Outcome, Request, execute, execute_observed};
+pub use api::{Context, Data, Outcome, Request, SnapshotView, execute, execute_observed};
 pub use domain::access::{Access, S3Credentials};
 pub use domain::checks::{CheckId, CheckResult, CheckStatus};
 pub use domain::config::Config;
@@ -49,5 +49,5 @@ pub use domain::results::{
     SavedChange,
 };
 pub use domain::rules::{Category, FixAction, FixKind, RuleId, RuleSpec, Severity, SubjectKind};
-pub use domain::state::{Content, Node, Tree};
+pub use domain::state::{Content, Node, SnapshotState, Tree};
 pub use domain::storage::{Backend, BackendKind, History, Mount, S3Connection};
