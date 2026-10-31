@@ -152,7 +152,7 @@ pub fn save(result: &lyfy::Saved) -> String {
     let status = if !result.complete && !result.created {
         "incomplete capture; no snapshot published"
     } else if !result.complete {
-        "incomplete snapshot saved"
+        "saved with diagnostics"
     } else if result.dry_run {
         "preview"
     } else if result.created {

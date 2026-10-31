@@ -109,6 +109,13 @@ pub fn commit(
     } else {
         Some(context.repository.save(&snapshot)?)
     };
+    let mut diagnostics = snapshot.diagnostics;
+    if publish && let Err(error) = context.repository.collect_history() {
+        diagnostics.push(CaptureDiagnostic {
+            path: config.data_dir.to_string_lossy().into(),
+            detail: format!("snapshot published; retention failed: {error:#}"),
+        });
+    }
     Ok(Saved {
         host: config.host.clone(),
         created: publish && changed,
@@ -131,8 +138,8 @@ pub fn commit(
             .count(),
         packages_changed,
         files,
-        complete: snapshot.diagnostics.is_empty(),
-        diagnostics: snapshot.diagnostics,
+        complete: diagnostics.is_empty(),
+        diagnostics,
         mounts: vec![],
     })
 }
