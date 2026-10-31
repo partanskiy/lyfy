@@ -34,10 +34,7 @@ impl Repository {
         if self.has_head(&snapshot.host)? {
             let id = self.head(&snapshot.host)?;
             let previous = self.load(&snapshot.host, &id)?;
-            if previous.base == snapshot.base
-                && previous.changes == snapshot.changes
-                && previous.packages == snapshot.packages
-            {
+            if previous.same_state(snapshot) {
                 return Ok(id);
             }
         }

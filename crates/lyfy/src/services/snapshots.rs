@@ -1,7 +1,7 @@
 use crate::Context;
 use crate::domain::{
     packages::Package,
-    results::Saved,
+    results::{SaveChangeKind, Saved, save_diff},
     state::{Node, Reference, Snapshot, Tree},
 };
 use crate::infrastructure::store::timestamp;
@@ -55,7 +55,6 @@ pub fn commit(
     entries: usize,
 ) -> Result<Saved> {
     let config = &context.config;
-    let deletions = changes.values().filter(|n| n.is_none()).count();
     let snapshot = Snapshot {
         schema: 1,
         system: "arch".into(),
@@ -65,12 +64,57 @@ pub fn commit(
         changes,
         packages,
     };
+    let previous = if context.repository.has_head(&config.host)? {
+        let id = context.repository.head(&config.host)?;
+        Some((id.clone(), context.repository.effective(&config.host, &id)?))
+    } else {
+        None
+    };
+    let before = previous
+        .as_ref()
+        .map(|(_, (_, tree))| tree.clone())
+        .unwrap_or_default();
+    let mut after = snapshot
+        .base
+        .as_ref()
+        .map(|base| {
+            context
+                .repository
+                .effective(&base.host, &base.id)
+                .map(|(_, tree)| tree)
+        })
+        .transpose()?
+        .unwrap_or_default();
+    for (key, node) in &snapshot.changes {
+        if let Some(node) = node {
+            after.insert(key.clone(), node.clone());
+        } else {
+            after.remove(key);
+        }
+    }
+    let files = save_diff(&before, &after);
+    let packages_changed =
+        previous.as_ref().map(|(_, (s, _))| &s.packages) != Some(&snapshot.packages);
     let id = context.repository.save(&snapshot)?;
     Ok(Saved {
         host: config.host.clone(),
+        created: previous.as_ref().is_none_or(|(old, _)| old != &id),
         snapshot: id,
         entries,
-        changes: snapshot.changes.len(),
-        deletions,
+        changes: files.len(),
+        deletions: files
+            .iter()
+            .filter(|f| f.kind == SaveChangeKind::Deleted)
+            .count(),
+        added: files
+            .iter()
+            .filter(|f| f.kind == SaveChangeKind::Added)
+            .count(),
+        modified: files
+            .iter()
+            .filter(|f| f.kind == SaveChangeKind::Modified)
+            .count(),
+        packages_changed,
+        files,
     })
 }
