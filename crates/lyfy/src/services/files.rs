@@ -1,6 +1,6 @@
 use crate::domain::config::Config;
-use crate::domain::state::{Content, Node, digest};
-use crate::infrastructure::filesystem::Root;
+use crate::domain::state::{Content, Node};
+use crate::infrastructure::filesystem::{Root, hash_file};
 use anyhow::{Result, bail, ensure};
 use std::path::Path;
 
@@ -8,7 +8,7 @@ pub fn observe(
     config: &Config,
     root: &Root,
     path: &Path,
-) -> Result<Option<(Node, Option<Vec<u8>>)>> {
+) -> Result<Option<(Node, Option<std::fs::File>)>> {
     let Some(stat) = root.metadata(path)? else {
         return Ok(None);
     };
@@ -21,13 +21,9 @@ pub fn observe(
                 "hardlinked files are unsupported: {}",
                 path.display()
             );
-            let bytes = root.read(path, config.max_file_bytes)?;
-            (
-                Content::File {
-                    sha256: digest(&bytes),
-                },
-                Some(bytes),
-            )
+            let mut file = root.open_content(path)?;
+            let sha256 = hash_file(&mut file, config.max_file_bytes)?;
+            (Content::File { sha256 }, Some(file))
         }
         libc::S_IFDIR => (Content::Directory, None),
         libc::S_IFLNK => {

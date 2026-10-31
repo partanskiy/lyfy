@@ -1,9 +1,6 @@
 use super::*;
 use sha2::{Digest, Sha256};
-use std::{
-    io::{Seek, Write},
-    os::unix::fs::MetadataExt,
-};
+use std::{io::Seek, os::unix::fs::MetadataExt};
 
 fn fingerprint(meta: &std::fs::Metadata) -> (u64, u64, u64, i64, i64, i64, i64) {
     (

@@ -1,6 +1,6 @@
 use crate::domain::config::{Config, absolute, identifier, is_digest};
 use crate::domain::state::{Snapshot, Tree, digest};
-use crate::infrastructure::filesystem::Root;
+use crate::infrastructure::filesystem::{Root, hash_file};
 use anyhow::{Context, Result, ensure};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
@@ -131,25 +131,32 @@ impl Store {
         ensure!(is_digest(&id), "invalid snapshot HEAD");
         Ok(id)
     }
-    pub fn object(&self, hash: &str) -> Result<Vec<u8>> {
+    pub fn object_file(&self, hash: &str) -> Result<File> {
         if let Some(git) = &self.git {
-            return git.object(hash);
+            return git.object_file(hash);
         }
         ensure!(is_digest(hash), "invalid object hash");
-        let bytes = Root::open(Path::new("/"))?
-            .read(&self.path.join("objects").join(hash), 1024 * 1024 * 1024)?;
-        ensure!(digest(&bytes) == hash, "corrupt object: {hash}");
-        Ok(bytes)
+        let mut file =
+            Root::open(Path::new("/"))?.open_content(&self.path.join("objects").join(hash))?;
+        ensure!(hash_file(&mut file, 0)? == hash, "corrupt object: {hash}");
+        Ok(file)
     }
-    pub fn put_object(&self, bytes: &[u8]) -> Result<()> {
+    pub fn put_file(&self, hash: &str, file: &mut File) -> Result<()> {
         if let Some(git) = &self.git {
-            return git.put_object(bytes);
+            return git.put_file(hash, file);
         }
-        let path = self.path.join("objects").join(digest(bytes));
+        ensure!(is_digest(hash), "invalid object hash");
+        let path = self.path.join("objects").join(hash);
         if path.exists() {
-            self.object(&digest(bytes))?;
+            self.object_file(hash)?;
         } else {
-            write_bytes(&path, bytes)?;
+            private_dir(path.parent().context("missing object directory")?)?;
+            let root = Root::open(Path::new("/"))?;
+            root.put_file(&path, file, 0o600, None)?;
+            if hash_file(&mut root.open_content(&path)?, 0)? != hash {
+                root.remove(&path, false)?;
+                anyhow::bail!("file changed during object capture");
+            }
         }
         Ok(())
     }

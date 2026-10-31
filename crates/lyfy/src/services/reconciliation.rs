@@ -53,8 +53,9 @@ pub fn build(context: &Context) -> Result<Plan> {
         ensure!(config.key(&path)? == key, "noncanonical target namespace");
         if config.managed(&path) {
             if let Content::File { sha256 } = &node.content {
+                let size = store.object_file(sha256)?.metadata()?.len();
                 ensure!(
-                    store.object(sha256)?.len() as u64 <= config.max_file_bytes,
+                    config.max_file_bytes == 0 || size <= config.max_file_bytes,
                     "object exceeds max_file_bytes"
                 );
             }
