@@ -126,4 +126,35 @@ pub struct Applied {
     #[serde(flatten)]
     pub plan: Plan,
     pub transaction: Option<std::path::PathBuf>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub mounts: Vec<MountedApply>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MountedApply {
+    pub name: String,
+    pub path: String,
+    pub result: Option<Box<Applied>>,
+    pub error: Option<String>,
+}
+
+impl Applied {
+    pub fn exit_code(&self) -> u8 {
+        if self
+            .mounts
+            .iter()
+            .any(|m| m.error.is_some() || m.result.as_ref().is_some_and(|r| r.exit_code() == 2))
+        {
+            2
+        } else if self.plan.changes.iter().any(|c| c.conflict.is_some())
+            || self
+                .mounts
+                .iter()
+                .any(|m| m.result.as_ref().is_some_and(|r| r.exit_code() == 1))
+        {
+            1
+        } else {
+            0
+        }
+    }
 }

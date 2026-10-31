@@ -75,3 +75,26 @@ fn duplicate_vfs_points_fail_before_any_capture() {
     assert_eq!(f.run(&["save"]).status.code(), Some(2));
     assert!(!f.data.exists());
 }
+
+#[test]
+fn apply_uses_mount_routing_and_data_restoration_requires_explicit_selection() {
+    let f = setup();
+    f.ok(&["save"]);
+    f.write("etc/tree/parent", "changed parent\n");
+    f.write("etc/tree/deep/child", "changed child\n");
+    f.ok(&["apply", "--overwrite", "true", "--write"]);
+    assert_eq!(f.read("etc/tree/parent"), "parent\n");
+    assert_eq!(f.read("etc/tree/deep/child"), "changed child\n");
+    let preview = f.ok(&["apply", "--selected_mounts", "child", "--overwrite", "true"]);
+    assert_eq!(preview["mounts"].as_array().unwrap().len(), 1);
+    assert_eq!(f.read("etc/tree/deep/child"), "changed child\n");
+    f.ok(&[
+        "apply",
+        "--selected_mounts",
+        "child",
+        "--overwrite",
+        "true",
+        "--write",
+    ]);
+    assert_eq!(f.read("etc/tree/deep/child"), "child\n");
+}

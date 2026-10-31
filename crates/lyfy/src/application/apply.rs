@@ -1,9 +1,45 @@
 use crate::Context;
-use crate::domain::results::Applied;
-use crate::services::{packages, reconciliation, session, transactions};
+use crate::domain::{
+    plan::Plan,
+    results::{Applied, MountedApply},
+};
+use crate::services::{packages, reconciliation, routing, session, transactions};
 use anyhow::{Context as _, Result};
 
 pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
+    let mut combined = Applied {
+        plan: Plan {
+            host: context.config.host.clone(),
+            snapshot: context.config.snapshot.clone(),
+            changes: vec![],
+            guards: vec![],
+            packages: None,
+            desired: Default::default(),
+            package_desired: None,
+        },
+        transaction: None,
+        mounts: vec![],
+    };
+    for scope in routing::scopes(context, true)? {
+        let outcome = reconcile(&scope.context, write);
+        if scope.name == "default" && context.config.mounts.is_empty() {
+            return outcome;
+        }
+        let (result, error) = match outcome {
+            Ok(result) => (Some(Box::new(result)), None),
+            Err(error) => (None, Some(format!("{error:#}"))),
+        };
+        combined.mounts.push(MountedApply {
+            name: scope.name,
+            path: scope.path,
+            result,
+            error,
+        });
+    }
+    Ok(combined)
+}
+
+fn reconcile(context: &Context, write: bool) -> Result<Applied> {
     let config = &context.config;
     let _locks = write.then(|| session::lock(context)).transpose()?;
     let mut plan = reconciliation::build(context)?;
@@ -20,5 +56,9 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
         }
         transaction = Some(transactions::write(context, &plan, true)?);
     }
-    Ok(Applied { plan, transaction })
+    Ok(Applied {
+        plan,
+        transaction,
+        mounts: vec![],
+    })
 }
