@@ -13,6 +13,8 @@ pub struct SnapshotState {
     pub system: String,
     pub host: String,
     pub source_snapshot: String,
+    #[serde(default)]
+    pub created_ns: u128,
     pub tree: Tree,
     pub deletions: std::collections::BTreeSet<String>,
     pub packages: Option<Vec<crate::domain::packages::Package>>,
@@ -122,6 +124,17 @@ pub struct Snapshot {
     pub packages: Option<Vec<crate::domain::packages::Package>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagnostics: Vec<crate::domain::results::CaptureDiagnostic>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replica_source: Option<ReplicaSource>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReplicaSource {
+    pub backend: String,
+    pub mount: String,
+    pub host: String,
+    pub snapshot: String,
 }
 
 impl Snapshot {
@@ -133,5 +146,6 @@ impl Snapshot {
             && self.changes == other.changes
             && self.packages == other.packages
             && self.diagnostics == other.diagnostics
+            && self.replica_source == other.replica_source
     }
 }

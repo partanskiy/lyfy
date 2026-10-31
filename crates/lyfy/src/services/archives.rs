@@ -130,6 +130,7 @@ pub fn apply_source(mut context: Context) -> Result<Context> {
         changes.insert(key, None);
     }
     store.save(&Snapshot {
+        replica_source: None,
         schema: 2,
         system: "arch".into(),
         host: context.config.host.clone(),

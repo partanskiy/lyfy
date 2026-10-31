@@ -58,6 +58,7 @@ pub fn capture_channel(
         system: "arch".into(),
         host: context.config.host.clone(),
         source_snapshot: "capture".into(),
+        created_ns: crate::infrastructure::store::timestamp(),
         tree,
         deletions: Default::default(),
         packages: inventory,

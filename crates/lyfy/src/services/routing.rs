@@ -7,6 +7,7 @@ pub struct Scope {
     pub name: String,
     pub path: String,
     pub context: Context,
+    pub error: Option<String>,
 }
 
 pub fn scopes(context: &Context, apply: bool) -> Result<Vec<Scope>> {
@@ -54,6 +55,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
                 fallback.capture_source = context.capture_source.clone();
                 fallback
             },
+            error: None,
         });
     }
     for (mount, root) in config.mounts.iter().zip(&roots) {
@@ -107,24 +109,31 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
         let mut scoped_context = Context::new(scoped)?.with_access(context.access.clone());
         scoped_context.repository.history = mount.history;
         scoped_context.repository.retain = mount.retain;
+        let mut error = None;
         if backend.kind == BackendKind::S3 && !capture_only {
-            let credentials = context
-                .access
-                .s3
-                .get(&backend.name)
-                .cloned()
-                .ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "S3 backend {} requires environment/profile credentials",
-                        backend.name
-                    )
-                })?;
-            scoped_context.repository.remote =
-                Some(std::rc::Rc::new(crate::infrastructure::s3::S3::new(
+            let connection = (|| {
+                let credentials =
+                    context
+                        .access
+                        .s3
+                        .get(&backend.name)
+                        .cloned()
+                        .ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "S3 backend {} requires environment/profile credentials",
+                                backend.name
+                            )
+                        })?;
+                crate::infrastructure::s3::S3::new(
                     backend.s3.as_ref().expect("validated S3 connection"),
                     credentials,
                     &mount.name,
-                )?));
+                )
+            })();
+            match connection {
+                Ok(remote) => scoped_context.repository.remote = Some(std::rc::Rc::new(remote)),
+                Err(failure) => error = Some(format!("{failure:#}")),
+            }
         }
         if !backend.recipients.is_empty() {
             scoped_context.repository.age = Some(crate::infrastructure::encryption::Age {
@@ -137,6 +146,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
             name: mount.name.clone(),
             path: root.to_string_lossy().into(),
             context: scoped_context,
+            error,
         });
     }
     ensure!(

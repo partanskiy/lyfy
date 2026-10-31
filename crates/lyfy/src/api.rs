@@ -66,7 +66,11 @@ impl Context {
         let selection = Context::new(config)?.with_access(self.access.clone());
         let mut scopes = crate::services::routing::scopes(&selection, false)?;
         anyhow::ensure!(scopes.len() == 1, "select exactly one snapshot mount");
-        let context = scopes.remove(0).context;
+        let scope = scopes.remove(0);
+        if let Some(error) = scope.error {
+            anyhow::bail!("{error}");
+        }
+        let context = scope.context;
         let state = crate::services::snapshots::view(&context)?;
         Ok(SnapshotView { context, state })
     }
