@@ -11,21 +11,24 @@ pub fn resolve(config: &Config, identity_files: Vec<PathBuf>) -> Result<Access> 
         let Some(connection) = &backend.s3 else {
             continue;
         };
-        if connection.profile.is_none() {
-            if let (Ok(key), Ok(secret)) = (
-                env::var("AWS_ACCESS_KEY_ID"),
-                env::var("AWS_SECRET_ACCESS_KEY"),
-            ) {
-                access.s3.insert(
-                    backend.name.clone(),
-                    S3Credentials {
-                        access_key: key,
-                        secret_key: secret,
-                        session_token: env::var("AWS_SESSION_TOKEN").ok(),
-                    },
-                );
-                continue;
-            }
+        let key = env::var("AWS_ACCESS_KEY_ID").ok();
+        let secret = env::var("AWS_SECRET_ACCESS_KEY").ok();
+        ensure!(
+            connection.profile.is_some() || key.is_some() == secret.is_some(),
+            "AWS access key and secret key must be supplied together"
+        );
+        if connection.profile.is_none()
+            && let (Some(key), Some(secret)) = (key, secret)
+        {
+            access.s3.insert(
+                backend.name.clone(),
+                S3Credentials {
+                    access_key: key,
+                    secret_key: secret,
+                    session_token: env::var("AWS_SESSION_TOKEN").ok(),
+                },
+            );
+            continue;
         }
         let profile = connection
             .profile
@@ -35,6 +38,10 @@ pub fn resolve(config: &Config, identity_files: Vec<PathBuf>) -> Result<Access> 
         let file = env::var_os("AWS_SHARED_CREDENTIALS_FILE")
             .map(PathBuf::from)
             .unwrap_or_else(|| super::configuration::xdg("HOME", "").join(".aws/credentials"));
+        access.protected_paths.push(file.clone());
+        if let Ok(canonical) = fs::canonicalize(&file) {
+            access.protected_paths.push(canonical);
+        }
         let contents = match fs::read_to_string(file) {
             Ok(contents) => contents,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,

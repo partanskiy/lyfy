@@ -40,15 +40,15 @@ fn run() -> Result<u8> {
             ),
             "capture transport requires elevate=never and cannot preview"
         );
-        let context = Context::new(launch.config)?;
+        let context = Context::new(launch.config)?.with_access(launch.access)?;
         let mut display = progress::Save::new(&launch.progress);
         let mut error = None;
         let outcome = lyfy::execute_observed(&context, cli.command.into(), &mut |event| {
             if let lyfy::Observation::CaptureArchive(bytes) = event {
-                if error.is_none() {
-                    if let Err(e) = std::io::stdout().lock().write_all(bytes) {
-                        error = Some(e);
-                    }
+                if error.is_none()
+                    && let Err(e) = std::io::stdout().lock().write_all(bytes)
+                {
+                    error = Some(e);
                 }
             } else {
                 display.observe(event);
@@ -98,7 +98,7 @@ fn run() -> Result<u8> {
             return Ok(outcome.exit_code);
         }
         let mut display = progress::Lint::new(&launch.progress);
-        let context = Context::new(launch.config.clone())?.with_access(launch.access.clone());
+        let context = Context::new(launch.config.clone())?.with_access(launch.access.clone())?;
         let outcome =
             lyfy::execute_observed(&context, request, &mut |event| display.observe(event))?;
         display.finish();
@@ -107,7 +107,7 @@ fn run() -> Result<u8> {
         }
         return Ok(outcome.exit_code);
     }
-    let mut context = Context::new(launch.config)?.with_access(launch.access);
+    let mut context = Context::new(launch.config)?.with_access(launch.access)?;
     if let Some(capture) = &capture {
         context = context.with_capture_source(capture.path().to_path_buf())?;
     }

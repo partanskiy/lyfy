@@ -188,7 +188,7 @@ fn unreadable_previously_saved_files_are_never_recorded_as_deletions() {
     let f = setup();
     f.ok(&["save"]);
     let path = f.root.join("etc/example.conf");
-    fs::set_permissions(&path, fs::Permissions::from_mode(0)).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o0)).unwrap();
     let output = f.run(&["save", "--capture_errors", "skip"]);
     assert_eq!(output.status.code(), Some(2));
     let result: Value = serde_json::from_slice(&output.stdout).unwrap();
@@ -216,4 +216,31 @@ fn capture_transport_emits_a_private_archive_without_touching_user_storage() {
     assert_eq!(fs::read_dir(&f.data).unwrap().count(), 1);
     assert!(!f.state.exists());
     assert!(!String::from_utf8_lossy(&output.stderr).contains("common\n"));
+}
+
+#[test]
+fn connection_identity_files_are_excluded_even_when_inside_a_managed_scope() {
+    let f = setup();
+    let identity = f.root.join("home/test/.config/backup.identity");
+    fs::write(&identity, "fixture identity content\n").unwrap();
+    f.ok(&["save", "--identity_files", identity.to_str().unwrap()]);
+    assert!(
+        f.snapshot("laptop")["changes"]
+            .get("home/.config/backup.identity")
+            .is_none()
+    );
+    let captured = f.run(&[
+        "save",
+        "--capture_only",
+        "--elevate=never",
+        "--identity_files",
+        identity.to_str().unwrap(),
+    ]);
+    assert!(captured.status.success());
+    assert!(
+        !captured
+            .stdout
+            .windows(b"fixture identity content".len())
+            .any(|w| w == b"fixture identity content")
+    );
 }

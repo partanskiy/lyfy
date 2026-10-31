@@ -150,6 +150,9 @@ impl Store {
             .as_ref()
             .map(|remote| remote.lease())
             .transpose()?;
+        if let Some(age) = &self.age {
+            age.validate()?;
+        }
         self.check_encoding(true)?;
         Ok(guard)
     }

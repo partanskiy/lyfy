@@ -5,6 +5,7 @@ use std::{collections::BTreeMap, path::PathBuf};
 pub struct Access {
     pub identity_files: Vec<PathBuf>,
     pub s3: BTreeMap<String, S3Credentials>,
+    pub protected_paths: Vec<PathBuf>,
 }
 
 #[derive(Clone)]

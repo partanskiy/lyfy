@@ -54,6 +54,7 @@ pub(super) fn defaults() -> Config {
             "~/.local/state".into(),
             "~/.ssh".into(),
             "~/.gnupg".into(),
+            "~/.aws".into(),
             "/etc/shadow".into(),
             "/etc/shadow-".into(),
             "/etc/gshadow".into(),
@@ -112,6 +113,7 @@ fn resolve_inner(options: Options, connections: bool) -> Result<Launch> {
     value["output_file"] = Value::Null;
     value["progress"] = "auto".into();
     value["identity_files"] = serde_json::json!([]);
+    value["protected_paths"] = serde_json::json!([]);
     for path in candidates {
         match fs::read_to_string(&path) {
             Ok(text) => {
@@ -172,14 +174,29 @@ fn resolve_inner(options: Options, connections: bool) -> Result<Launch> {
             .remove("identity_files")
             .unwrap(),
     )?;
+    let protected_paths: Vec<PathBuf> = serde_json::from_value(
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("protected_paths")
+            .unwrap(),
+    )?;
     let config: Config = serde_json::from_value(value)?;
     config.validate()?;
     ensure!(config.root.is_dir(), "root must be an existing directory");
-    let access = if connections {
+    let mut access = if connections {
         super::credentials::resolve(&config, identity_files)?
     } else {
-        Default::default()
+        lyfy::Access {
+            identity_files,
+            ..Default::default()
+        }
     };
+    ensure!(
+        protected_paths.iter().all(|p| p.is_absolute()),
+        "protected_paths must contain absolute paths"
+    );
+    access.protected_paths.extend(protected_paths);
     Ok(Launch {
         config,
         format,
