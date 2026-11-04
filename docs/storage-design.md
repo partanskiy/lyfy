@@ -138,7 +138,9 @@ remain the operation set; the implementation adds no fifth command.
 
 Package inventory belongs to the system/config collection, not every data
 collection. Cross-backend references and restore order must be validated before
-writes; no backend runs scripts or templates from saved state.
+writes. Storage backends never execute scripts or templates. The accepted
+[resource recovery contract](resource-design.md) adds typed package build actions
+with pinned inputs and unprivileged execution, independently of backend storage.
 
 ## Placement in the core
 
