@@ -262,6 +262,27 @@ The S3 adapter uses url and its transitive percent-encoding codec for object
 paths. These pure URL codecs are shared infrastructure dependencies; report
 rendering, SARIF construction and launch parsing remain in inputs.
 
+## Resource recovery evolution
+
+The user accepted the [resource recovery contract](docs/resource-design.md) on
+2026-11-04. It separates VFS selection, typed recovery providers and storage,
+with dependency-aware partial apply and explicit recovery guarantees. Package
+baselines provide unchanged files; concrete overrides preserve local differences.
+Git projects and external mounts have recovery semantics independent of backends.
+
+This is the next implementation contract, not a description of current support.
+The four operations, two workspace packages and layer rules above remain binding.
+Domain owns resource identities, references and pure graph/selection validation.
+Services own capture classification, dependency planning and reconciliation.
+Infrastructure owns package/build, project and remote mechanisms. Inputs own
+authentication and any one-shot privileged handoff; the library never elevates.
+Package builds execute without root; privileged writes use verified plans/content
+and trusted system journals without modifying user repositories.
+
+Current schemas/readers and file behavior remain valid during staged migration.
+New resource kinds require explicit schema compatibility, coverage diagnostics
+and temporary-target tests before any recovery guarantee is advertised.
+
 ## Enforcement
 
 Run `python3 scripts/check-architecture.py`. CI requires this check. It verifies

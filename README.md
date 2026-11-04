@@ -23,6 +23,11 @@ snapshots, reconciliation and transactions. Operations never call each other.
 There is no output layer. See the mandatory [architecture contract](ARCHITECTURE.md),
 [application/API layout](docs/application.md) and [contribution rules](CONTRIBUTING.md).
 
+The accepted [resource recovery design](docs/resource-design.md) defines the next
+steps for package-aware capture, Git projects, external mounts and selective
+restoration. It is an implementation contract; current command behavior is
+documented below and in the save guide.
+
 ## Build
 
 Arch builds require Rust/Cargo, pkgconf, pacman/libalpm 16 and libarchive.
