@@ -230,3 +230,6 @@ Migration compares each host's own live state, verifies declared coverage and
 round trips through temporary targets, then exercises reviewed selective home
 deployment. Full system restoration needs separate package/privilege/boot
 validation before replacing an existing system maintenance workflow.
+
+The [implementation plan](resource-implementation.md) defines delivery stages
+and acceptance criteria for each recovery capability and migration gate.
