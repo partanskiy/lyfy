@@ -42,11 +42,8 @@ impl Table {
         let filesystem = Root::open(Path::new("/"))?;
         let fixture = root.join("proc/self/mountinfo");
         let native = root == Path::new("/") || filesystem.metadata(&fixture)?.is_none();
-        let path = if native {
-            Path::new("/proc/self/mountinfo")
-        } else {
-            &fixture
-        };
+        let process_table = PathBuf::from(format!("/proc/{}/mountinfo", std::process::id()));
+        let path = if native { &process_table } else { &fixture };
         let bytes = filesystem.read(path, 16 * 1024 * 1024)?;
         Self::parse(root, std::str::from_utf8(&bytes)?, native)
     }
