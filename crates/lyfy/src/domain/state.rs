@@ -18,6 +18,11 @@ pub struct SnapshotState {
     pub tree: Tree,
     pub deletions: std::collections::BTreeSet<String>,
     pub packages: Option<Vec<crate::domain::packages::Package>>,
+    #[serde(
+        default = "inventory_default",
+        skip_serializing_if = "inventory_complete"
+    )]
+    pub package_inventory: bool,
     pub diagnostics: Vec<crate::domain::results::CaptureDiagnostic>,
     pub sizes: BTreeMap<String, u64>,
 }
@@ -255,6 +260,11 @@ pub struct Snapshot {
     // None is an explicit deletion relative to the pinned base.
     pub changes: BTreeMap<String, Option<Node>>,
     pub packages: Option<Vec<crate::domain::packages::Package>>,
+    #[serde(
+        default = "inventory_default",
+        skip_serializing_if = "inventory_complete"
+    )]
+    pub package_inventory: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagnostics: Vec<crate::domain::results::CaptureDiagnostic>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -272,6 +282,10 @@ pub struct ReplicaSource {
 
 impl Snapshot {
     pub fn validate_encoding(&self) -> Result<()> {
+        ensure!(
+            self.package_inventory || self.schema >= 4,
+            "provider catalog requires schema 4"
+        );
         let tree = self
             .changes
             .iter()
@@ -292,7 +306,15 @@ impl Snapshot {
             && self.base == other.base
             && self.changes == other.changes
             && self.packages == other.packages
+            && self.package_inventory == other.package_inventory
             && self.diagnostics == other.diagnostics
             && self.replica_source == other.replica_source
     }
+}
+
+fn inventory_default() -> bool {
+    true
+}
+fn inventory_complete(value: &bool) -> bool {
+    *value
 }

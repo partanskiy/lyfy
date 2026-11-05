@@ -80,6 +80,7 @@ pub fn capture_channel(
         tree,
         deletions,
         packages: inventory,
+        package_inventory: true,
         diagnostics,
         sizes,
     };

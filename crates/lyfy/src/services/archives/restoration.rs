@@ -245,6 +245,7 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         tree,
         deletions,
         packages,
+        package_inventory: snapshot.package_inventory,
         diagnostics: vec![],
         sizes,
     })

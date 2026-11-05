@@ -145,6 +145,7 @@ pub fn apply_source(mut context: Context) -> Result<Context> {
         base: None,
         changes,
         packages: state.packages,
+        package_inventory: state.package_inventory,
         diagnostics: state.diagnostics,
     })?;
     context.config.data_dir = store.path.clone();

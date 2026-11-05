@@ -49,6 +49,7 @@ fn snapshot() -> (SnapshotReference, SnapshotState) {
             explicit: true,
             source: "foreign".into(),
         }]),
+        package_inventory: true,
         diagnostics: vec![],
         sizes: BTreeMap::from([("a".repeat(64), 4)]),
     };
