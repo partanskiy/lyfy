@@ -238,3 +238,25 @@ fn filesystem_resources_require_directory_and_hardlink_dependencies() {
     node.mode = 0o600;
     assert!(graph(vec![primary, link]).validate().is_err());
 }
+
+#[test]
+fn collection_boundaries_cannot_hide_conflicting_target_paths() {
+    let parent = file("home/data");
+    let mut child = file("home/data/app");
+    child.reference.source.collection = "nested".into();
+    child.dependencies.push(parent.reference.clone());
+    assert!(
+        graph(vec![parent.clone(), child.clone()])
+            .validate()
+            .is_err()
+    );
+    let mut directory = parent.clone();
+    let RecoveryDescription::File { node } = &mut directory.recovery else {
+        unreachable!()
+    };
+    node.content = Content::Directory;
+    graph(vec![directory, child]).validate().unwrap();
+    let mut competing = parent.clone();
+    competing.reference.source.collection = "other".into();
+    assert!(graph(vec![parent, competing]).validate().is_err());
+}

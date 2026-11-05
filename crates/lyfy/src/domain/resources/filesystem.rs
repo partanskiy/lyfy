@@ -13,12 +13,12 @@ struct Files<'a> {
 }
 
 pub(crate) fn validate(graph: &ResourceGraph) -> Result<()> {
-    let mut generations = BTreeMap::<_, Files<'_>>::new();
+    let mut hosts = BTreeMap::<_, Files<'_>>::new();
     for resource in &graph.resources {
         let ResourceSubject::Path { key } = &resource.reference.subject else {
             continue;
         };
-        let files = generations.entry(&resource.reference.source).or_default();
+        let files = hosts.entry(&resource.reference.source.host).or_default();
         files.resources.insert(key, resource);
         match &resource.recovery {
             RecoveryDescription::File { node } => {
@@ -30,7 +30,7 @@ pub(crate) fn validate(graph: &ResourceGraph) -> Result<()> {
             RecoveryDescription::Package { .. } => unreachable!("validated resource subject"),
         }
     }
-    for files in generations.values() {
+    for files in hosts.values() {
         validate_tree(&files.tree)?;
         for (key, node) in &files.tree {
             let resource = files.resources[key.as_str()];
