@@ -147,3 +147,38 @@ fn file_collections_keep_a_partial_catalog_without_claiming_an_inventory() {
         &mounts,
     ]);
 }
+
+#[test]
+fn repository_credentials_stay_out_of_file_payloads_and_package_descriptions() {
+    let f = fixture();
+    f.write(
+        "etc/pacman.conf",
+        "[options]\n[custom]\nInclude = /etc/private-mirror\n",
+    );
+    f.write(
+        "etc/private-mirror",
+        "Server = https://fixture-user:fixture-password@repo.example.invalid/custom\n",
+    );
+    f.ok(&[
+        "save",
+        "--check_packages",
+        "true",
+        "--include",
+        "/etc,/usr/share/demo",
+    ]);
+    let state = f.snapshot("laptop");
+    assert!(state["changes"].get("system/etc/private-mirror").is_none());
+    let encoded = serde_json::to_string(&state).unwrap();
+    assert!(!encoded.contains("fixture-password"));
+    assert!(
+        state["packages"][0]["origin"]["source"]["servers"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let digest = format!(
+        "{:x}",
+        Sha256::digest(fs::read(f.root.join("etc/private-mirror")).unwrap())
+    );
+    assert!(!f.data.join("objects").join(digest).exists());
+}

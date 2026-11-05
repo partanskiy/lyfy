@@ -32,13 +32,8 @@ impl Database {
                         .replace("$repo", database.name())
                         .replace("$arch", &self.settings.architecture)
                 })
+                .filter(|server| crate::domain::acquisition::locator(server).is_ok())
                 .collect();
-            if servers
-                .iter()
-                .any(|s| crate::domain::acquisition::locator(s).is_err())
-            {
-                continue;
-            }
             let mut signature_policy = self.settings.signature_policy.clone();
             signature_policy.extend(settings.signature_policy.clone());
             let Ok(size) = u64::try_from(package.size()) else {

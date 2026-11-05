@@ -18,6 +18,7 @@ pub struct Settings {
     pub architecture: String,
     pub cache_dirs: Vec<PathBuf>,
     pub gpg_dir: PathBuf,
+    pub connection_files: BTreeSet<PathBuf>,
 }
 
 #[derive(Default)]
@@ -93,6 +94,14 @@ fn parse(
         let (key, value) = line
             .split_once('=')
             .map_or((line, ""), |(key, value)| (key.trim(), value.trim()));
+        if key == "XferCommand"
+            || (["Server", "CacheServer"].contains(&key)
+                && url::Url::parse(value).is_ok_and(|url| {
+                    !url.username().is_empty() || url.password().is_some() || url.query().is_some()
+                }))
+        {
+            settings.connection_files.insert(path.into());
+        }
         if key == "Include" {
             let include = Path::new(value);
             let logical = if include.is_absolute() {

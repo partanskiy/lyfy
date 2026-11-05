@@ -67,8 +67,10 @@ pub fn settle(
 
 pub fn file_scope(config: &Config) -> Result<Config> {
     let mut scoped = config.clone();
-    scoped
-        .exclude
-        .push(pacman::database_path(config)?.to_string_lossy().into());
+    scoped.exclude.extend(
+        pacman::file_exclusions(config)?
+            .into_iter()
+            .map(|p| p.to_string_lossy().into_owned()),
+    );
     Ok(scoped)
 }
