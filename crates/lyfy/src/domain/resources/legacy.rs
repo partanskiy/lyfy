@@ -128,6 +128,7 @@ impl ResourceGraph {
                 dependencies: vec![],
             }
         }));
+        crate::domain::resources::system::extend(state, &source, &mut resources)?;
         let graph = Self {
             schema: 1,
             source,
