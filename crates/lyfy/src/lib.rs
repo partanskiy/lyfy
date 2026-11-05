@@ -36,7 +36,7 @@ mod infrastructure;
 mod services;
 
 pub use api::{Context, Data, Outcome, Request, SnapshotView, execute, execute_observed};
-pub use domain::access::{Access, S3Credentials};
+pub use domain::access::{Access, S3Credentials, YandexCredentials};
 pub use domain::acquisition::{
     ArchivePackage, ContentReference, PackageSource, PackageSourceKind, PreparedPackage,
     RecipeFile, RecipePackage, RecipeSource, RepositoryPackage, SourceFileInput,
@@ -63,4 +63,4 @@ pub use domain::results::{
 pub use domain::results::{ReplicaState, ReplicaStatus};
 pub use domain::rules::{Category, FixAction, FixKind, RuleId, RuleSpec, Severity, SubjectKind};
 pub use domain::state::{Content, Node, ReplicaSource, SnapshotState, Tree};
-pub use domain::storage::{Backend, BackendKind, History, Mount, S3Connection};
+pub use domain::storage::{Backend, BackendKind, History, Mount, S3Connection, YandexConnection};
