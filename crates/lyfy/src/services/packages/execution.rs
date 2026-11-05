@@ -19,6 +19,7 @@ pub fn preflight(context: &mut Context, plan: &Plan) -> Result<()> {
         return Ok(());
     }
     ensure!(current_uid() == 0, "package actions require root execution");
+    pacman::signatures::check_sync_policy(&context.config, &packages.actions)?;
     let stage = Store::ephemeral()?;
     let root = Root::open(Path::new("/"))?;
     let mut protected = BTreeMap::new();

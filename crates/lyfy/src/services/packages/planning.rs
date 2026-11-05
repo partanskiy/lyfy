@@ -24,7 +24,14 @@ pub fn plan(config: &Config, desired: &[Package], current: &[Package]) -> Result
         };
         if let Some(mut kind) = kind {
             let mut artifact = kind != PackageActionKind::SetReason;
-            if artifact && config.package_version_policy == "current" && package.source == "native"
+            if artifact
+                && config.package_version_policy == "current"
+                && package.source == "native"
+                && matches!(
+                    package.origin.as_deref(),
+                    None | Some(crate::domain::resources::PackageOrigin::Unknown {})
+                        | Some(crate::domain::resources::PackageOrigin::Repository { .. })
+                )
             {
                 kind = PackageActionKind::SyncCurrent;
                 artifact = false;

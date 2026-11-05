@@ -49,10 +49,43 @@ pub fn run(
     let sync: Vec<_> = actions
         .iter()
         .filter(|a| a.kind == PackageActionKind::SyncCurrent)
-        .map(|a| a.package.name.clone())
+        .map(|a| match a.package.origin.as_deref() {
+            Some(crate::domain::resources::PackageOrigin::Repository { source }) => {
+                format!("{}/{}", source.repository, a.package.name)
+            }
+            _ => a.package.name.clone(),
+        })
         .collect();
     if !sync.is_empty() {
         let mut args = vec!["-Syu".to_owned(), "--needed".into(), "--".into()];
+        let pins: BTreeSet<_> = desired
+            .iter()
+            .filter(|p| {
+                matches!(
+                    p.origin.as_deref(),
+                    Some(
+                        crate::domain::resources::PackageOrigin::Archive { .. }
+                            | crate::domain::resources::PackageOrigin::Recipe { .. }
+                    )
+                )
+            })
+            .map(|p| p.name.clone())
+            .chain(
+                actions
+                    .iter()
+                    .filter(|a| a.artifact)
+                    .map(|a| a.package.name.clone()),
+            )
+            .collect();
+        if !pins.is_empty() {
+            args.insert(
+                2,
+                format!(
+                    "--ignore={}",
+                    pins.into_iter().collect::<Vec<_>>().join(",")
+                ),
+            );
+        }
         args.extend(sync);
         execute(&args, &path)?;
         journal.completed.push("system_upgrade".into());
@@ -120,7 +153,18 @@ pub fn run(
             .find(|p| p.name == package.name)
             .context("requested package is absent after restoration")?;
         ensure!(
-            (config.package_version_policy == "current" || after.version == package.version)
+            (config.package_version_policy == "current"
+                && !matches!(
+                    package.origin.as_deref(),
+                    Some(
+                        crate::domain::resources::PackageOrigin::Archive { .. }
+                            | crate::domain::resources::PackageOrigin::Recipe { .. }
+                    )
+                )
+                && !actions
+                    .iter()
+                    .any(|a| a.artifact && a.package.name == package.name)
+                || after.version == package.version)
                 && after.explicit == package.explicit,
             "package restoration did not satisfy the declared version/reason policy"
         );

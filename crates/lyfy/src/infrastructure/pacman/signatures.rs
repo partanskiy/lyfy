@@ -95,10 +95,9 @@ pub fn verify(
         0o600,
         None,
     )?;
-    let mut handle = alpm::Alpm::new(
-        b"/".to_vec(),
-        temporary.path().join("db").as_os_str().as_bytes().to_vec(),
-    )?;
+    let database = temporary.path().join("db");
+    private_dir(&database)?;
+    let mut handle = alpm::Alpm::new(b"/".to_vec(), database.as_os_str().as_bytes().to_vec())?;
     handle.set_gpgdir(keyring.as_os_str().as_bytes().to_vec())?;
     let mut level = alpm::SigLevel::PACKAGE;
     if !required.trusted {
@@ -106,4 +105,136 @@ pub fn verify(
     }
     handle.pkg_load(archive.as_os_str().as_bytes().to_vec(), false, level)?;
     Ok(())
+}
+
+pub fn check_sync_policy(
+    config: &Config,
+    actions: &[crate::domain::packages::PackageAction],
+) -> Result<()> {
+    let settings = configuration::read(config)?;
+    for action in actions
+        .iter()
+        .filter(|a| a.kind == crate::domain::packages::PackageActionKind::SyncCurrent)
+    {
+        if let Some(PackageOrigin::Repository { source }) = action.package.origin.as_deref() {
+            let repository = settings.sources.get(&source.repository).ok_or_else(|| {
+                anyhow::anyhow!("recorded package repository is not configured on the target")
+            })?;
+            let mut tokens = settings.signature_policy.clone();
+            tokens.extend(repository.signature_policy.clone());
+            let target = policy(&tokens)?;
+            let source = policy(&source.signature_policy)?;
+            ensure!(
+                !source.check
+                    || target.check
+                        && (!source.required || target.required)
+                        && (!source.trusted || target.trusted),
+                "target repository signature policy is weaker than its recorded source"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::domain::config::Config;
+    use crate::infrastructure::pacman::signatures::verify;
+    use std::{
+        fs,
+        path::Path,
+        process::{Command, Stdio},
+    };
+
+    struct Agent(std::path::PathBuf);
+    impl Drop for Agent {
+        fn drop(&mut self) {
+            let _ = Command::new("/usr/bin/gpgconf")
+                .arg("--homedir")
+                .arg(&self.0)
+                .args(["--kill", "gpg-agent"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
+    }
+
+    fn gpg(home: &Path, args: &[&str]) {
+        let output = Command::new("/usr/bin/gpg")
+            .env_clear()
+            .env("PATH", "/usr/bin:/bin")
+            .env("HOME", home)
+            .arg("--homedir")
+            .arg(home)
+            .args(["--batch", "--pinentry-mode", "loopback", "--passphrase", ""])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "synthetic GPG fixture command failed"
+        );
+    }
+
+    #[test]
+    fn signatures_are_checked_without_mutating_the_target_keyring() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("root");
+        fs::create_dir_all(root.join("etc")).unwrap();
+        let keys = root.join("keys");
+        fs::create_dir(&keys).unwrap();
+        fs::set_permissions(&keys, fs::Permissions::from_mode(0o700)).unwrap();
+        let _agent = Agent(keys.clone());
+        gpg(
+            &keys,
+            &[
+                "--quick-generate-key",
+                "lyfy synthetic <test@example.invalid>",
+                "ed25519",
+                "sign",
+                "0",
+            ],
+        );
+        gpg(&keys, &["--check-trustdb"]);
+        let staging = temp.path().join("input");
+        fs::create_dir(&staging).unwrap();
+        fs::write(staging.join(".PKGINFO"), "pkgname = demo\npkgver = 1-1\npkgdesc = Synthetic\nbuilddate = 1\npackager = Test\nsize = 0\narch = x86_64\n").unwrap();
+        let archive = temp.path().join("demo.pkg.tar");
+        assert!(
+            Command::new("/usr/bin/bsdtar")
+                .arg("-cf")
+                .arg(&archive)
+                .arg("-C")
+                .arg(&staging)
+                .arg(".PKGINFO")
+                .status()
+                .unwrap()
+                .success()
+        );
+        gpg(&keys, &["--detach-sign", archive.to_str().unwrap()]);
+        let before: Vec<_> = ["pubring.kbx", "trustdb.gpg"]
+            .iter()
+            .map(|name| fs::read(keys.join(name)).unwrap())
+            .collect();
+        fs::write(root.join("etc/pacman.conf"), "[options]\nSigLevel = Required TrustedOnly\nLocalFileSigLevel = Required\nGPGDir = /keys\n").unwrap();
+        let config: Config = serde_json::from_value(serde_json::json!({
+            "system":"arch","root":root,"home_dir":"/home/test","data_dir":temp.path().join("data"),
+            "state_dir":temp.path().join("state"),"storage_format":"directory","host":"test","base_host":null,
+            "snapshot":"latest","include":["/etc"],"exclude":[],"ownership_roots":[],"require_uki":false,
+            "check_packages":true,"install_packages":false,"overwrite":false,"prune":false,"max_file_bytes":0,
+            "disabled_rules":[],"fail_on":"warning"
+        })).unwrap();
+        verify(&config, &archive, None, true).unwrap();
+        assert!(verify(&config, &archive, None, false).is_err());
+        let mut bytes = fs::read(&archive).unwrap();
+        bytes.extend(b"changed after signing");
+        fs::write(&archive, bytes).unwrap();
+        assert!(verify(&config, &archive, None, true).is_err());
+        let after: Vec<_> = ["pubring.kbx", "trustdb.gpg"]
+            .iter()
+            .map(|name| fs::read(keys.join(name)).unwrap())
+            .collect();
+        assert!(before == after, "target public keyring was modified");
+    }
 }
