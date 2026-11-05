@@ -39,6 +39,10 @@ pub fn run(
         schema: 1,
         before: &current,
         actions,
+        artifacts: artifacts
+            .iter()
+            .map(|(name, artifact)| (name.clone(), artifact.sha256.clone()))
+            .collect(),
         completed: vec![],
         after: None,
         status: "prepared",
@@ -179,6 +183,7 @@ struct Journal<'a> {
     schema: u32,
     before: &'a [Package],
     actions: &'a [PackageAction],
+    artifacts: BTreeMap<String, String>,
     completed: Vec<String>,
     after: Option<Vec<Package>>,
     status: &'a str,
