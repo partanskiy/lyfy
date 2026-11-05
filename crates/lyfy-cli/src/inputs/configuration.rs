@@ -82,6 +82,8 @@ pub(super) fn defaults() -> Config {
         mounts: vec![],
         backends: vec![],
         selected_mounts: vec![],
+        selected_paths: vec![],
+        selected_resources: vec![],
         export_file: None,
         import_file: None,
         disabled_rules: vec![],
@@ -180,6 +182,10 @@ pub fn resolve(options: Options, command: &super::cli::Command) -> Result<Launch
     )?;
     let config: Config = serde_json::from_value(value)?;
     config.validate()?;
+    ensure!(
+        !config.selection_active() || matches!(command, super::cli::Command::Apply { .. }),
+        "path/resource selectors are available only for apply"
+    );
     ensure!(config.root.is_dir(), "root must be an existing directory");
     let mut access = super::credentials::resolve(&config, command, identity_files)?;
     ensure!(

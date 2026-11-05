@@ -122,6 +122,10 @@ pub fn execute_observed(
     request: Request,
     observer: &mut dyn FnMut(Observation<'_>),
 ) -> Result<Outcome> {
+    anyhow::ensure!(
+        !context.config.selection_active() || matches!(request, Request::Apply { .. }),
+        "path/resource selectors are available only for apply"
+    );
     context.repository.begin();
     let (data, exit_code) = match request {
         Request::Lint => {

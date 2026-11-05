@@ -76,6 +76,17 @@ pub struct Options {
         value_delimiter = ','
     )]
     pub selected_mounts: Option<Vec<String>>,
+    /// Apply only these path prefixes within their owning collections.
+    #[arg(
+        long,
+        env = "LYFY_SELECTED_PATHS",
+        global = true,
+        value_delimiter = ','
+    )]
+    pub selected_paths: Option<Vec<String>>,
+    /// JSON list of logical resource identities to apply.
+    #[arg(long, env = "LYFY_SELECTED_RESOURCES", global = true, value_parser = parse_resources)]
+    pub selected_resources: Option<serde_json::Value>,
     /// Export one committed scope as a complete portable archive.
     #[arg(long, env = "LYFY_EXPORT_FILE", global = true)]
     pub export_file: Option<PathBuf>,
@@ -127,6 +138,12 @@ fn parse_backends(value: &str) -> Result<serde_json::Value, String> {
     let backends: Vec<lyfy::Backend> =
         serde_json::from_str(value).map_err(|e| format!("invalid backends JSON: {e}"))?;
     serde_json::to_value(backends).map_err(|e| e.to_string())
+}
+
+fn parse_resources(value: &str) -> Result<serde_json::Value, String> {
+    let resources: Vec<lyfy::ResourceId> =
+        serde_json::from_str(value).map_err(|e| format!("invalid selected_resources JSON: {e}"))?;
+    serde_json::to_value(resources).map_err(|e| e.to_string())
 }
 
 #[derive(Debug, Subcommand)]

@@ -9,5 +9,6 @@ pub mod plan;
 pub mod resources;
 pub mod results;
 pub mod rules;
+pub mod selection;
 pub mod state;
 pub mod storage;
