@@ -47,6 +47,27 @@ fn links(config: &Config, root: &Root, name: &str) -> Result<Tree> {
 pub fn capture_units(context: &Context, root: &Root, tree: &Tree) -> Result<Vec<ServiceRecord>> {
     let config = &context.config;
     let mut result = Vec::new();
+    let mut owners = BTreeMap::new();
+    if context.package_baselines
+        && config
+            .system_resources
+            .iter()
+            .any(|r| matches!(r, SystemResourceRequest::Service { .. }))
+    {
+        let database = crate::infrastructure::pacman::Database::open(config)?;
+        for package in database.inventory()? {
+            for path in database.file_paths(&package.name)? {
+                if path.starts_with("/usr/lib/systemd/system/")
+                    || path.starts_with("/etc/systemd/system/")
+                {
+                    ensure!(
+                        owners.insert(path, package.clone()).is_none(),
+                        "ambiguous package ownership for a unit definition"
+                    );
+                }
+            }
+        }
+    }
     for request in &config.system_resources {
         let SystemResourceRequest::Service { name } = request else {
             continue;
@@ -97,7 +118,11 @@ pub fn capture_units(context: &Context, root: &Root, tree: &Tree) -> Result<Vec<
                 let key = config.key(&path)?;
                 definition = Some(UnitDefinition {
                     sha256: hash_file(&mut root.open_content(&path)?, config.max_file_bytes)?,
-                    package: tree.get(&key).and_then(|n| n.package()).cloned(),
+                    package: tree
+                        .get(&key)
+                        .and_then(|n| n.package())
+                        .cloned()
+                        .or_else(|| owners.get(path.to_str()?).cloned()),
                     key,
                 });
                 break;
@@ -169,7 +194,12 @@ pub fn plan_units(
                 key: definition.key.clone(),
                 reason: format!("service {} requires its pinned unit definition", unit.name),
                 satisfied: ready,
-                package: None,
+                package: definition.package.as_ref().map(|p| {
+                    crate::domain::plan::PackageRequirement {
+                        name: p.name.clone(),
+                        version: p.version.clone(),
+                    }
+                }),
             });
         }
         for key in current.keys().filter(|k| !unit.links.contains_key(*k)) {
