@@ -67,7 +67,7 @@ pub fn plan_identities(
             "target numeric identity is occupied; provide identity_mappings: {name}"
         );
         let enabled = config.install_identities && config.identity_selected(record.kind, record.id);
-        result.dependencies.push(RequiredDependency { key: format!("identity:{:?}:{}", record.kind, record.id),
+        result.dependencies.push(RequiredDependency { key: format!("identity:{:?}:{}:{name}", record.kind, record.id),
             reason: format!("missing target identity {name}; creating accounts requires install_identities and selected system inventory"),
             satisfied: enabled, package: None });
         let action = match record.kind {

@@ -133,6 +133,7 @@ pub fn connect(plans: &mut [&mut crate::domain::plan::Plan]) {
     let mut ids = std::collections::BTreeMap::new();
     let mut names = std::collections::BTreeMap::new();
     let mut conflicting = false;
+    let mut descriptions = std::collections::BTreeMap::new();
     for action in plans.iter().flat_map(|p| &p.identity_actions) {
         let (kind, name, id) = match action {
             crate::domain::system_state::IdentityAction::CreateGroup { name, id } => {
@@ -143,6 +144,9 @@ pub fn connect(plans: &mut [&mut crate::domain::plan::Plan]) {
             }
             _ => continue,
         };
+        conflicting |= descriptions
+            .insert((kind, id, name), action)
+            .is_some_and(|old| old != action);
         conflicting |= ids.insert((kind, id), name).is_some_and(|old| old != name)
             || names.insert((kind, name), id).is_some_and(|old| old != id);
     }
@@ -158,8 +162,19 @@ pub fn connect(plans: &mut [&mut crate::domain::plan::Plan]) {
         }
         return;
     }
+    let provided: std::collections::BTreeSet<_> = descriptions
+        .keys()
+        .map(|(kind, id, name)| format!("identity:{kind:?}:{id}:{name}"))
+        .collect();
     let mut seen = Vec::new();
     for plan in plans {
+        for dependency in &mut plan.dependencies {
+            if provided.contains(&dependency.key) {
+                dependency.satisfied = true;
+                dependency.reason =
+                    "identity is provided by an explicitly selected account plan".into();
+            }
+        }
         plan.identity_actions.retain(|action| {
             if seen.contains(action) {
                 false
