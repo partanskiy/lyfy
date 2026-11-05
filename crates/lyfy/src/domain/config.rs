@@ -151,6 +151,15 @@ impl Config {
             .join(logical.strip_prefix("/").expect("validated absolute path"))
     }
 
+    pub fn privileged_state_dir(&self) -> Result<PathBuf> {
+        let identity = self
+            .state_dir
+            .to_str()
+            .context("privileged state identity requires UTF-8")?;
+        Ok(PathBuf::from("/var/lib/lyfy/apply")
+            .join(crate::domain::state::digest(identity.as_bytes())))
+    }
+
     pub fn key(&self, path: &Path) -> Result<String> {
         absolute(path)?;
         let (prefix, relative) = if let Ok(p) = path.strip_prefix(&self.home_dir) {
