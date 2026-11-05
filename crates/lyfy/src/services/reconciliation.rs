@@ -135,7 +135,7 @@ pub fn build(context: &Context) -> Result<Plan> {
         &mut available,
         &mut deleted,
     )?;
-    let mut keys: BTreeSet<String> = available.keys().chain(previous.keys()).cloned().collect();
+    let mut keys: BTreeSet<String> = available.keys().cloned().collect();
     keys.extend(deleted);
     selection::validate_request(
         config,
@@ -193,6 +193,17 @@ pub fn build(context: &Context) -> Result<Plan> {
         snapshot.system_state.as_ref(),
         &desired,
     )?);
+    for key in &keys {
+        if !available.contains_key(key) {
+            for (peer, node) in &previous {
+                if node.hardlink.as_ref() == Some(key) && !keys.contains(peer) {
+                    dependencies.push(crate::domain::plan::RequiredDependency { key: peer.clone(),
+                        reason: "deleting a recorded hardlink primary requires selecting its remaining aliases".into(),
+                        satisfied: false, package: None });
+                }
+            }
+        }
+    }
     dependencies.extend(identity_plan.dependencies);
     dependencies.extend(unit_dependencies);
     let mut changes = vec![];

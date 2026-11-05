@@ -244,3 +244,39 @@ fn explicitly_selected_parent_scopes_supply_nested_creation_dependencies() {
     ]);
     assert_eq!(f.read("home/test/.config/new/nested/value"), "saved\n");
 }
+
+#[test]
+fn deleting_a_recorded_hardlink_primary_requires_its_aliases() {
+    let f = Fixture::new();
+    let alias = f.root.join("etc/alias");
+    hard_link(f.root.join("etc/example.conf"), &alias).unwrap();
+    f.ok(&["save"]);
+    f.ok(&["apply", "--write"]);
+    fs::remove_file(&alias).unwrap();
+    f.ok(&["save"]);
+    hard_link(f.root.join("etc/example.conf"), &alias).unwrap();
+    assert_eq!(
+        f.run(&[
+            "apply",
+            "--selected_paths",
+            "/etc/alias",
+            "--prune",
+            "true",
+            "--write"
+        ])
+        .status
+        .code(),
+        Some(1)
+    );
+    assert!(alias.exists());
+    f.ok(&[
+        "apply",
+        "--selected_paths",
+        "/etc/alias,/etc/example.conf",
+        "--prune",
+        "true",
+        "--write",
+    ]);
+    assert!(!alias.exists());
+    assert_eq!(f.read("etc/example.conf"), "common\n");
+}
