@@ -34,8 +34,7 @@ pub(crate) fn validate(graph: &ResourceGraph) -> Result<()> {
         validate_tree(&files.tree)?;
         for (key, node) in &files.tree {
             let resource = files.resources[key.as_str()];
-            let mut parent = key.rsplit_once('/').map(|(p, _)| p);
-            while let Some(path) = parent {
+            for path in crate::domain::state::parent_keys(key) {
                 ensure!(
                     !files.deleted.contains(path),
                     "present resource has a deleted parent"
@@ -47,7 +46,6 @@ pub(crate) fn validate(graph: &ResourceGraph) -> Result<()> {
                     );
                     break;
                 }
-                parent = path.rsplit_once('/').map(|(p, _)| p);
             }
             if let Some(target) = &node.hardlink {
                 ensure!(

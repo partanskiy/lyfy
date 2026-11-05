@@ -186,16 +186,18 @@ impl Config {
         let relative = relative
             .to_str()
             .context("non-UTF-8 paths cannot be stored in a manifest")?;
-        ensure!(
-            !relative.is_empty(),
-            "cannot manage the root or home directory itself"
-        );
         Ok(format!("{prefix}/{relative}"))
     }
 
     pub fn path_for_key(&self, key: &str) -> Result<PathBuf> {
         let (prefix, relative) = key.split_once('/').context("invalid target key")?;
-        ensure!(!relative.is_empty(), "empty target");
+        if relative.is_empty() {
+            return match prefix {
+                "home" => Ok(self.home_dir.clone()),
+                "system" => Ok(PathBuf::from("/")),
+                _ => bail!("unknown target namespace"),
+            };
+        }
         let rel = Path::new(relative);
         ensure!(
             relative

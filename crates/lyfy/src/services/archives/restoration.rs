@@ -142,12 +142,10 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         }
     }
     for key in keys.clone() {
-        let mut parent = key.rsplit_once('/').map(|(p, _)| p);
-        while let Some(path) = parent {
+        for path in crate::domain::state::parent_keys(&key) {
             if tree.contains_key(path) {
                 keys.insert(path.into());
             }
-            parent = path.rsplit_once('/').map(|(p, _)| p);
         }
         if let Some(target) = &tree[&key].hardlink {
             keys.insert(target.clone());

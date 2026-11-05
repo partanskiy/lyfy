@@ -6,7 +6,12 @@ impl Root {
     /// Exercise metadata on private, empty staging objects on the destination FS.
     /// User resources are untouched until every selected plan passes preflight.
     pub fn probe_metadata(&self, path: &Path, node: &Node, owner: (u32, u32)) -> Result<()> {
-        let mut anchor = path;
+        let root_probe = Path::new("/.lyfy-root-probe");
+        let mut anchor = if path == Path::new("/") {
+            root_probe
+        } else {
+            path
+        };
         let parent = loop {
             match self.parent(anchor, false) {
                 Ok((parent, _)) => break parent,
@@ -153,6 +158,9 @@ impl Root {
     }
 
     pub fn writable_parent(&self, mut path: &Path) -> Result<bool> {
+        if path == Path::new("/") {
+            path = Path::new("/.lyfy-root-probe");
+        }
         let directory = loop {
             match self.parent(path, false) {
                 Ok((directory, _)) => break directory,

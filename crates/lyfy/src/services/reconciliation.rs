@@ -173,6 +173,9 @@ pub fn build(context: &Context) -> Result<Plan> {
         if after.is_none() && !config.prune {
             conflict = Some("deletion requires prune = true".into());
         }
+        if after.is_none() && (key == "home/" || key == "system/") {
+            conflict = Some("namespace root cannot be deleted".into());
+        }
         if let (Some(a), Some(b)) = (&before, &after)
             && a.directory() != b.directory()
         {

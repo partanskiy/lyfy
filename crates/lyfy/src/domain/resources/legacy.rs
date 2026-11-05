@@ -51,13 +51,11 @@ impl ResourceGraph {
         let mut resources = Vec::new();
         for (key, node) in &state.tree {
             let mut dependencies = BTreeSet::new();
-            let mut parent = key.rsplit_once('/').map(|(p, _)| p);
-            while let Some(path) = parent {
+            for path in crate::domain::state::parent_keys(key) {
                 if state.tree.contains_key(path) {
                     dependencies.insert(path_reference(path));
                     break;
                 }
-                parent = path.rsplit_once('/').map(|(p, _)| p);
             }
             if let Some(target) = &node.hardlink {
                 dependencies.insert(path_reference(target));

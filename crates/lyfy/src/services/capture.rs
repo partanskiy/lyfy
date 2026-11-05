@@ -84,9 +84,6 @@ pub fn scan(
                 }
             };
             let path = Path::new("/").join(entry.path().strip_prefix(&config.root)?);
-            if path == config.home_dir || path == Path::new("/") {
-                continue;
-            }
             let observed = (|| -> Result<_> {
                 let key = config.key(&path)?;
                 if captured.tree.contains_key(&key) {

@@ -84,9 +84,10 @@ pub(super) fn validate_key(key: &str) -> Result<()> {
     ensure!(
         ["home", "system"].contains(&namespace)
             && !relative.contains('\0')
-            && relative
-                .split('/')
-                .all(|p| !p.is_empty() && p != "." && p != ".."),
+            && (relative.is_empty()
+                || relative
+                    .split('/')
+                    .all(|p| !p.is_empty() && p != "." && p != "..")),
         "unsafe state key"
     );
     Ok(())

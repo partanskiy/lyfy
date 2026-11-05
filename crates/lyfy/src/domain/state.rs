@@ -157,13 +157,11 @@ pub fn validate_tree(tree: &Tree) -> Result<()> {
         if key == "home/" || key == "system/" {
             ensure!(node.directory(), "namespace root must be a directory");
         }
-        let mut parent = key.rsplit_once('/').map(|(parent, _)| parent);
-        while let Some(path) = parent {
+        for path in parent_keys(key) {
             ensure!(
                 !tree.get(path).is_some_and(|node| !node.directory()),
                 "state has a non-directory parent"
             );
-            parent = path.rsplit_once('/').map(|(parent, _)| parent);
         }
         if let Some(target) = &node.hardlink {
             let primary = tree
@@ -181,6 +179,23 @@ pub fn validate_tree(tree: &Tree) -> Result<()> {
         }
     }
     Ok(())
+}
+
+pub fn parent_keys(key: &str) -> Vec<&str> {
+    let Some((namespace, relative)) = key.split_once('/') else {
+        return vec![];
+    };
+    if relative.is_empty() {
+        return vec![];
+    }
+    let mut result = vec![];
+    let mut parent = key.rsplit_once('/').map(|(p, _)| p);
+    while let Some(path) = parent.filter(|p| p.contains('/')) {
+        result.push(path);
+        parent = path.rsplit_once('/').map(|(p, _)| p);
+    }
+    result.push(&key[..namespace.len() + 1]);
+    result
 }
 
 pub fn digest(bytes: &[u8]) -> String {
