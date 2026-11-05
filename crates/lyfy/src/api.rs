@@ -17,7 +17,7 @@ pub struct Context {
 pub struct SnapshotView {
     context: Context,
     state: crate::domain::state::SnapshotState,
-    resources: crate::domain::resources::ResourceGraph,
+    collection: String,
 }
 
 impl SnapshotView {
@@ -25,8 +25,8 @@ impl SnapshotView {
         &self.state
     }
 
-    pub fn resources(&self) -> &crate::domain::resources::ResourceGraph {
-        &self.resources
+    pub fn resources(&self) -> Result<crate::domain::resources::ResourceGraph> {
+        crate::services::snapshots::resources(&self.context, &self.collection, &self.state)
     }
 
     pub fn open_content(&self, hash: &str) -> Result<impl std::io::Read> {
@@ -80,11 +80,10 @@ impl Context {
         }
         let context = scope.context;
         let state = crate::services::snapshots::view(&context)?;
-        let resources = crate::services::snapshots::resources(&context, mount, &state)?;
         Ok(SnapshotView {
             context,
             state,
-            resources,
+            collection: mount.into(),
         })
     }
 }

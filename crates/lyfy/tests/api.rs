@@ -47,10 +47,11 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
     assert_eq!(saved.exit_code, 0);
     assert!(matches!(saved.data, Data::Save(_)));
     let view = context.snapshot("default").unwrap();
-    view.resources().validate().unwrap();
-    assert_eq!(view.resources().source.collection, "default");
+    let resources = view.resources().unwrap();
+    resources.validate().unwrap();
+    assert_eq!(resources.source.collection, "default");
     assert!(
-        view.resources()
+        resources
             .resources
             .iter()
             .all(|resource| resource.guarantee == lyfy::RecoveryGuarantee::Recorded)
@@ -169,8 +170,9 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
         0
     );
     let view = caller.snapshot("nested").unwrap();
-    assert_eq!(view.resources().source.collection, "nested");
-    assert_eq!(view.resources().source.backend, "local");
+    let resources = view.resources().unwrap();
+    assert_eq!(resources.source.collection, "nested");
+    assert_eq!(resources.source.backend, "local");
     let lyfy::Content::File { sha256 } = &view.state().tree["home/.config/nested/value"].content
     else {
         panic!("expected file")
