@@ -1,3 +1,4 @@
+pub(crate) mod artifacts;
 mod audit;
 pub mod baselines;
 mod configuration;

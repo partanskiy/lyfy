@@ -1,4 +1,5 @@
 mod read;
+pub(crate) mod recipes;
 mod write;
 use crate::domain::config::{identifier, is_revision};
 use crate::infrastructure::{
