@@ -3,6 +3,7 @@ use crate::infrastructure::{filesystem::Root, process};
 use anyhow::{Context, Result, ensure};
 use std::{collections::BTreeMap, io::Write, path::Path, process::Command};
 mod configuration;
+mod index;
 mod metadata;
 
 pub struct Prepared {

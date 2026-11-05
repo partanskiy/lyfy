@@ -103,6 +103,16 @@ fn independent_project_restores_history_index_worktree_and_ignored_files() {
         status
     );
     git(&restored, &["fsck", "--full"]);
+    assert_eq!(
+        f.ok(&[
+            "save",
+            "--root",
+            target.to_str().unwrap(),
+            "--selected_mounts",
+            "demo"
+        ])["created"],
+        false
+    );
     fs::write(restored.join("tracked"), "local change\n").unwrap();
     let output = f.run(&[
         "apply",

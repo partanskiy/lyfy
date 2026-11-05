@@ -105,6 +105,16 @@ pub fn copy(source: &Path, target: &Path) -> Result<()> {
                 "hardlinked Git metadata requires explicit migration"
             );
             let mut content = root.open_content(entry.path())?;
+            if name == "index" {
+                content = super::index::normalized(
+                    entry.path(),
+                    if text(source, &["rev-parse", "--show-object-format"])? == "sha256" {
+                        32
+                    } else {
+                        20
+                    },
+                )?;
+            }
             if relative.starts_with("logs") {
                 let bytes = root.read(entry.path(), 64 * 1024 * 1024)?;
                 let mut sanitized = tempfile::tempfile()?;

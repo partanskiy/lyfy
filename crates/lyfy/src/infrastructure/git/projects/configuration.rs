@@ -7,6 +7,8 @@ use std::{collections::BTreeMap, path::Path};
 pub fn copy(source: &Path, target: &Path) -> Result<(BTreeMap<String, String>, Vec<String>)> {
     let config = checked(source, &["config", "--local", "--null", "--list"])?;
     let mut remotes = BTreeMap::new();
+    let mut keys = std::collections::BTreeSet::new();
+    let mut values = std::collections::BTreeSet::new();
     let mut exclusions = vec!["FETCH_HEAD and reflog messages excluded as connection descriptions; reflog object references retained".into()];
     for entry in config.split(|b| *b == 0).filter(|e| !e.is_empty()) {
         let entry = std::str::from_utf8(entry)?;
@@ -59,6 +61,12 @@ pub fn copy(source: &Path, target: &Path) -> Result<(BTreeMap<String, String>, V
                 || key.starts_with("remote."),
             "unsupported local Git setting requires explicit migration: {key}"
         );
+        if !values.insert((key.to_owned(), value.to_owned())) {
+            continue;
+        }
+        if keys.insert(key.to_owned()) {
+            process::capture(command(target, &["config", "--local", "--unset-all", key]))?;
+        }
         let output =
             process::capture(command(target, &["config", "--local", "--add", key, value]))?;
         ensure!(
