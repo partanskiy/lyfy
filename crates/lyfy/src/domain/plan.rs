@@ -23,11 +23,29 @@ pub struct Plan {
     pub snapshot: String,
     pub changes: Vec<Change>,
     pub guards: Vec<Guard>,
+    pub dependencies: Vec<RequiredDependency>,
     pub packages: Option<PackagePlan>,
     #[serde(skip)]
     pub desired: Tree,
     #[serde(skip)]
+    pub receipt: Tree,
+    #[serde(skip)]
     pub package_desired: Option<Vec<crate::domain::packages::Package>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RequiredDependency {
+    pub key: String,
+    pub reason: String,
+    pub satisfied: bool,
+}
+
+impl Plan {
+    pub fn ready(&self) -> bool {
+        self.changes.iter().all(|c| c.conflict.is_none())
+            && self.dependencies.iter().all(|d| d.satisfied)
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]

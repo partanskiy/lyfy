@@ -13,8 +13,10 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
             snapshot: context.config.snapshot.clone(),
             changes: vec![],
             guards: vec![],
+            dependencies: vec![],
             packages: None,
             desired: Default::default(),
+            receipt: Default::default(),
             package_desired: None,
         },
         transaction: None,
@@ -53,7 +55,7 @@ fn reconcile(context: &Context, write: bool) -> Result<Applied> {
     let _locks = write.then(|| session::lock(context)).transpose()?;
     let mut plan = reconciliation::build(context)?;
     let mut transaction = None;
-    if write && plan.changes.iter().all(|c| c.conflict.is_none()) {
+    if write && plan.ready() {
         if config.install_packages {
             packages::restore(
                 config,

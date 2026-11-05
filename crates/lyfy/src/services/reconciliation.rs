@@ -159,7 +159,9 @@ pub fn build(context: &Context) -> Result<Plan> {
         snapshot: id,
         changes,
         guards: vec![],
+        dependencies: vec![],
         packages: package_plan,
+        receipt: desired.clone(),
         desired,
         package_desired: snapshot.packages,
     })
