@@ -33,7 +33,11 @@ pub fn requires_root(context: &Context) -> Result<bool> {
     for scope in routing::scopes(context, true)? {
         let source = source(scope)?;
         let config = &source.config;
-        if config.install_packages && config.packages_selected() {
+        if config.install_identities
+            || config.restore_services
+            || config.regenerate
+            || config.install_packages && config.packages_selected()
+        {
             return Ok(true);
         }
         let root = Root::open(&config.root)?;

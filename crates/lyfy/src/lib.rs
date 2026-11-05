@@ -65,7 +65,7 @@ pub use domain::rules::{Category, FixAction, FixKind, RuleId, RuleSpec, Severity
 pub use domain::state::{Content, Node, ReplicaSource, SnapshotState, Tree};
 pub use domain::storage::{Backend, BackendKind, History, Mount, S3Connection, YandexConnection};
 pub use domain::system_state::{
-    ApplicationKind, CoverageItem, CoverageStatus, GeneratedKind, IdentityRecord,
+    ApplicationKind, CoverageItem, CoverageStatus, GeneratedKind, IdentityAction, IdentityRecord,
     ServiceEnablement, ServiceRecord, SystemRequirement, SystemResourceRequest, SystemState,
     UnitDefinition,
 };

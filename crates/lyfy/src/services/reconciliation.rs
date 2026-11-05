@@ -32,6 +32,7 @@ pub fn receipt_path(config: &Config) -> PathBuf {
 /// Explicitly selected parent scopes may satisfy a child's creation boundary.
 pub fn connect(plans: &mut [&mut Plan]) {
     package_actions::connect(plans);
+    crate::services::system::connect(plans);
     let effects: std::collections::BTreeMap<_, _> = plans
         .iter()
         .flat_map(|plan| {

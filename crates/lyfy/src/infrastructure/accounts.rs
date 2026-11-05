@@ -86,3 +86,6 @@ pub fn catalog(root: &Root) -> Result<Vec<crate::domain::system_state::IdentityR
     result.sort_by_key(|r| (r.kind, r.id));
     Ok(result)
 }
+
+mod actions;
+pub use actions::{execute, preflight};
