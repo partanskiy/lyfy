@@ -43,6 +43,7 @@ fn snapshot() -> (SnapshotReference, SnapshotState) {
         ]),
         deletions: ["home/removed".into()].into(),
         packages: Some(vec![Package {
+            origin: None,
             name: "demo".into(),
             version: "1.0-1".into(),
             explicit: true,

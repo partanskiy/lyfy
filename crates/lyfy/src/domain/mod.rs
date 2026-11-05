@@ -1,4 +1,5 @@
 pub mod access;
+pub(crate) mod acquisition;
 pub mod checks;
 pub mod config;
 pub mod diagnostics;
