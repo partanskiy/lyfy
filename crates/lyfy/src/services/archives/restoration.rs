@@ -52,6 +52,7 @@ pub fn requires_root(context: &Context) -> Result<bool> {
             }
             if node.owner.is_some_and(|(owner, _)| owner != uid)
                 || node.mode & 0o6000 != 0
+                || node.mode & 0o400 == 0
                 || node
                     .attributes
                     .keys()
@@ -60,7 +61,9 @@ pub fn requires_root(context: &Context) -> Result<bool> {
                 return Ok(true);
             }
             match root.metadata(&path) {
-                Ok(Some(stat)) if stat.st_uid != uid => return Ok(true),
+                Ok(Some(stat)) if stat.st_uid != uid || stat.st_mode & 0o400 == 0 => {
+                    return Ok(true);
+                }
                 Err(error)
                     if error
                         .downcast_ref::<std::io::Error>()
