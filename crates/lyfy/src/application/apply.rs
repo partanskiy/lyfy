@@ -52,6 +52,16 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
     let ready = prepared
         .iter()
         .all(|(_, _, work)| work.as_ref().is_ok_and(|(_, plan, _)| plan.ready()));
+    if write && ready {
+        for (_, _, work) in &mut prepared {
+            if let Ok((source, plan, _)) = work
+                && let Err(error) = transactions::preflight(source, plan)
+            {
+                *work = Err(error);
+            }
+        }
+    }
+    let ready = ready && prepared.iter().all(|(_, _, work)| work.is_ok());
     for (name, path, work) in prepared {
         let outcome =
             work.and_then(|(source, plan, _locks)| reconcile(&source, plan, write && ready));

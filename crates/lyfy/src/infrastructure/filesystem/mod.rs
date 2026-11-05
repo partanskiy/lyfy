@@ -5,6 +5,7 @@ pub use content::hash_file;
 mod hash;
 mod identity;
 mod links;
+mod preflight;
 pub use identity::IdentityView;
 pub use identity::current_uid;
 mod write;

@@ -8,6 +8,55 @@ use crate::services::reconciliation::receipt_path;
 use anyhow::{Context, Result, ensure};
 use serde::Serialize;
 
+pub fn preflight(context: &AppContext, plan: &Plan) -> Result<()> {
+    let config = &context.config;
+    let root = Root::open(&config.root)?;
+    let home = root
+        .metadata(&config.home_dir)?
+        .context("destination home_dir must exist")?;
+    for change in &plan.changes {
+        let path = config.path_for_key(&change.key)?;
+        root.check_mutable(&path)?;
+        if let Some(parent) = path.parent() {
+            root.check_mutable(parent)?;
+        }
+        if let Some(node) = &change.after {
+            root.probe_metadata(
+                &path,
+                node,
+                node.owner.unwrap_or((home.st_uid, home.st_gid)),
+            )
+            .with_context(|| format!("destination metadata preflight: {}", change.key))?;
+            if let Some(target) = &node.hardlink {
+                ensure!(
+                    root.device(&path)? == root.device(&config.path_for_key(target)?)?,
+                    "hardlinks cannot cross destination filesystems"
+                );
+            }
+        } else if let Some(before) = &change.before {
+            let mut probe = before.clone();
+            probe.content = Content::File {
+                sha256: "0".repeat(64),
+            };
+            probe.mode = 0o600;
+            probe.attributes.clear();
+            root.probe_metadata(&path, &probe, (home.st_uid, home.st_gid))?;
+            if before.directory() {
+                for entry in root.entries(&path)? {
+                    let child = config.key(&path.join(entry))?;
+                    ensure!(
+                        plan.changes
+                            .iter()
+                            .any(|c| c.key == child && c.after.is_none()),
+                        "directory deletion contains unselected entries"
+                    );
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 #[derive(Serialize)]
 struct Journal<'a> {
     schema: u32,

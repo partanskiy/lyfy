@@ -24,7 +24,10 @@ fn list(file: &File) -> Result<Vec<CString>> {
 }
 
 impl Root {
-    fn attribute_file(&self, path: &Path) -> Result<File> {
+    pub(super) fn attribute_file(&self, path: &Path) -> Result<File> {
+        if path == Path::new("/") {
+            return Ok(self.directory.try_clone()?);
+        }
         let (dir, leaf) = self.parent(path, false)?;
         // SAFETY: no-follow open relative to a held parent descriptor.
         checked(unsafe {
