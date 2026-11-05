@@ -30,24 +30,7 @@ pub fn run(
         "package transactions require existing root privileges"
     );
     let current = inventory(config)?;
-    for action in actions {
-        let before = current.iter().find(|p| p.name == action.package.name);
-        ensure!(
-            before.map(|p| &p.version) == action.before_version.as_ref()
-                && before.map(|p| p.explicit) == action.before_explicit,
-            "package state changed after planning: {}",
-            action.package.name
-        );
-        if action.artifact {
-            let artifact = artifacts
-                .get(&action.package.name)
-                .context("verified package artifact is missing")?;
-            ensure!(
-                artifact.package == action.package,
-                "package artifact source mismatch"
-            );
-        }
-    }
+    preconditions(&current, actions, artifacts)?;
     let path = config
         .state_dir
         .join("package_transactions")
@@ -71,7 +54,7 @@ pub fn run(
     if !sync.is_empty() {
         let mut args = vec!["-Syu".to_owned(), "--needed".into(), "--".into()];
         args.extend(sync);
-        execute(&args)?;
+        execute(&args, &path)?;
         journal.completed.push("system_upgrade".into());
         write_json(&path, &journal)?;
     }
@@ -89,7 +72,7 @@ pub fn run(
     if !installs.is_empty() {
         let mut args = vec!["-U".into(), "--".into()];
         args.extend(installs);
-        execute(&args)?;
+        execute(&args, &path)?;
         journal.completed.push("verified_archives".into());
         write_json(&path, &journal)?;
     }
@@ -101,7 +84,7 @@ pub fn run(
     if !removals.is_empty() {
         let mut args = vec!["-R".into(), "--".into()];
         args.extend(removals.iter().cloned());
-        execute(&args)?;
+        execute(&args, &path)?;
         journal.completed.push("explicit_removals".into());
         write_json(&path, &journal)?;
     }
@@ -125,7 +108,7 @@ pub fn run(
             "--".into(),
         ];
         args.extend(names);
-        execute(&args)?;
+        execute(&args, &path)?;
     }
     journal.after = Some(inventory(config)?);
     for package in desired.iter().filter(|p| !removals.contains(&p.name)) {
@@ -157,7 +140,34 @@ struct Journal<'a> {
     status: &'a str,
 }
 
-fn execute(args: &[String]) -> Result<()> {
+fn preconditions(
+    current: &[Package],
+    actions: &[PackageAction],
+    artifacts: &BTreeMap<String, PreparedPackage>,
+) -> Result<()> {
+    for action in actions {
+        let before = current.iter().find(|p| p.name == action.package.name);
+        ensure!(
+            before.map(|p| &p.version) == action.before_version.as_ref()
+                && before.map(|p| p.explicit) == action.before_explicit,
+            "package state changed after planning: {}",
+            action.package.name
+        );
+        if action.artifact {
+            let artifact = artifacts
+                .get(&action.package.name)
+                .context("verified package artifact is missing")?;
+            artifact.validate()?;
+            ensure!(
+                artifact.package == action.package,
+                "package artifact source mismatch"
+            );
+        }
+    }
+    Ok(())
+}
+
+fn execute(args: &[String], journal: &Path) -> Result<()> {
     let status = Command::new("/usr/bin/pacman")
         .args(args)
         .stdout(std::process::Stdio::from(std::io::stderr()))
@@ -165,7 +175,65 @@ fn execute(args: &[String]) -> Result<()> {
         .status()?;
     ensure!(
         status.success(),
-        "pacman transaction failed or was cancelled; files were not applied"
+        "pacman transaction failed or was cancelled; file exceptions were not applied; journal: {}",
+        journal.display()
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::domain::{
+        acquisition::PreparedPackage,
+        packages::{Package, PackageAction, PackageActionKind},
+        resources::PackageOrigin,
+    };
+    use crate::infrastructure::pacman::restore::preconditions;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn changed_inventory_or_acquisition_sources_block_every_package_command() {
+        let before = Package {
+            name: "demo".into(),
+            version: "1-1".into(),
+            explicit: false,
+            source: "foreign".into(),
+            origin: None,
+        };
+        let wanted = Package {
+            version: "2-1".into(),
+            explicit: true,
+            ..before.clone()
+        };
+        let action = PackageAction {
+            package: wanted.clone(),
+            kind: PackageActionKind::ChangeVersion,
+            artifact: true,
+            before_version: Some(before.version.clone()),
+            before_explicit: Some(before.explicit),
+        };
+        let actions = [action];
+        assert!(preconditions(std::slice::from_ref(&before), &actions, &BTreeMap::new()).is_err());
+        let artifact = PreparedPackage {
+            package: wanted,
+            path: "/tmp/verified.pkg.tar".into(),
+            sha256: "1".repeat(64),
+            signature: None,
+        };
+        let mut artifacts = BTreeMap::from([("demo".into(), artifact)]);
+        assert!(preconditions(std::slice::from_ref(&before), &actions, &artifacts).is_ok());
+        let changed = Package {
+            explicit: true,
+            ..before.clone()
+        };
+        assert!(preconditions(&[changed], &actions, &artifacts).is_err());
+        let changed = Package {
+            version: "3-1".into(),
+            ..before.clone()
+        };
+        assert!(preconditions(&[changed], &actions, &artifacts).is_err());
+        artifacts.get_mut("demo").unwrap().package.origin =
+            Some(Box::new(PackageOrigin::Unknown {}));
+        assert!(preconditions(&[before], &actions, &artifacts).is_err());
+    }
 }
