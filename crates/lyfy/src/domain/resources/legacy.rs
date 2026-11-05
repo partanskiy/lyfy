@@ -13,8 +13,15 @@ impl ResourceGraph {
     /// or inferring acquisition provenance from an installed package inventory.
     pub fn from_snapshot(state: &SnapshotState, source: SnapshotReference) -> Result<Self> {
         source.validate()?;
+        if let Some(system) = &state.system_state {
+            ensure!(
+                state.schema >= 6,
+                "system resources require portable schema 6"
+            );
+            system.validate()?;
+        }
         ensure!(
-            [1, 2, 3, 4, 5].contains(&state.schema) && state.system == "arch",
+            [1, 2, 3, 4, 5, 6].contains(&state.schema) && state.system == "arch",
             "unsupported resolved snapshot state"
         );
         ensure!(
