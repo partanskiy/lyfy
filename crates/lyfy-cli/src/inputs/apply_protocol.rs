@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Bundle {
     pub schema: u32,
@@ -17,6 +17,8 @@ pub(super) struct Bundle {
     pub receipts: BTreeMap<String, lyfy::Receipt>,
     #[serde(default)]
     pub protected_paths: Vec<PathBuf>,
+    #[serde(default)]
+    pub artifacts: BTreeMap<String, lyfy::PreparedPackage>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -65,6 +67,24 @@ pub(super) fn read(path: &Path) -> Result<Bundle> {
             "execution archive ownership or privacy mismatch"
         );
     }
+    for (name, artifact) in &bundle.artifacts {
+        artifact.validate()?;
+        ensure!(
+            name == &artifact.package.name,
+            "artifact package identity mismatch"
+        );
+        for path in std::iter::once(&artifact.path).chain(artifact.signature.iter()) {
+            let file = fs::OpenOptions::new()
+                .read(true)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK)
+                .open(path)?;
+            let source = file.metadata()?;
+            ensure!(
+                source.is_file() && source.uid() == metadata.uid() && source.mode() & 0o077 == 0,
+                "package artifact ownership or privacy mismatch"
+            );
+        }
+    }
     Ok(bundle)
 }
 
@@ -84,6 +104,7 @@ pub(super) fn execute(mut bundle: Bundle, write: bool) -> Result<Report> {
             ..Default::default()
         })?
         .with_restore_sources(bundle.sources)?
+        .with_package_artifacts(bundle.artifacts)?
         .with_restore_receipts(bundle.receipts)?;
     let outcome = lyfy::execute(&context, lyfy::Request::Apply { write })?;
     let lyfy::Data::Apply(applied) = outcome.data else {

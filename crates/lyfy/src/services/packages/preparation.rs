@@ -115,6 +115,15 @@ pub fn prepare(context: &Context, expected: &Package, directory: &Path) -> Resul
             for server in &source.servers {
                 let location = format!("{}/{}", server.trim_end_matches('/'), source.filename);
                 if let Ok(file) = input(context, &source.content, false, Some(&location)) {
+                    if let Ok(mut file) = pacman::download::fetch(&format!("{location}.sig")) {
+                        ensure!(
+                            file.metadata()?.len() <= 1024 * 1024,
+                            "package signature exceeds limit"
+                        );
+                        let path = directory.join("package.pkg.tar.sig");
+                        root.export_file(&path, &mut file)?;
+                        signature = Some(path);
+                    }
                     found = Some(file);
                     break;
                 }

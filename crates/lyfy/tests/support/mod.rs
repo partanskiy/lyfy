@@ -1,0 +1,41 @@
+use lyfy::Config;
+use std::path::Path;
+
+pub fn config(temp: &Path, format: &str) -> Config {
+    Config {
+        system: "arch".into(),
+        root: temp.join("root"),
+        home_dir: "/home/test".into(),
+        data_dir: temp.join("data"),
+        state_dir: temp.join("state"),
+        storage_format: format.into(),
+        host: "laptop".into(),
+        base_host: None,
+        snapshot: "latest".into(),
+        include: vec!["~/.config".into()],
+        exclude: vec![],
+        ownership_roots: vec![],
+        require_uki: false,
+        check_packages: false,
+        package_file_policy: "capture".into(),
+        package_sources: vec![],
+        package_version_policy: "locked".into(),
+        build_packages: false,
+        remove_packages: vec![],
+        install_packages: false,
+        overwrite: true,
+        prune: true,
+        max_file_bytes: 1024,
+        capture_errors: "strict".into(),
+        mounts: vec![],
+        backends: vec![],
+        selected_mounts: vec![],
+        selected_paths: vec![],
+        selected_resources: vec![],
+        identity_mappings: vec![],
+        export_file: None,
+        import_file: None,
+        disabled_rules: vec![],
+        fail_on: lyfy::Severity::Warning,
+    }
+}
