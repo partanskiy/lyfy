@@ -1,6 +1,29 @@
 use lyfy::{Report, Severity};
 use std::fmt::Write;
 
+pub fn data(data: &lyfy::Data) -> serde_json::Result<serde_json::Value> {
+    fn redact(value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Object(fields) => {
+                if let Some(serde_json::Value::Object(attributes)) = fields.get_mut("attributes") {
+                    for value in attributes.values_mut() {
+                        let bytes = value.as_array().map_or(0, Vec::len);
+                        *value = serde_json::json!({"bytes":bytes,"value":"omitted"});
+                    }
+                }
+                for value in fields.values_mut() {
+                    redact(value);
+                }
+            }
+            serde_json::Value::Array(values) => values.iter_mut().for_each(redact),
+            _ => {}
+        }
+    }
+    let mut value = serde_json::to_value(data)?;
+    redact(&mut value);
+    Ok(value)
+}
+
 pub fn text(report: &Report, color: bool) -> String {
     let mut out = String::new();
     let status = match report.exit_code() {

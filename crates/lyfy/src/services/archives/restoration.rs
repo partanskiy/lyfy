@@ -2,7 +2,7 @@ use crate::Context;
 use crate::domain::state::{Content, SnapshotState};
 use crate::infrastructure::{
     archive,
-    filesystem::{Root, current_uid},
+    filesystem::{Root, current_groups, current_uid},
     store::private_dir,
 };
 use crate::services::{archives, routing};
@@ -26,6 +26,7 @@ pub fn requires_root(context: &Context) -> Result<bool> {
     if uid == 0 {
         return Ok(false);
     }
+    let groups = current_groups()?;
     for scope in routing::scopes(context, true)? {
         let source = source(scope)?;
         let config = &source.config;
@@ -53,7 +54,9 @@ pub fn requires_root(context: &Context) -> Result<bool> {
             if !root.writable_parent(&path)? {
                 return Ok(true);
             }
-            if node.owner.is_some_and(|(owner, _)| owner != uid)
+            if node
+                .owner
+                .is_some_and(|(owner, group)| owner != uid || !groups.contains(&group))
                 || node.mode & 0o6000 != 0
                 || node.mode & 0o400 == 0
                 || node

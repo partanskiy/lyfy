@@ -5,6 +5,20 @@ pub fn current_uid() -> u32 {
     unsafe { libc::geteuid() }
 }
 
+pub fn current_groups() -> Result<Vec<u32>> {
+    // SAFETY: a zero-sized query returns the required array capacity.
+    let count = unsafe { libc::getgroups(0, std::ptr::null_mut()) };
+    ensure!(count >= 0, "cannot inspect supplementary groups");
+    let mut groups = vec![0; count as usize];
+    // SAFETY: groups has the queried capacity; no references escape the call.
+    let found = unsafe { libc::getgroups(count, groups.as_mut_ptr()) };
+    ensure!(found >= 0, "supplementary groups changed during inspection");
+    groups.truncate(found as usize);
+    // SAFETY: getegid has no preconditions or side effects.
+    groups.push(unsafe { libc::getegid() });
+    Ok(groups)
+}
+
 pub struct IdentityView {
     pub uid: bool,
     pub gid: bool,

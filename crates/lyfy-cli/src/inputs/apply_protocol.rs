@@ -110,3 +110,40 @@ pub(super) fn decode(reader: impl Read, code: u8) -> Result<Report> {
     );
     Ok(report)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::{PermissionsExt, symlink};
+
+    #[test]
+    fn worker_rejects_public_files_links_and_invalid_reports() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("bundle");
+        fs::write(&path, "{}").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(
+            read(&path)
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("private regular file")
+        );
+        let link = temp.path().join("link");
+        symlink(&path, &link).unwrap();
+        assert!(read(&link).is_err());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(read(&path).is_err());
+        let report = serde_json::json!({
+            "schema":1,"code":0,"receipts":{},"applied":{
+                "host":"test","snapshot":"a".repeat(64),"changes":[],
+                "guards":[],"dependencies":[],"packages":null,
+                "transaction":null,"mounts":[]
+            }
+        })
+        .to_string();
+        assert!(decode(report.as_bytes(), 0).is_ok());
+        assert!(decode(report.as_bytes(), 2).is_err());
+        assert!(decode(b"not JSON".as_slice(), 0).is_err());
+    }
+}
