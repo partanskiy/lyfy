@@ -67,6 +67,13 @@ pub fn scan(
             .sort_by_file_name()
             .into_iter()
             .filter_entry(|entry| {
+                if entry
+                    .path()
+                    .strip_prefix(&config.root)
+                    .is_ok_and(|p| config.excluded(&Path::new("/").join(p)))
+                {
+                    return false;
+                }
                 if entry.file_name() == ".git" {
                     if project
                         .as_ref()

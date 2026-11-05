@@ -7,7 +7,7 @@ use std::{collections::BTreeMap, path::Path};
 pub fn copy(source: &Path, target: &Path) -> Result<(BTreeMap<String, String>, Vec<String>)> {
     let config = checked(source, &["config", "--local", "--null", "--list"])?;
     let mut remotes = BTreeMap::new();
-    let mut exclusions = vec![];
+    let mut exclusions = vec!["FETCH_HEAD and reflog messages excluded as connection descriptions; reflog object references retained".into()];
     for entry in config.split(|b| *b == 0).filter(|e| !e.is_empty()) {
         let entry = std::str::from_utf8(entry)?;
         let (key, value) = entry.split_once('\n').unwrap_or((entry, "true"));

@@ -72,7 +72,7 @@ pub fn copy(source: &Path, target: &Path) -> Result<()> {
         let name = relative
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("non-UTF-8 Git metadata"))?;
-        if ["HEAD", "config", "packed-refs"].contains(&name) {
+        if ["HEAD", "config", "packed-refs", "FETCH_HEAD"].contains(&name) {
             continue;
         }
         ensure!(
@@ -104,12 +104,20 @@ pub fn copy(source: &Path, target: &Path) -> Result<()> {
                 metadata.st_nlink == 1,
                 "hardlinked Git metadata requires explicit migration"
             );
-            root.put_file(
-                &destination,
-                &mut root.open_content(entry.path())?,
-                metadata.st_mode & 0o7777,
-                None,
-            )?;
+            let mut content = root.open_content(entry.path())?;
+            if relative.starts_with("logs") {
+                let bytes = root.read(entry.path(), 64 * 1024 * 1024)?;
+                let mut sanitized = tempfile::tempfile()?;
+                use std::io::{Seek, Write};
+                for line in bytes.split(|b| *b == b'\n').filter(|l| !l.is_empty()) {
+                    let prefix = line.split(|b| *b == b'\t').next().unwrap();
+                    sanitized.write_all(prefix)?;
+                    sanitized.write_all(b"\tlyfy retained reflog entry\n")?;
+                }
+                sanitized.rewind()?;
+                content = sanitized;
+            }
+            root.put_file(&destination, &mut content, metadata.st_mode & 0o7777, None)?;
             root.set_attributes(&destination, &root.attributes(entry.path())?)?;
         }
     }
