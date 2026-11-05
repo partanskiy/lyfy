@@ -52,6 +52,11 @@ fn text(path: &Path, args: &[&str]) -> Result<String> {
         .into())
 }
 
+pub fn verify(path: &Path) -> Result<()> {
+    checked(path, &["fsck", "--full", "--no-dangling"])?;
+    Ok(())
+}
+
 pub fn prepare(path: &Path) -> Result<Prepared> {
     let root = Root::open(Path::new("/"))?;
     ensure!(

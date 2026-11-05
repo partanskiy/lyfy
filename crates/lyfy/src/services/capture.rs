@@ -257,7 +257,7 @@ pub fn scan(
             captured.deletions.insert(config.key(path)?);
         }
     }
-    crate::services::projects::capture(context, &mut captured, persist)?;
+    crate::services::projects::capture(context, &mut captured.tree, persist)?;
     retain_previous(context, &mut captured)?;
     captured
         .diagnostics
