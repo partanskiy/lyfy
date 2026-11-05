@@ -44,6 +44,10 @@ pub use domain::observation::Observation;
 pub use domain::package_files::{FileDifference, PackageEvidence};
 pub use domain::packages::{Package, PackagePlan};
 pub use domain::plan::{Change, Guard, Plan};
+pub use domain::resources::{
+    PackageOrigin, RecoveryDescription, RecoveryGuarantee, Resource, ResourceGraph, ResourceId,
+    ResourceReference, ResourceSubject, SnapshotReference,
+};
 pub use domain::results::{
     Applied, CaptureDiagnostic, Formatted, MountedApply, MountedSave, SaveChangeKind, Saved,
     SavedChange,
