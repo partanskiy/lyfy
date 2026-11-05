@@ -70,6 +70,10 @@ pub struct PackageAction {
     pub package: Package,
     pub kind: PackageActionKind,
     pub artifact: bool,
+    #[serde(default)]
+    pub before_version: Option<String>,
+    #[serde(default)]
+    pub before_explicit: Option<bool>,
 }
 
 pub fn plan(desired: &[Package], current: &[Package]) -> Result<PackagePlan> {
