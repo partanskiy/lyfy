@@ -26,6 +26,20 @@ pub fn capture(context: &Context, tree: &mut Tree, persist: bool) -> Result<()> 
         return Ok(());
     };
     let prepared = projects::prepare(&context.config.physical(&path))?;
+    let source_root = Root::open(&context.config.root)?;
+    for (key, expected) in &*tree {
+        let observed = files::observe_like(
+            &context.config,
+            &source_root,
+            &context.config.path_for_key(key)?,
+            Some(expected),
+        )?
+        .map(|(n, _)| n);
+        ensure!(
+            observed.as_ref() == Some(&expected.materialized()),
+            "project worktree changed during Git object capture: {key}"
+        );
+    }
     let key = context.config.key(&path)?;
     let owner = tree
         .get(&key)
