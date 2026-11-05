@@ -22,8 +22,10 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
         transaction: None,
         mounts: vec![],
     };
-    let scopes = routing::scopes(context, true)?;
+    let mut scopes = routing::scopes(context, true)?;
+    scopes.sort_by_key(|scope| scope.path.matches('/').count());
     archives::prepare(context, scopes.len())?;
+    let mut prepared = Vec::new();
     for scope in scopes {
         let source = if context.config.import_file.is_some() {
             archives::apply_source(scope.context)
@@ -32,8 +34,25 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
         } else {
             Ok(scope.context)
         };
-        let outcome = source.and_then(|source| reconcile(&source, write));
-        if scope.name == "default" && context.config.mounts.is_empty() {
+        let work = source.and_then(|source| {
+            let locks = write.then(|| session::lock(&source)).transpose()?;
+            let plan = reconciliation::build(&source)?;
+            Ok((source, plan, locks))
+        });
+        prepared.push((scope.name, scope.path, work));
+    }
+    let mut plans: Vec<_> = prepared
+        .iter_mut()
+        .filter_map(|(_, _, work)| work.as_mut().ok().map(|(_, plan, _)| plan))
+        .collect();
+    reconciliation::connect(&mut plans);
+    let ready = prepared
+        .iter()
+        .all(|(_, _, work)| work.as_ref().is_ok_and(|(_, plan, _)| plan.ready()));
+    for (name, path, work) in prepared {
+        let outcome =
+            work.and_then(|(source, plan, _locks)| reconcile(&source, plan, write && ready));
+        if name == "default" && context.config.mounts.is_empty() {
             return outcome;
         }
         let (result, error) = match outcome {
@@ -41,8 +60,8 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
             Err(error) => (None, Some(format!("{error:#}"))),
         };
         combined.mounts.push(MountedApply {
-            name: scope.name,
-            path: scope.path,
+            name,
+            path,
             result,
             error,
         });
@@ -50,10 +69,8 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
     Ok(combined)
 }
 
-fn reconcile(context: &Context, write: bool) -> Result<Applied> {
+fn reconcile(context: &Context, mut plan: Plan, write: bool) -> Result<Applied> {
     let config = &context.config;
-    let _locks = write.then(|| session::lock(context)).transpose()?;
-    let mut plan = reconciliation::build(context)?;
     let mut transaction = None;
     if write && plan.ready() {
         if config.install_packages {

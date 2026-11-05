@@ -67,6 +67,22 @@ fn paths_activate_only_their_owner_and_do_not_read_other_credentials() {
     assert_eq!(report["mounts"][0]["name"], "pictures");
     assert_eq!(f.read("home/test/Pictures/photo"), "original\n");
     assert!(!f.data.exists());
+    f.write("home/test/Pictures/photo", "still changed\n");
+    let output = f
+        .command()
+        .env("AWS_SHARED_CREDENTIALS_FILE", &unavailable)
+        .args([
+            "apply",
+            "--selected_mounts",
+            "pictures,projects",
+            "--overwrite",
+            "true",
+            "--write",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(f.read("home/test/Pictures/photo"), "still changed\n");
 }
 
 #[test]
@@ -183,4 +199,24 @@ fn missing_parent_is_reported_before_partial_target_writes() {
     assert!(!f.root.join("home/test/.config/new").exists());
     f.ok(&["apply", "--selected_paths", "~/.config/new", "--write"]);
     assert_eq!(f.read("home/test/.config/new/value"), "saved\n");
+}
+
+#[test]
+fn explicitly_selected_parent_scopes_supply_nested_creation_dependencies() {
+    let f = Fixture::new();
+    let directory = f.root.join("home/test/.config/new");
+    fs::create_dir_all(directory.join("nested")).unwrap();
+    f.write("home/test/.config/new/nested/value", "saved\n");
+    let backend = f.temp.path().join("nested-store");
+    writeln!(fs::OpenOptions::new().append(true).open(&f.config).unwrap(),
+        "[[backends]]\nname='local'\nkind='directory'\npath={backend:?}\n[[mounts]]\nname='nested'\npath='~/.config/new/nested'\nbackend='local'").unwrap();
+    f.ok(&["save"]);
+    fs::remove_dir_all(&directory).unwrap();
+    f.ok(&[
+        "apply",
+        "--selected_paths",
+        "~/.config/new,~/.config/new/nested",
+        "--write",
+    ]);
+    assert_eq!(f.read("home/test/.config/new/nested/value"), "saved\n");
 }
