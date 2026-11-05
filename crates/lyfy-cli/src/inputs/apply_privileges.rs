@@ -56,45 +56,42 @@ pub fn run(context: &lyfy::Context, mode: Elevation, write: bool) -> Result<Opti
     let expected = context.read_receipts()?;
     eprintln!("lyfy: preparing verified sources for privileged apply");
     let sources = tempfile::tempdir()?;
-    let bundle = Bundle {
+    let mut bundle = Bundle {
         schema: 1,
         config: context.config().clone(),
         sources: context.export_apply(sources.path())?,
         receipts: expected.clone(),
         protected_paths: context.apply_protected_paths(),
+        artifacts: Default::default(),
     };
-    let report = if root {
-        apply_protocol::execute(bundle, write)?
+    let package_work =
+        write && context.config().install_packages && context.config().packages_selected();
+    let report = if package_work {
+        let preview = invoke(bundle.clone(), root, sources.path(), false)?;
+        if preview.code != 0 {
+            preview
+        } else {
+            let requested = requested(&preview.applied)?;
+            if !requested.is_empty() {
+                eprintln!(
+                    "lyfy: preparing selected package archives without privileged recipe execution"
+                );
+                let mut config = context.config().clone();
+                config.import_file = None;
+                config.export_file = None;
+                let frozen = lyfy::Context::new(config)?
+                    .with_access(lyfy::Access {
+                        protected_paths: bundle.protected_paths.clone(),
+                        ..Default::default()
+                    })?
+                    .with_restore_sources(bundle.sources.clone())?;
+                bundle.artifacts =
+                    frozen.prepare_packages(&sources.path().join("packages"), &requested)?;
+            }
+            invoke(bundle, root, sources.path(), true)?
+        }
     } else {
-        eprintln!("lyfy: requesting sudo for selected apply actions");
-        let settings = sources.path().join("execution.json");
-        let file = std::fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&settings)?;
-        use std::os::unix::fs::PermissionsExt;
-        file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
-        serde_json::to_writer(&file, &bundle)?;
-        file.sync_all()?;
-        let executable = env::current_exe().context("locate lyfy for privileged apply")?;
-        let mut channel = tempfile::tempfile()?;
-        let status = command(
-            &executable,
-            &settings,
-            write,
-            env::vars_os().map(|(k, _)| k),
-        )
-        .stdout(channel.try_clone()?)
-        .status()
-        .context("cannot launch sudo for selected apply")?;
-        channel.rewind()?;
-        apply_protocol::decode(
-            channel,
-            status
-                .code()
-                .and_then(|c| u8::try_from(c).ok())
-                .unwrap_or(2),
-        )?
+        invoke(bundle, root, sources.path(), write)?
     };
     if write && publish && !report.receipts.is_empty() {
         context.record_receipts(&report.receipts, &expected)
@@ -104,6 +101,71 @@ pub fn run(context: &lyfy::Context, mode: Elevation, write: bool) -> Result<Opti
         exit_code: report.code,
         data: lyfy::Data::Apply(report.applied),
     }))
+}
+
+fn requested(applied: &lyfy::Applied) -> Result<Vec<lyfy::Package>> {
+    let mut packages = std::collections::BTreeMap::new();
+    for result in
+        std::iter::once(applied).chain(applied.mounts.iter().filter_map(|m| m.result.as_deref()))
+    {
+        if let Some(plan) = &result.plan.packages {
+            for action in plan.actions.iter().filter(|a| a.artifact) {
+                if let Some(previous) =
+                    packages.insert(action.package.name.clone(), action.package.clone())
+                {
+                    ensure!(
+                        previous == action.package,
+                        "scopes requested incompatible package sources"
+                    );
+                }
+            }
+        }
+    }
+    Ok(packages.into_values().collect())
+}
+
+fn invoke(
+    bundle: Bundle,
+    root: bool,
+    directory: &Path,
+    write: bool,
+) -> Result<apply_protocol::Report> {
+    if root {
+        return apply_protocol::execute(bundle, write);
+    }
+    eprintln!("lyfy: requesting sudo for selected apply actions");
+    let settings = directory.join(if write {
+        "execution-write.json"
+    } else {
+        "execution-preview.json"
+    });
+    use std::os::unix::fs::OpenOptionsExt;
+    let file = std::fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .mode(0o600)
+        .open(&settings)?;
+    serde_json::to_writer(&file, &bundle)?;
+    file.sync_all()?;
+    let executable = env::current_exe().context("locate lyfy for privileged apply")?;
+    let mut channel = tempfile::tempfile()?;
+    let status = command(
+        &executable,
+        &settings,
+        write,
+        env::vars_os().map(|(k, _)| k),
+    )
+    .stdout(channel.try_clone()?)
+    .status()
+    .context("cannot launch sudo for selected apply")?;
+    channel.rewind()?;
+    apply_protocol::decode(
+        channel,
+        status
+            .code()
+            .and_then(|c| u8::try_from(c).ok())
+            .unwrap_or(2),
+    )
 }
 
 fn owns_state(path: &Path, uid: u32) -> Result<bool> {
