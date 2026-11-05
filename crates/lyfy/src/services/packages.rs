@@ -1,8 +1,10 @@
 use crate::domain::{config::Config, packages::Package};
 use crate::infrastructure::pacman;
 use anyhow::Result;
+mod execution;
 mod planning;
 mod preparation;
+pub use execution::preflight;
 pub use planning::{effects, plan};
 mod sources;
 pub use preparation::prepare;

@@ -15,6 +15,7 @@ pub struct Context {
     pub(crate) package_baselines: bool,
     pub(crate) package_artifacts:
         std::collections::BTreeMap<String, crate::domain::acquisition::PreparedPackage>,
+    pub(crate) package_stage: Option<crate::infrastructure::store::Store>,
     pub(crate) config: Config,
     pub(crate) repository: crate::infrastructure::store::Store,
 }
@@ -56,6 +57,7 @@ impl Context {
             source_snapshot: None,
             package_baselines: config.check_packages,
             package_artifacts: Default::default(),
+            package_stage: None,
             repository: crate::infrastructure::store::Store::configured(&config),
             config,
         })
