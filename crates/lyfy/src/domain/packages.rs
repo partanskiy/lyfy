@@ -51,6 +51,8 @@ pub struct PackagePlan {
     pub actions: Vec<PackageAction>,
     #[serde(default)]
     pub effects: Vec<String>,
+    #[serde(default)]
+    pub performed: Vec<PackageAction>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -85,6 +87,7 @@ pub fn plan(desired: &[Package], current: &[Package]) -> Result<PackagePlan> {
         extra_explicit: vec![],
         actions: vec![],
         effects: vec![],
+        performed: vec![],
     };
     let installed: BTreeMap<_, _> = current.iter().map(|p| (p.name.as_str(), p)).collect();
     let wanted: BTreeSet<_> = desired.iter().map(|p| p.name.as_str()).collect();

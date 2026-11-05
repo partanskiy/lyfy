@@ -60,12 +60,18 @@ pub fn effects(plan: &mut PackagePlan) {
     if plan
         .actions
         .iter()
+        .chain(&plan.performed)
         .any(|a| a.kind == PackageActionKind::SyncCurrent)
     {
         plan.effects
             .push("full pacman system upgrade, including packages outside file selection".into());
     }
-    if plan.actions.iter().any(|a| a.artifact) {
+    if plan
+        .actions
+        .iter()
+        .chain(&plan.performed)
+        .any(|a| a.artifact)
+    {
         plan.effects.push(
             "package-wide installation/reinstallation with pacman dependency and conflict handling"
                 .into(),
@@ -74,12 +80,13 @@ pub fn effects(plan: &mut PackagePlan) {
     if plan
         .actions
         .iter()
+        .chain(&plan.performed)
         .any(|a| a.kind == PackageActionKind::Remove)
     {
         plan.effects
             .push("explicit package removal; pacman checks reverse dependencies".into());
     }
-    if !plan.actions.is_empty() {
+    if !plan.actions.is_empty() || !plan.performed.is_empty() {
         plan.effects.push(
             "package scripts/hooks and installation-reason changes are separate from file rollback"
                 .into(),

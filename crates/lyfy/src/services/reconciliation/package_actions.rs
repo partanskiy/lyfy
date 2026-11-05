@@ -16,6 +16,9 @@ pub fn connect(plans: &mut [&mut Plan]) {
         let Some(packages) = &mut plan.packages else {
             continue;
         };
+        if !packages.performed.is_empty() {
+            continue;
+        }
         for package in plan.package_desired.iter().flatten() {
             if missing.contains(&(package.name.clone(), package.version.clone()))
                 && !packages.actions.iter().any(|a| {
