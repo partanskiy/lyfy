@@ -94,6 +94,19 @@ pub fn preflight(root: &Path, actions: &[IdentityAction]) -> Result<()> {
         .validate()?;
         if let Some(id) = id {
             ensure!(
+                name.len() <= 32
+                    && name != "."
+                    && name != ".."
+                    && !name.bytes().all(|b| b.is_ascii_digit())
+                    && name
+                        .bytes()
+                        .enumerate()
+                        .all(|(i, b)| b.is_ascii_alphanumeric()
+                            || b"_.-".contains(&b)
+                            || b == b'$' && i + 1 == name.len()),
+                "account creation requires a name supported by shadow-utils"
+            );
+            ensure!(
                 id != u32::MAX
                     && !existing
                         .iter()

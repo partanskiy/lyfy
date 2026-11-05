@@ -89,12 +89,27 @@ impl Table {
                 volume: format!("instance:fixture:{}", fields[0]),
             };
             identity.validate()?;
+            let mut device = fields[2].to_owned();
+            // Btrfs mountinfo uses an anonymous device number. The kernel source
+            // still identifies the underlying block device for UUID lookup.
+            if native && source[1].starts_with("/dev/") {
+                use std::os::unix::fs::MetadataExt;
+                if let Ok(metadata) = std::fs::metadata(decode(source[1])?)
+                    && metadata.mode() & libc::S_IFMT == libc::S_IFBLK
+                {
+                    device = format!(
+                        "{}:{}",
+                        libc::major(metadata.rdev()),
+                        libc::minor(metadata.rdev())
+                    );
+                }
+            }
             entries.insert(
                 logical,
                 Entry {
                     id: fields[0].parse()?,
                     identity,
-                    device: fields[2].into(),
+                    device,
                 },
             );
         }

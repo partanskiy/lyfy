@@ -179,3 +179,75 @@ fn explicit_volume_markers_allow_remounts_and_reject_replaced_cloud_roots() {
         Some(2)
     );
 }
+
+#[test]
+fn nested_collection_keeps_its_ancestor_volume_requirement() {
+    let f = fixture("connection");
+    fs::create_dir_all(f.root.join("home/test/Pictures/Project")).unwrap();
+    f.write("home/test/Pictures/Project/local", "nested collection\n");
+    writeln!(
+        fs::OpenOptions::new().append(true).open(&f.config).unwrap(),
+        "[[mounts]]\nname='project'\npath='~/Pictures/Project'\nbackend='backup'"
+    )
+    .unwrap();
+    f.ok(&["save", "--selected_mounts", "project"]);
+    let head = f
+        .temp
+        .path()
+        .join("backup/mounts/project/hosts/laptop/HEAD");
+    let accepted = fs::read(&head).unwrap();
+    fs::write(f.root.join("proc/self/mountinfo"), "").unwrap();
+    assert_eq!(
+        f.run(&["save", "--selected_mounts", "project"])
+            .status
+            .code(),
+        Some(2)
+    );
+    assert_eq!(fs::read(&head).unwrap(), accepted);
+    fs::write(
+        f.root.join("proc/self/mountinfo"),
+        "43 1 0:2 / /home/test/Pictures rw - fuse.rclone photos-source rw\n",
+    )
+    .unwrap();
+    assert_eq!(
+        f.run(&["save", "--selected_mounts", "project"])
+            .status
+            .code(),
+        Some(2)
+    );
+    let target = f.temp.path().join("target");
+    fs::create_dir_all(target.join("home/test")).unwrap();
+    fs::create_dir_all(target.join("proc/self")).unwrap();
+    fs::write(target.join("proc/self/mountinfo"), "").unwrap();
+    assert_eq!(
+        f.run(&[
+            "apply",
+            "--selected_mounts",
+            "project",
+            "--root",
+            target.to_str().unwrap(),
+            "--write"
+        ])
+        .status
+        .code(),
+        Some(1)
+    );
+    let mounts = json!([
+        {"name":"pictures","path":"~/Pictures","backend":"backup","external":{"recovery":"materialize"}},
+        {"name":"project","path":"~/Pictures/Project","backend":"backup"}
+    ]).to_string();
+    f.ok(&[
+        "apply",
+        "--selected_mounts",
+        "project",
+        "--root",
+        target.to_str().unwrap(),
+        "--mounts",
+        &mounts,
+        "--write",
+    ]);
+    assert_eq!(
+        fs::read_to_string(target.join("home/test/Pictures/Project/local")).unwrap(),
+        "nested collection\n"
+    );
+}
