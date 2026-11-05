@@ -22,7 +22,7 @@ pub struct SnapshotState {
     pub sizes: BTreeMap<String, u64>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Content {
     File {
@@ -33,6 +33,30 @@ pub enum Content {
     Symlink {
         target: String,
     },
+}
+
+impl<'de> Deserialize<'de> for Content {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        // An empty struct variant enforces unknown-field rejection, unlike a
+        // tagged unit variant. Keep the existing public enum and wire encoding.
+        #[derive(Deserialize)]
+        #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+        enum Description {
+            File {
+                #[serde(default)]
+                sha256: String,
+            },
+            Directory {},
+            Symlink {
+                target: String,
+            },
+        }
+        Ok(match Description::deserialize(deserializer)? {
+            Description::File { sha256 } => Self::File { sha256 },
+            Description::Directory {} => Self::Directory,
+            Description::Symlink { target } => Self::Symlink { target },
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
