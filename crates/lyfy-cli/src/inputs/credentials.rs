@@ -31,9 +31,9 @@ pub fn resolve(
     let apply = matches!(command, Command::Apply { .. }) && config.import_file.is_none();
     let mut needed = std::collections::BTreeSet::new();
     for mount in &config.mounts {
-        let selected =
-            config.selected_mounts.is_empty() || config.selected_mounts.contains(&mount.name);
-        if selected && (save || (apply && (mount.apply || !config.selected_mounts.is_empty()))) {
+        if (save && config.scope_selected(&mount.name, false))
+            || (apply && config.scope_selected(&mount.name, true))
+        {
             needed.insert(&mount.backend);
             if save {
                 needed.extend(&mount.replicas);

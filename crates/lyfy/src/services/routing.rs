@@ -40,7 +40,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
         }
     }
     let mut fallback = config.clone();
-    if config.mounts.iter().any(|m| m.packages) {
+    if config.mounts.iter().any(|m| m.packages) || (apply && !config.packages_selected()) {
         fallback.check_packages = false;
         fallback.install_packages = false;
     }
@@ -48,11 +48,8 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
         .exclude
         .extend(roots.iter().map(|p| p.to_string_lossy().into_owned()));
     protect(&mut fallback, &protected);
-    let selected = |name: &str| {
-        config.selected_mounts.is_empty() || config.selected_mounts.iter().any(|s| s == name)
-    };
     let mut result = vec![];
-    if selected("default")
+    if config.scope_selected("default", apply)
         && fallback
             .include
             .iter()
@@ -62,6 +59,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
             name: "default".into(),
             path: "/".into(),
             context: {
+                restrict(&mut fallback, config, "default", apply);
                 let mut fallback = Context::new(fallback)?.with_access(context.access.clone())?;
                 fallback.capture_source = context.capture_source.clone();
                 fallback
@@ -70,7 +68,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
         });
     }
     for (mount, root) in config.mounts.iter().zip(&roots) {
-        if !selected(&mount.name) || (apply && !mount.apply && config.selected_mounts.is_empty()) {
+        if !config.scope_selected(&mount.name, apply) {
             continue;
         }
         let backend = config
@@ -94,6 +92,11 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
         );
         scoped.check_packages = config.check_packages && mount.packages;
         scoped.install_packages = config.install_packages && mount.packages;
+        if apply && !config.packages_selected() {
+            scoped.check_packages = false;
+            scoped.install_packages = false;
+        }
+        restrict(&mut scoped, config, &mount.name, apply);
         scoped.max_file_bytes = mount.max_file_bytes.unwrap_or(config.max_file_bytes);
         scoped.state_dir = config.state_dir.join("mounts").join(&mount.name);
         match backend.kind {
@@ -184,5 +187,16 @@ fn protect(config: &mut Config, physical: &[PathBuf]) {
                     .into(),
             );
         }
+    }
+}
+
+fn restrict(scoped: &mut Config, original: &Config, name: &str, apply: bool) {
+    if apply {
+        scoped.selected_paths.retain(|p| {
+            original
+                .logical(p)
+                .is_ok_and(|p| original.path_owner(&p) == name)
+        });
+        scoped.selected_resources.retain(|r| r.collection == name);
     }
 }
