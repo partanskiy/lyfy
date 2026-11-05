@@ -46,7 +46,20 @@ impl Disk {
     }
 
     pub fn exists(&self, key: &str) -> Result<bool> {
-        Ok(self.get(key)?.is_some())
+        if key.ends_with("/HEAD") {
+            return Ok(self.get(key)?.is_some());
+        }
+        let (status, value) = self.json(
+            "GET",
+            "resources",
+            &[("path", &self.path(key)?), ("fields", "type")],
+        )?;
+        if status == 404 {
+            return Ok(false);
+        }
+        self.complete(status, &value)?;
+        ensure!(value["type"] == "file", "Yandex payload key is not a file");
+        Ok(true)
     }
 
     pub fn put(&self, key: &str, file: &mut File) -> Result<()> {

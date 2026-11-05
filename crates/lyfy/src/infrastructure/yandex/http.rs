@@ -11,6 +11,7 @@ use url::Url;
 pub struct Response {
     pub status: u16,
     pub body: File,
+    location: Option<Url>,
 }
 
 fn quote(value: &str) -> Result<String> {
@@ -26,6 +27,31 @@ fn quote(value: &str) -> Result<String> {
 
 impl Disk {
     pub(super) fn request(
+        &self,
+        method: &str,
+        url: &Url,
+        input: Option<&mut File>,
+        authenticated: bool,
+    ) -> Result<Response> {
+        if method != "GET" || authenticated {
+            return self.request_once(method, url, input, authenticated);
+        }
+        ensure!(input.is_none(), "download request cannot carry a payload");
+        let mut current = url.clone();
+        for _ in 0..6 {
+            let response = self.request_once(method, &current, None, false)?;
+            if [301, 302, 303, 307, 308].contains(&response.status) {
+                current = response
+                    .location
+                    .ok_or_else(|| anyhow::anyhow!("missing Yandex download redirect"))?;
+            } else {
+                return Ok(response);
+            }
+        }
+        anyhow::bail!("too many Yandex download redirects")
+    }
+
+    fn request_once(
         &self,
         method: &str,
         url: &Url,
@@ -59,6 +85,7 @@ impl Disk {
         }
         settings.flush()?;
         let output = tempfile::NamedTempFile::new()?;
+        let headers = tempfile::NamedTempFile::new()?;
         let mut command = Command::new("/usr/bin/curl");
         command
             .env_clear()
@@ -82,7 +109,9 @@ impl Disk {
             .arg("--config")
             .arg(settings.path())
             .arg("--output")
-            .arg(output.path());
+            .arg(output.path())
+            .arg("--dump-header")
+            .arg(headers.path());
         let mut upload = None;
         if let Some(file) = input {
             file.rewind()?;
@@ -97,11 +126,25 @@ impl Disk {
             .take(4)
             .read_to_string(&mut status)?;
         drop(upload);
+        let mut header_text = String::new();
+        headers
+            .reopen()?
+            .take(32769)
+            .read_to_string(&mut header_text)?;
+        ensure!(header_text.len() <= 32768, "oversized Yandex HTTP headers");
+        let location = header_text
+            .lines()
+            .filter_map(|line| line.split_once(':'))
+            .filter(|(name, _)| name.eq_ignore_ascii_case("location"))
+            .map(|(_, value)| url.join(value.trim()))
+            .next_back()
+            .transpose()?;
         Ok(Response {
             status: status
                 .parse()
                 .map_err(|_| anyhow::anyhow!("invalid Yandex HTTP status"))?,
             body: output.reopen()?,
+            location,
         })
     }
 
