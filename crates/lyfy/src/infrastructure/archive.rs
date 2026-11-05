@@ -1,6 +1,6 @@
 use crate::domain::{
     config::{Config, identifier, is_digest, is_revision},
-    state::{Content, SnapshotState, validate_tree},
+    state::{SnapshotState, validate_tree},
 };
 use crate::infrastructure::{filesystem::hash_file, store::Store};
 use anyhow::{Result, ensure};
@@ -57,7 +57,7 @@ pub fn read(
     let mut state: SnapshotState = serde_json::from_slice(&manifest)
         .map_err(|_| anyhow::anyhow!("invalid archive manifest"))?;
     ensure!(
-        [1, 2].contains(&state.schema) && state.system == "arch",
+        [1, 2, 3].contains(&state.schema) && state.system == "arch",
         "unsupported archive state"
     );
     identifier(&state.host)?;
@@ -66,6 +66,12 @@ pub fn read(
         "archive source is not a pinned generation"
     );
     validate_tree(&state.tree)?;
+    crate::domain::acquisition::content::validate(
+        state.schema,
+        true,
+        &state.tree,
+        state.packages.as_deref(),
+    )?;
     ensure!(
         state.schema >= 2 || !crate::domain::state::extended_state(&state.tree),
         "extended archive state requires schema 2"
@@ -85,27 +91,30 @@ pub fn read(
         state.tree.keys().all(|k| !state.deletions.contains(k)),
         "archive path is both present and deleted"
     );
-    let required: BTreeSet<_> = state
-        .tree
-        .values()
-        .filter_map(|n| match &n.content {
-            Content::File { sha256 } => Some(sha256),
-            _ => None,
-        })
-        .collect();
+    let required =
+        crate::domain::acquisition::content::required(&state.tree, state.packages.as_deref())?;
     ensure!(
-        required == state.sizes.keys().collect(),
+        required.iter().collect::<BTreeSet<_>>() == state.sizes.keys().collect(),
         "archive content index differs from manifest"
     );
-    let selected: BTreeSet<String> = state
+    let selected_tree = state
         .tree
         .iter()
         .filter(|(key, _)| config.path_for_key(key).is_ok_and(|p| config.managed(&p)))
-        .filter_map(|(_, n)| match &n.content {
-            Content::File { sha256 } => Some(sha256.clone()),
-            _ => None,
-        })
+        .map(|(k, n)| (k.clone(), n.clone()))
         .collect();
+    let selected = crate::domain::acquisition::content::required(
+        &selected_tree,
+        state.packages.as_deref().filter(|_| config.check_packages),
+    )?;
+    let declared =
+        crate::domain::acquisition::content::retained(&state.tree, state.packages.as_deref())?;
+    ensure!(
+        declared
+            .iter()
+            .all(|(hash, size)| state.sizes.get(hash) == Some(size)),
+        "archive retained content sizes differ from their descriptions"
+    );
     for (hash, size) in &state.sizes {
         let limit = if filter_scope && !selected.contains(hash) {
             0

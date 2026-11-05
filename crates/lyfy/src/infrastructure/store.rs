@@ -246,7 +246,7 @@ impl Store {
         );
         let snapshot: Snapshot = serde_json::from_reader(file)?;
         ensure!(
-            [1, 2, 3].contains(&snapshot.schema)
+            [1, 2, 3, 4].contains(&snapshot.schema)
                 && snapshot.system == "arch"
                 && snapshot.host == host,
             "unsupported or mismatched snapshot"
@@ -262,6 +262,7 @@ impl Store {
                 .filter_map(|(k, n)| n.clone().map(|n| (k.clone(), n)))
                 .collect(),
         )?;
+        snapshot.validate_encoding()?;
         Ok(snapshot)
     }
     pub fn effective(&self, host: &str, id: &str) -> Result<(Snapshot, Tree)> {

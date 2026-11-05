@@ -1,6 +1,7 @@
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::PathBuf};
+pub(crate) mod content;
 mod validation;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
