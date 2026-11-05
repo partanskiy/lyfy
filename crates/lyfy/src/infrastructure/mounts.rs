@@ -10,6 +10,7 @@ use std::{
 pub struct Entry {
     pub id: u64,
     pub identity: MountIdentity,
+    pub device: String,
 }
 
 pub struct Table {
@@ -45,7 +46,20 @@ impl Table {
         let process_table = PathBuf::from(format!("/proc/{}/mountinfo", std::process::id()));
         let path = if native { &process_table } else { &fixture };
         let bytes = filesystem.read(path, 16 * 1024 * 1024)?;
-        Self::parse(root, std::str::from_utf8(&bytes)?, native)
+        let mut table = Self::parse(root, std::str::from_utf8(&bytes)?, native)?;
+        if native {
+            let boot = String::from_utf8(
+                filesystem.read(Path::new("/proc/sys/kernel/random/boot_id"), 128)?,
+            )?;
+            let volumes = volume_uuids()?;
+            for entry in table.entries.values_mut() {
+                entry.identity.volume = volumes
+                    .get(&entry.device)
+                    .map(|id| format!("uuid:{id}"))
+                    .unwrap_or_else(|| format!("instance:{}:{}", boot.trim(), entry.id));
+            }
+        }
+        Ok(table)
     }
 
     fn parse(root: &Path, text: &str, native: bool) -> Result<Self> {
@@ -72,6 +86,7 @@ impl Table {
                 filesystem: source[0].into(),
                 source_hash: digest(decode(source[1])?.as_bytes()),
                 root: decode(fields[3])?,
+                volume: format!("instance:fixture:{}", fields[0]),
             };
             identity.validate()?;
             entries.insert(
@@ -79,6 +94,7 @@ impl Table {
                 Entry {
                     id: fields[0].parse()?,
                     identity,
+                    device: fields[2].into(),
                 },
             );
         }
@@ -96,6 +112,35 @@ impl Table {
             .map(|(p, e)| (p.clone(), self.native.then_some(e.id)))
             .collect()
     }
+}
+
+fn volume_uuids() -> Result<BTreeMap<String, String>> {
+    use std::os::unix::fs::MetadataExt;
+    let entries = match std::fs::read_dir("/dev/disk/by-uuid") {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(BTreeMap::new()),
+        Err(error) => return Err(error.into()),
+    };
+    let mut volumes = BTreeMap::new();
+    for entry in entries {
+        let entry = entry?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !name.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-') {
+            continue;
+        }
+        let metadata = std::fs::metadata(entry.path())?;
+        if metadata.mode() & libc::S_IFMT == libc::S_IFBLK {
+            volumes.insert(
+                format!(
+                    "{}:{}",
+                    libc::major(metadata.rdev()),
+                    libc::minor(metadata.rdev())
+                ),
+                name,
+            );
+        }
+    }
+    Ok(volumes)
 }
 
 #[cfg(test)]

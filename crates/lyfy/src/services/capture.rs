@@ -35,8 +35,8 @@ pub fn scan(
     let scoped = crate::services::packages::file_scope(&context.config)?;
     let config = &scoped;
     let store = &context.repository;
-    let root = Root::open(&config.root)?;
     let topology = crate::services::external::begin(context)?;
+    let root = crate::services::external::source(context, &topology)?;
     let package_files = package_files::index(context, config)?;
     let mut omitted = std::collections::BTreeSet::new();
     let mut captured = Captured {

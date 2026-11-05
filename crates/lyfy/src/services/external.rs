@@ -18,6 +18,7 @@ use std::{
 pub struct CaptureGuard {
     table: BTreeMap<PathBuf, Entry>,
     boundary: Option<(PathBuf, ExternalMount)>,
+    descriptors: Vec<(PathBuf, Option<u64>)>,
 }
 
 fn relevant(config: &Config, table: &Table) -> Result<BTreeMap<PathBuf, Entry>> {
@@ -97,26 +98,47 @@ pub fn begin(context: &Context) -> Result<CaptureGuard> {
                 .1
                 .get(&config.key(&path)?)
                 .and_then(|n| n.mount.as_ref())
-                .map(|m| m.identity.clone())
+                .map(|m| (**m).clone())
         } else {
             None
         };
-        let expected = policy.expected.as_ref().or(previous.as_ref());
+        let identity_file = policy
+            .identity_file
+            .clone()
+            .or_else(|| previous.as_ref().and_then(|m| m.identity_file.clone()));
+        let identity = identity(config, &path, current, identity_file.as_deref())?;
+        let expected = policy
+            .expected
+            .as_ref()
+            .or(previous.as_ref().map(|m| &m.identity));
         ensure!(
-            expected.is_none_or(|e| e == &current.identity),
-            "external mount identity changed; explicit expected identity is required to adopt its replacement"
+            expected.is_none_or(|e| e == &identity),
+            "external mount identity changed; explicitly review expected identity before adopting a replacement; observed={}",
+            serde_json::to_string(&identity)?
         );
         boundary = Some((
             path,
             ExternalMount {
-                identity: current.identity.clone(),
+                identity,
                 recovery: policy.recovery,
+                identity_file,
             },
         ));
     }
     Ok(CaptureGuard {
         table: relevant(config, &table)?,
         boundary,
+        descriptors: table
+            .descriptor_boundaries(
+                &config
+                    .include
+                    .iter()
+                    .map(|p| config.logical(p))
+                    .collect::<Result<Vec<_>>>()?,
+            )
+            .into_iter()
+            .filter(|(p, _)| !config.excluded(p))
+            .collect(),
     })
 }
 
@@ -133,16 +155,34 @@ pub fn connection_only(config: &Config, path: &Path) -> bool {
 }
 
 pub fn finish(context: &Context, guard: CaptureGuard, tree: &mut Tree) -> Result<()> {
+    let table = Table::read(&context.config.root)?;
     ensure!(
-        guard.table == relevant(&context.config, &Table::read(&context.config.root)?)?,
+        guard.table == relevant(&context.config, &table)?,
         "mount topology changed during capture; no generation was published"
     );
     if let Some((path, mount)) = guard.boundary {
+        let current = table
+            .entries
+            .get(&path)
+            .ok_or_else(|| anyhow::anyhow!("source mount disappeared"))?;
+        ensure!(
+            identity(
+                &context.config,
+                &path,
+                current,
+                mount.identity_file.as_deref()
+            )? == mount.identity,
+            "source volume marker changed during capture"
+        );
         tree.get_mut(&context.config.key(&path)?)
             .ok_or_else(|| anyhow::anyhow!("external mount root was not captured"))?
             .mount = Some(Box::new(mount));
     }
     Ok(())
+}
+
+pub fn source(context: &Context, guard: &CaptureGuard) -> Result<Root> {
+    Root::open(&context.config.root)?.bind_boundaries(&guard.descriptors)
 }
 
 pub fn plan(
@@ -205,7 +245,10 @@ fn verify(context: &Context, boundaries: &BTreeMap<String, ExternalMount>) -> Re
             );
         } else {
             ensure!(
-                current.is_some_and(|c| c.identity == mount.identity),
+                current
+                    .map(|c| identity(config, &path, c, mount.identity_file.as_deref()))
+                    .transpose()?
+                    .is_some_and(|i| i == mount.identity),
                 "required external mount is disconnected or replaced: {key}"
             );
         }
@@ -213,8 +256,29 @@ fn verify(context: &Context, boundaries: &BTreeMap<String, ExternalMount>) -> Re
     Ok(table)
 }
 
+fn identity(
+    config: &Config,
+    path: &Path,
+    entry: &Entry,
+    marker: Option<&str>,
+) -> Result<crate::domain::mounts::MountIdentity> {
+    let mut identity = entry.identity.clone();
+    if let Some(marker) = marker {
+        crate::domain::acquisition::relative(marker)?;
+        identity.volume = format!(
+            "marker:{}",
+            crate::infrastructure::filesystem::hash_file(
+                &mut Root::open(&config.root)?.open_content(&path.join(marker))?,
+                4096
+            )?
+        );
+    }
+    Ok(identity)
+}
+
 pub struct TargetGuard {
     table: BTreeMap<PathBuf, Entry>,
+    boundaries: BTreeMap<String, ExternalMount>,
 }
 
 pub fn target(context: &Context, plan: &Plan) -> Result<(Root, TargetGuard)> {
@@ -230,13 +294,15 @@ pub fn target(context: &Context, plan: &Plan) -> Result<(Root, TargetGuard)> {
         root,
         TargetGuard {
             table: relevant(&context.config, &table)?,
+            boundaries: plan.external_mounts.clone(),
         },
     ))
 }
 
 pub fn recheck(context: &Context, guard: &TargetGuard) -> Result<()> {
+    let table = verify(context, &guard.boundaries)?;
     ensure!(
-        guard.table == relevant(&context.config, &Table::read(&context.config.root)?)?,
+        guard.table == relevant(&context.config, &table)?,
         "mount topology changed during apply; later actions were stopped"
     );
     Ok(())

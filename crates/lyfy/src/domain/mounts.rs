@@ -7,10 +7,15 @@ pub struct MountIdentity {
     pub filesystem: String,
     pub source_hash: String,
     pub root: String,
+    pub volume: String,
 }
 
 impl MountIdentity {
     pub fn validate(&self) -> Result<()> {
+        ensure!(
+            !self.volume.is_empty() && !self.volume.chars().any(char::is_control),
+            "missing stable volume or mount-instance identity"
+        );
         ensure!(
             !self.filesystem.is_empty()
                 && !self.filesystem.chars().any(char::is_control)
@@ -35,6 +40,8 @@ pub enum MountRecovery {
 pub struct ExternalMount {
     pub identity: MountIdentity,
     pub recovery: MountRecovery,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity_file: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -44,4 +51,6 @@ pub struct ExternalPolicy {
     pub expected: Option<MountIdentity>,
     #[serde(default)]
     pub recovery: MountRecovery,
+    #[serde(default)]
+    pub identity_file: Option<String>,
 }

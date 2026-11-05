@@ -123,6 +123,9 @@ impl Node {
             "one node cannot own two baseline providers"
         );
         if let Some(mount) = &self.mount {
+            if let Some(path) = &mount.identity_file {
+                crate::domain::acquisition::relative(path)?;
+            }
             ensure!(
                 self.directory(),
                 "external mount boundary must be a directory"
