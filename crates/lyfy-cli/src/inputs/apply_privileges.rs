@@ -61,6 +61,7 @@ pub fn run(context: &lyfy::Context, mode: Elevation, write: bool) -> Result<Opti
         config: context.config().clone(),
         sources: context.export_apply(sources.path())?,
         receipts: expected.clone(),
+        protected_paths: context.apply_protected_paths(),
     };
     let report = if root {
         apply_protocol::execute(bundle, write)?

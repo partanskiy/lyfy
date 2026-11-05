@@ -13,6 +13,9 @@ use std::{
 };
 
 fn source(mut scope: routing::Scope) -> Result<Context> {
+    if let Some(path) = scope.context.restore_sources.get(&scope.name) {
+        scope.context.config.import_file = Some(path.clone());
+    }
     if scope.context.config.import_file.is_some() {
         scope.context = archives::apply_source(scope.context)?;
     } else if let Some(error) = scope.error {
@@ -237,7 +240,7 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         schema: crate::domain::acquisition::content::portable_schema(&tree, packages.as_deref()),
         system: snapshot.system,
         host: config.host.clone(),
-        source_snapshot: id,
+        source_snapshot: context.source_snapshot.clone().unwrap_or(id),
         created_ns: snapshot.created_ns,
         tree,
         deletions,
