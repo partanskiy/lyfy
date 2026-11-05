@@ -138,7 +138,14 @@ impl Repository {
     }
     pub fn head(&self, host: &str) -> Result<String> {
         ensure!(self.has_head(host)?, "no saved snapshot for host {host}");
-        let id = self.text(&["rev-parse", "HEAD"])?;
+        let id = self.text(&[
+            "log",
+            "-1",
+            "--format=%H",
+            "HEAD",
+            "--",
+            &format!("hosts/{host}"),
+        ])?;
         ensure!(is_revision(&id), "invalid Git revision");
         Ok(id)
     }
