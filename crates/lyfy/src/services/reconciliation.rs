@@ -162,7 +162,12 @@ pub fn build(context: &Context) -> Result<Plan> {
     dependencies.extend(crate::services::projects::dependencies(
         config, &available, &keys, &previous,
     )?);
-    let (external_mounts, required) = crate::services::external::plan(context, &available, &keys)?;
+    let (external_mounts, required) = crate::services::external::plan(
+        context,
+        &available,
+        &keys,
+        snapshot.system_state.as_ref(),
+    )?;
     dependencies.extend(required);
     for key in keys {
         let path = config.path_for_key(&key)?;

@@ -21,6 +21,7 @@ pub fn capture_channel(
     let mut tree = Tree::new();
     let mut diagnostics = vec![];
     let mut inventory = None;
+    let mut system = crate::domain::system_state::SystemState::default();
     let mut complete_inventory = false;
     let mut catalogs =
         std::collections::BTreeMap::<String, crate::domain::packages::Package>::new();
@@ -43,6 +44,9 @@ pub fn capture_channel(
                 .and_then(|p| p.packages.as_deref()),
         )? {
             store.put_file(&hash, &mut scope.context.repository.object_file(&hash)?)?;
+        }
+        if let Some(catalog) = captured.system_state {
+            system.combine(catalog)?;
         }
         for (key, node) in captured.tree {
             if let Content::File { sha256 } = &node.content {
@@ -94,8 +98,10 @@ pub fn capture_channel(
         }
     }
     let state = SnapshotState {
-        system_state: None,
-        schema: if package_inventory
+        system_state: (!system.empty()).then_some(system.clone()),
+        schema: if !system.empty() {
+            6
+        } else if package_inventory
             || tree
                 .values()
                 .any(|n| n.project.is_some() || n.mount.is_some())

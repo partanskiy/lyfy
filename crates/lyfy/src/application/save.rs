@@ -78,6 +78,11 @@ fn capture_and_publish(
     } else {
         capture::scan(context, !dry_run, observer)?
     };
+    crate::services::external::publication(
+        context,
+        &captured.tree,
+        captured.system_state.as_ref(),
+    )?;
     let current = captured.tree;
     observer(Observation::SaveStage("capturing package inventory"));
     let inventory = match captured.inventory {
