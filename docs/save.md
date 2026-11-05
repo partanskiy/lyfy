@@ -109,7 +109,7 @@ lyfy apply --selected_mounts projects --write
 ```
 
 Ordinary apply selects mounts with `apply = true` plus the default scope.
-Other data restoration requires explicit selected_mounts. Restore previews,
+Other data restoration requires explicit collection/path/resource selection. Restore previews,
 conflict checks, overwrite and prune retain their existing meanings. An absent
 backup path never silently deletes unknown local data. Package inventory belongs
 to the single mount with packages=true, or to the default scope when none owns
@@ -118,6 +118,31 @@ it. check_packages remains the global opt-out.
 mounts/backends are TOML arrays of tables. Their snake_case flags and ENV
 overrides accept a complete JSON array. selected_mounts accepts comma-separated
 names, including `default`. Lists replace the lower-precedence list.
+
+## Partial apply
+
+`selected_paths` selects comma-separated logical prefixes for apply. Each prefix
+activates its most specific owning collection, even when apply=false. Nested
+collections remain unselected unless named explicitly. Selection intersects any
+selected_mounts restriction and never changes capture include/exclude policy.
+
+```sh
+lyfy apply --selected_paths '~/Pictures/2025'
+lyfy apply --selected_paths '~/Pictures/2025' --write
+lyfy apply --selected_resources '[{"collection":"default","host":"laptop","subject":{"kind":"path","key":"home/.config/app"}}]'
+```
+
+Resource identities select exact paths or installed package names in the owning
+collection and host. Unknown/unmanaged selectors fail. Path-only restoration
+does not query or install packages. Flags, LYFY_SELECTED_PATHS and
+LYFY_SELECTED_RESOURCES replace lower-priority lists. An empty path flag clears
+the list; resource flags/ENV accept a complete JSON array. Selectors are apply-only.
+
+Plans list required directories and hardlinks outside the selection. Existing
+dependencies are guarded against concurrent changes; an unsatisfied dependency
+blocks writing until the selection is explicitly expanded. Partial receipts
+retain all unaffected entries, including tracked deletions. overwrite and prune
+remain explicit. SnapshotView selection does not restrict the underlying snapshot.
 
 ## History and replicas
 

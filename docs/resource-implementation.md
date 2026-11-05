@@ -60,6 +60,12 @@ a parent preserves unselected nested mounts. Required package, parent-directory
 and hardlink effects are visible. No selector silently broadens restoration or
 turns an unselected/missing source into a deletion.
 
+Implemented: selected_paths/selected_resources activate only their owning scopes
+and connections, preserve unaffected receipts, report parent/hardlink boundaries,
+and reject unsupported expansion. ResourceGraph::select exposes the requested
+set and dependency closure independently. Tests cover receipt history, nested
+scope isolation, credential isolation, selector precedence and missing parents.
+
 ## Stage 3 Privileged execution and identities
 
 Preflight action privileges, destination metadata features and logical identity

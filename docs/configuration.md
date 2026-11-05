@@ -31,6 +31,8 @@ See [the library boundary](library.md).
 | mounts | [] | Named VFS paths, backend, history, restore and replica policies |
 | backends | [] | Named Git/directory/S3 destinations and public age recipients |
 | selected_mounts | [] | Comma-separated mount names; empty selects normal operation scopes |
+| selected_paths | [] | Apply-only prefixes within their owning collections; preserve nested scopes |
+| selected_resources | [] | Apply-only JSON list of collection/host/subject resource identities |
 | export_file | unset | Complete archive destination for save; select one scope |
 | import_file | unset | Verified archive source for save/apply; select one scope |
 | identity_files | [] | Absolute age identity paths; input-owned connection material |

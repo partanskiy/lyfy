@@ -71,6 +71,8 @@ impl Context {
     pub fn snapshot(&self, mount: &str) -> Result<SnapshotView> {
         let mut config = self.config.clone();
         config.selected_mounts = vec![mount.into()];
+        config.selected_paths.clear();
+        config.selected_resources.clear();
         let selection = Context::new(config)?.with_access(self.access.clone())?;
         let mut scopes = crate::services::routing::scopes(&selection, false)?;
         anyhow::ensure!(scopes.len() == 1, "select exactly one snapshot mount");

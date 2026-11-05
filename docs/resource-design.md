@@ -162,7 +162,7 @@ coverage. Disk preparation and boot recovery need explicit execution plans.
 Apply selects collection names, logical path prefixes or declared resource
 identities from one resolved generation. Data scopes participate explicitly or
 through configured defaults. A selection is distinct from changing capture policy.
-The proposed path/resource selectors require implementation and are not CLI syntax.
+Selector syntax and implemented support are documented in save.md.
 
 1. Resolve the selection, pinned source generations and required dependencies.
 2. Report every effect outside the requested boundary and require explicit

@@ -64,7 +64,7 @@ pub fn build(context: &Context) -> Result<Plan> {
     });
     let mut desired = Tree::new();
     for (key, node) in &available {
-        let path = config.path_for_key(&key)?;
+        let path = config.path_for_key(key)?;
         ensure!(config.key(&path)? == *key, "noncanonical target namespace");
         if keys.contains(key) {
             if let Content::File { sha256 } = &node.content {
