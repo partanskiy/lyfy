@@ -265,7 +265,13 @@ pub fn scan(
         }
     }
     crate::services::projects::capture(context, &mut captured.tree, persist)?;
-    crate::services::external::finish(context, topology, &mut captured.tree)?;
+    let source_mounts = crate::services::external::finish(context, topology, &mut captured.tree)?;
+    if !source_mounts.is_empty() {
+        captured.system_state = Some(crate::domain::system_state::SystemState {
+            source_mounts,
+            ..Default::default()
+        });
+    }
     retain_previous(context, &mut captured)?;
     captured
         .diagnostics

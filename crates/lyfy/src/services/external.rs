@@ -14,11 +14,14 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
 };
+mod ancestry;
+pub use ancestry::publication;
 
 pub struct CaptureGuard {
     table: BTreeMap<PathBuf, Entry>,
     boundary: Option<(PathBuf, ExternalMount)>,
     descriptors: Vec<(PathBuf, Option<u64>)>,
+    source_mounts: BTreeMap<String, ExternalMount>,
 }
 
 fn relevant(config: &Config, table: &Table) -> Result<BTreeMap<PathBuf, Entry>> {
@@ -126,6 +129,7 @@ pub fn begin(context: &Context) -> Result<CaptureGuard> {
         ));
     }
     Ok(CaptureGuard {
+        source_mounts: ancestry::capture(context, &table)?,
         table: relevant(config, &table)?,
         boundary,
         descriptors: table
@@ -154,8 +158,13 @@ pub fn connection_only(config: &Config, path: &Path) -> bool {
     })
 }
 
-pub fn finish(context: &Context, guard: CaptureGuard, tree: &mut Tree) -> Result<()> {
+pub fn finish(
+    context: &Context,
+    guard: CaptureGuard,
+    tree: &mut Tree,
+) -> Result<BTreeMap<String, ExternalMount>> {
     let table = Table::read(&context.config.root)?;
+    ancestry::check(context, &table, &guard.source_mounts)?;
     ensure!(
         guard.table == relevant(&context.config, &table)?,
         "mount topology changed during capture; no generation was published"
@@ -179,7 +188,7 @@ pub fn finish(context: &Context, guard: CaptureGuard, tree: &mut Tree) -> Result
             .ok_or_else(|| anyhow::anyhow!("external mount root was not captured"))?
             .mount = Some(Box::new(mount));
     }
-    Ok(())
+    Ok(guard.source_mounts)
 }
 
 pub fn source(context: &Context, guard: &CaptureGuard) -> Result<Root> {
@@ -190,33 +199,19 @@ pub fn plan(
     context: &Context,
     available: &Tree,
     keys: &BTreeSet<String>,
+    system: Option<&crate::domain::system_state::SystemState>,
 ) -> Result<(BTreeMap<String, ExternalMount>, Vec<RequiredDependency>)> {
     let mut boundaries = BTreeMap::new();
+    for (key, mount) in system.into_iter().flat_map(|s| &s.source_mounts) {
+        if ancestry::selected(keys, key) {
+            boundaries.insert(key.clone(), ancestry::target_policy(context, key, mount)?);
+        }
+    }
     for (key, node) in available {
         if let Some(mount) = &node.mount {
-            if !keys
-                .iter()
-                .any(|p| p == key || p.starts_with(&format!("{key}/")))
-            {
-                continue;
+            if ancestry::selected(keys, key) {
+                boundaries.insert(key.clone(), ancestry::target_policy(context, key, mount)?);
             }
-            let mut policy = (**mount).clone();
-            if context.config.mounts.iter().any(|m| {
-                m.external
-                    .as_ref()
-                    .is_some_and(|p| p.recovery == MountRecovery::Materialize)
-                    && context
-                        .config
-                        .logical(&m.path)
-                        .is_ok_and(|p| context.config.key(&p).is_ok_and(|k| k == *key))
-            }) {
-                ensure!(
-                    mount.recovery != MountRecovery::Connection,
-                    "connection-only state has no retained data to materialize"
-                );
-                policy.recovery = MountRecovery::Materialize;
-            }
-            boundaries.insert(key.clone(), policy);
         }
     }
     let dependencies = verify(context, &boundaries)
