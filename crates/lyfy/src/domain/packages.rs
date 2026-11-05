@@ -47,6 +47,29 @@ pub struct PackagePlan {
     pub version_drift: Vec<String>,
     pub reason_drift: Vec<String>,
     pub extra_explicit: Vec<String>,
+    #[serde(default)]
+    pub actions: Vec<PackageAction>,
+    #[serde(default)]
+    pub effects: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PackageActionKind {
+    Install,
+    Reinstall,
+    ChangeVersion,
+    SyncCurrent,
+    SetReason,
+    Remove,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageAction {
+    pub package: Package,
+    pub kind: PackageActionKind,
+    pub artifact: bool,
 }
 
 pub fn plan(desired: &[Package], current: &[Package]) -> Result<PackagePlan> {
@@ -56,6 +79,8 @@ pub fn plan(desired: &[Package], current: &[Package]) -> Result<PackagePlan> {
         version_drift: vec![],
         reason_drift: vec![],
         extra_explicit: vec![],
+        actions: vec![],
+        effects: vec![],
     };
     let installed: BTreeMap<_, _> = current.iter().map(|p| (p.name.as_str(), p)).collect();
     let wanted: BTreeSet<_> = desired.iter().map(|p| p.name.as_str()).collect();

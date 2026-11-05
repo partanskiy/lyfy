@@ -31,6 +31,8 @@ pub struct Plan {
     pub receipt: Tree,
     #[serde(skip)]
     pub package_desired: Option<Vec<crate::domain::packages::Package>>,
+    #[serde(skip)]
+    pub package_execution: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,6 +41,15 @@ pub struct RequiredDependency {
     pub key: String,
     pub reason: String,
     pub satisfied: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub package: Option<PackageRequirement>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageRequirement {
+    pub name: String,
+    pub version: String,
 }
 
 impl Plan {
