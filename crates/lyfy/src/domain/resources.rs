@@ -168,6 +168,12 @@ pub enum RecoveryDescription {
     GitProject {
         node: Node,
     },
+    Application {
+        node: Node,
+    },
+    Generated {
+        node: Node,
+    },
     ExternalMount {
         node: Node,
     },
@@ -208,6 +214,20 @@ impl Resource {
         match (&self.reference.subject, &self.recovery) {
             (ResourceSubject::Path { .. }, RecoveryDescription::File { node }) => {
                 node.validate()?
+            }
+            (ResourceSubject::Path { .. }, RecoveryDescription::Application { node }) => {
+                ensure!(
+                    node.application.is_some(),
+                    "missing application export description"
+                );
+                node.validate()?;
+            }
+            (ResourceSubject::Path { .. }, RecoveryDescription::Generated { node }) => {
+                ensure!(
+                    node.generated.is_some(),
+                    "missing generated state description"
+                );
+                node.validate()?;
             }
             (ResourceSubject::Path { .. }, RecoveryDescription::GitProject { node }) => {
                 ensure!(node.project.is_some(), "missing Git recovery description");

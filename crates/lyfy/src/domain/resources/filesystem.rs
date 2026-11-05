@@ -23,6 +23,8 @@ pub(crate) fn validate(graph: &ResourceGraph) -> Result<()> {
         files.resources.insert(key, resource);
         match &resource.recovery {
             RecoveryDescription::File { node }
+            | RecoveryDescription::Application { node }
+            | RecoveryDescription::Generated { node }
             | RecoveryDescription::GitProject { node }
             | RecoveryDescription::ExternalMount { node } => {
                 files.tree.insert(key.clone(), node.clone());

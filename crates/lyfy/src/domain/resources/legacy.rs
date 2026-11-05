@@ -94,7 +94,11 @@ impl ResourceGraph {
             }
             resources.push(Resource {
                 reference: path_reference(key),
-                recovery: if node.mount.is_some() {
+                recovery: if node.application.is_some() {
+                    RecoveryDescription::Application { node: node.clone() }
+                } else if node.generated.is_some() {
+                    RecoveryDescription::Generated { node: node.clone() }
+                } else if node.mount.is_some() {
                     RecoveryDescription::ExternalMount { node: node.clone() }
                 } else if node.project.is_some() {
                     RecoveryDescription::GitProject { node: node.clone() }

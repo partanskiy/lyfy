@@ -35,6 +35,23 @@ pub fn extend(
         };
         let mut dependencies: BTreeSet<_> = resource.dependencies.iter().cloned().collect();
         if let Some(node) = state.tree.get(key) {
+            if node.generated.is_some() {
+                // A retained output hash is verified at apply time. All captured
+                // system inputs and recorded packages are conservative dependencies.
+                for input in state.tree.keys().filter(|p| {
+                    *p != key
+                        && p.starts_with("system/")
+                        && !state.tree[*p].directory()
+                        && state.tree[*p].generated.is_none()
+                }) {
+                    dependencies.insert(reference(ResourceSubject::Path { key: input.clone() }));
+                }
+                dependencies.extend(state.packages.iter().flatten().map(|p| {
+                    reference(ResourceSubject::Package {
+                        name: p.name.clone(),
+                    })
+                }));
+            }
             let mut needed = Vec::new();
             if let Some((uid, gid)) = node.owner {
                 needed.extend([(IdentityKind::User, uid), (IdentityKind::Group, gid)]);
