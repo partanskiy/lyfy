@@ -87,6 +87,17 @@ impl Context {
         Ok(self)
     }
 
+    pub fn export_apply(
+        &self,
+        directory: &std::path::Path,
+    ) -> Result<std::collections::BTreeMap<String, std::path::PathBuf>> {
+        crate::services::archives::export_apply(self, directory)
+    }
+
+    pub fn apply_requires_root(&self) -> Result<bool> {
+        crate::services::archives::requires_root(self)
+    }
+
     pub fn snapshot(&self, mount: &str) -> Result<SnapshotView> {
         let mut config = self.config.clone();
         config.selected_mounts = vec![mount.into()];
