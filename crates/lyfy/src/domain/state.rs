@@ -143,6 +143,7 @@ impl Node {
             );
         }
         if let Content::PackageFile { package, sha256 } = &self.content {
+            package.validate()?;
             ensure!(
                 crate::domain::packages::valid_name(&package.name)
                     && !package.version.is_empty()
