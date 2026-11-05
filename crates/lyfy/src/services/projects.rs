@@ -5,7 +5,7 @@ use crate::domain::{
     state::{Content, Tree},
 };
 use crate::infrastructure::{filesystem::Root, git::projects};
-use crate::services::{capture::Captured, files};
+use crate::services::files;
 use anyhow::{Result, ensure};
 use std::{
     collections::BTreeSet,
@@ -21,14 +21,13 @@ pub fn boundary(config: &Config) -> Option<PathBuf> {
         .and_then(|m| config.logical(&m.path).ok())
 }
 
-pub fn capture(context: &Context, captured: &mut Captured, persist: bool) -> Result<()> {
+pub fn capture(context: &Context, tree: &mut Tree, persist: bool) -> Result<()> {
     let Some(path) = boundary(&context.config) else {
         return Ok(());
     };
     let prepared = projects::prepare(&context.config.physical(&path))?;
     let key = context.config.key(&path)?;
-    let owner = captured
-        .tree
+    let owner = tree
         .get(&key)
         .ok_or_else(|| anyhow::anyhow!("Git project root was not captured"))?
         .owner;
@@ -53,9 +52,9 @@ pub fn capture(context: &Context, captured: &mut Captured, persist: bool) -> Res
             };
             context.repository.put_file(sha256, &mut file)?;
         }
-        captured.tree.insert(context.config.key(&logical)?, node);
+        tree.insert(context.config.key(&logical)?, node);
     }
-    captured.tree.get_mut(&key).unwrap().project = Some(Box::new(prepared.description));
+    tree.get_mut(&key).unwrap().project = Some(Box::new(prepared.description));
     Ok(())
 }
 
@@ -99,4 +98,49 @@ pub fn dependencies(
         }
     }
     Ok(result)
+}
+
+pub fn preflight(context: &Context, plan: &crate::domain::plan::Plan) -> Result<()> {
+    let root = Root::open(Path::new("/"))?;
+    for (key, _) in plan.desired.iter().filter(|(_, n)| n.project.is_some()) {
+        let prefix = format!("{key}/.git/");
+        if !plan.desired.keys().any(|k| k.starts_with(&prefix)) {
+            continue;
+        }
+        let stage = tempfile::tempdir()?;
+        for (path, node) in plan.desired.iter().filter(|(p, _)| p.starts_with(&prefix)) {
+            let target = stage
+                .path()
+                .join(".git")
+                .join(path.strip_prefix(&prefix).unwrap());
+            if let Content::File { sha256 } = &node.content {
+                root.put_file(
+                    &target,
+                    &mut context.repository.object_file(sha256)?,
+                    0o600,
+                    None,
+                )?;
+            } else {
+                ensure!(
+                    node.directory(),
+                    "Git recovery metadata must contain only files and directories"
+                );
+            }
+        }
+        projects::verify(stage.path())?;
+    }
+    Ok(())
+}
+
+pub fn verify_applied(context: &Context, plan: &crate::domain::plan::Plan) -> Result<()> {
+    for (key, _) in plan.desired.iter().filter(|(_, n)| n.project.is_some()) {
+        if plan
+            .desired
+            .keys()
+            .any(|k| k.starts_with(&format!("{key}/.git/")))
+        {
+            projects::verify(&context.config.physical(&context.config.path_for_key(key)?))?;
+        }
+    }
+    Ok(())
 }

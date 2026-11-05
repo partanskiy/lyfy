@@ -11,6 +11,7 @@ mod preimages;
 pub use preimages::before_packages;
 
 pub fn preflight(context: &AppContext, plan: &Plan) -> Result<()> {
+    crate::services::projects::preflight(context, plan)?;
     let config = &context.config;
     let root = Root::open(&config.root)?;
     let home = root
@@ -230,6 +231,7 @@ fn execute(
         host: config.host.clone(),
         tree: plan.receipt.clone(),
     };
+    crate::services::projects::verify_applied(context, plan)?;
     if record_receipt {
         write_json(&receipt_path(config), &receipt)?;
     }
