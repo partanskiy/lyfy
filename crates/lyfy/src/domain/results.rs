@@ -126,6 +126,9 @@ pub fn save_diff(before: &Tree, after: &Tree) -> Vec<SavedChange> {
                 if old.hardlink != new.hardlink {
                     fields.push("hardlink");
                 }
+                if old.mtime != new.mtime {
+                    fields.push("mtime");
+                }
                 if old.application != new.application {
                     fields.push("application");
                 }

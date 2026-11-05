@@ -29,6 +29,7 @@ fn file(key: &str) -> Resource {
                 mount: None,
                 application: None,
                 generated: None,
+                mtime: None,
                 package_baseline: None,
                 content: Content::File {
                     sha256: "a".repeat(64),

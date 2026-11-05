@@ -67,7 +67,7 @@ pub fn required(tree: &Tree, packages: Option<&[Package]>) -> Result<BTreeSet<St
 pub fn stored_schema(tree: &Tree, packages: Option<&[Package]>) -> u32 {
     if tree
         .values()
-        .any(|n| n.application.is_some() || n.generated.is_some())
+        .any(|n| n.application.is_some() || n.generated.is_some() || n.mtime.is_some())
     {
         9
     } else if tree.values().any(|n| n.mount.is_some()) {
@@ -100,7 +100,7 @@ pub fn validate(
 ) -> Result<()> {
     let minimum = if tree
         .values()
-        .any(|n| n.application.is_some() || n.generated.is_some())
+        .any(|n| n.application.is_some() || n.generated.is_some() || n.mtime.is_some())
     {
         if portable { 7 } else { 9 }
     } else if tree.values().any(|n| n.mount.is_some()) {

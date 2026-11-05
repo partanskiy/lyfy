@@ -167,6 +167,35 @@ impl Root {
         Ok(())
     }
 
+    pub fn set_mtime(&self, path: &Path, time: crate::domain::state::FileTime) -> Result<()> {
+        ensure!(time.nanoseconds < 1_000_000_000, "invalid file mtime");
+        let (directory, leaf) = self.parent(path, false)?;
+        let times = [
+            libc::timespec {
+                tv_sec: 0,
+                tv_nsec: libc::UTIME_OMIT,
+            },
+            libc::timespec {
+                tv_sec: time.seconds,
+                tv_nsec: time.nanoseconds.into(),
+            },
+        ];
+        // SAFETY: held parent and valid times; never follow the final symlink.
+        ensure!(
+            unsafe {
+                libc::utimensat(
+                    directory.as_raw_fd(),
+                    leaf.as_ptr(),
+                    times.as_ptr(),
+                    libc::AT_SYMLINK_NOFOLLOW,
+                )
+            } == 0,
+            "set file mtime: {}",
+            std::io::Error::last_os_error()
+        );
+        Ok(())
+    }
+
     pub fn set_file_metadata(
         &self,
         path: &Path,

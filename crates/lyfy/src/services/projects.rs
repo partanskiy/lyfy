@@ -60,6 +60,7 @@ pub fn capture(context: &Context, tree: &mut Tree, persist: bool) -> Result<()> 
         let (mut node, file) = files::observe(&context.config, &root, entry.path())?
             .ok_or_else(|| anyhow::anyhow!("prepared Git metadata disappeared"))?;
         node.owner = owner;
+        node.mtime = None;
         if let Some(mut file) = file.filter(|_| persist) {
             let Content::File { sha256 } = &node.content else {
                 unreachable!()
