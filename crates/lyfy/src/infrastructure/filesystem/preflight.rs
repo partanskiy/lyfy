@@ -45,7 +45,7 @@ impl Root {
         let result = (|| -> Result<()> {
             match &node.content {
                 Content::Directory => probe.mkdir(Path::new("/node"), node.mode, Some(owner))?,
-                Content::File { .. } => {
+                Content::File { .. } | Content::PackageFile { .. } => {
                     probe.put(Path::new("/node"), Some(&[]), None, node.mode, Some(owner))?
                 }
                 Content::Symlink { target } => probe.put(

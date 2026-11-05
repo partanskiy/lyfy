@@ -14,7 +14,7 @@ impl ResourceGraph {
     pub fn from_snapshot(state: &SnapshotState, source: SnapshotReference) -> Result<Self> {
         source.validate()?;
         ensure!(
-            state.schema == 1 && state.system == "arch",
+            [1, 2].contains(&state.schema) && state.system == "arch",
             "unsupported resolved snapshot state"
         );
         ensure!(

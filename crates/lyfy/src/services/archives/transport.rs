@@ -61,7 +61,11 @@ pub fn capture_channel(
         }
     }
     let state = SnapshotState {
-        schema: 1,
+        schema: if crate::domain::state::extended_state(&tree) {
+            2
+        } else {
+            1
+        },
         system: "arch".into(),
         host: context.config.host.clone(),
         source_snapshot: "capture".into(),

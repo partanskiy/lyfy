@@ -17,7 +17,9 @@ impl Repository {
         let mut snapshot: Snapshot =
             serde_json::from_slice(&bytes).context("invalid Git state manifest")?;
         ensure!(
-            [1, 2].contains(&snapshot.schema) && snapshot.system == "arch" && snapshot.host == host,
+            [1, 2, 3].contains(&snapshot.schema)
+                && snapshot.system == "arch"
+                && snapshot.host == host,
             "unsupported or mismatched Git state manifest"
         );
         let mut expected = BTreeSet::new();
@@ -65,6 +67,14 @@ impl Repository {
             actual == expected,
             "Git file tree differs from its declared manifest; add metadata for new files"
         );
+        crate::domain::state::validate_schema(
+            snapshot.schema,
+            &snapshot
+                .changes
+                .iter()
+                .filter_map(|(k, n)| n.clone().map(|n| (k.clone(), n)))
+                .collect(),
+        )?;
         Ok(snapshot)
     }
 }
