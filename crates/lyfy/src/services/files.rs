@@ -9,6 +9,15 @@ pub fn observe(
     root: &Root,
     path: &Path,
 ) -> Result<Option<(Node, Option<std::fs::File>)>> {
+    observe_application(config, root, path, config.application(path))
+}
+
+fn observe_application(
+    config: &Config,
+    root: &Root,
+    path: &Path,
+    application: Option<crate::domain::system_state::ApplicationExport>,
+) -> Result<Option<(Node, Option<std::fs::File>)>> {
     let Some(stat) = root.metadata(path)? else {
         return Ok(None);
     };
@@ -24,7 +33,11 @@ pub fn observe(
     let owner = (!symbolic).then_some((stat.st_uid, stat.st_gid));
     let (content, bytes) = match stat.st_mode & libc::S_IFMT {
         libc::S_IFREG => {
-            let mut file = root.open_content(path)?;
+            let mut file = if application.is_some() {
+                crate::infrastructure::sqlite::capture(root, path, config.max_file_bytes)?
+            } else {
+                root.open_content(path)?
+            };
             let sha256 = hash_file(&mut file, config.max_file_bytes)?;
             (Content::File { sha256 }, Some(file))
         }
@@ -54,7 +67,7 @@ pub fn observe(
             package_baseline: None,
             project: None,
             mount: None,
-            application: None,
+            application,
         },
         bytes,
     )))
@@ -115,7 +128,15 @@ pub fn observe_like(
     path: &Path,
     expected: Option<&Node>,
 ) -> Result<Option<(Node, Option<std::fs::File>)>> {
-    let Some((mut node, file)) = observe(config, root, path)? else {
+    let Some((mut node, file)) = observe_application(
+        config,
+        root,
+        path,
+        expected
+            .and_then(|n| n.application)
+            .or_else(|| config.application(path)),
+    )?
+    else {
         return Ok(None);
     };
     if node.owner.is_none()

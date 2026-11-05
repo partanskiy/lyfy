@@ -174,7 +174,17 @@ fn execute(
                     }
                 }
                 Content::File { sha256 } => {
-                    if let Some(target) = &node.hardlink {
+                    if node.application.is_some() && change.before.is_some() {
+                        crate::infrastructure::sqlite::restore(
+                            &root,
+                            &path,
+                            &mut store.object_file(sha256)?,
+                            sha256,
+                            config.max_file_bytes,
+                        )?;
+                        root.set_file_metadata(&path, node.mode, owner)?;
+                        root.set_attributes(&path, &node.attributes)?;
+                    } else if let Some(target) = &node.hardlink {
                         let target_path = config.path_for_key(target)?;
                         let expected = plan
                             .desired

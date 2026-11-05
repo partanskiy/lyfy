@@ -20,7 +20,7 @@ pub fn index(context: &Context, config: &Config) -> Result<Option<Baselines>> {
 }
 
 pub fn description(index: &Option<Baselines>, path: &Path, node: &Node) -> Option<PackageBaseline> {
-    if !matches!(node.content, Content::File { .. }) {
+    if node.application.is_some() || !matches!(node.content, Content::File { .. }) {
         return None;
     }
     let (package, expected) = index.as_ref()?.files.get(path.to_str()?)?;
@@ -50,6 +50,9 @@ pub fn candidate<'a>(
     node: &Node,
     policy: &str,
 ) -> Result<Option<&'a Package>> {
+    if node.application.is_some() {
+        return Ok(None);
+    }
     let Some((package, expected)) = index
         .as_ref()
         .and_then(|index| index.files.get(path.to_str()?))

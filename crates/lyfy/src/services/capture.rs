@@ -156,6 +156,9 @@ pub fn scan(
     observer(Observation::SaveStage("verifying capture"));
     for key in captured.tree.keys().cloned().collect::<Vec<_>>() {
         let path = config.path_for_key(&key)?;
+        if captured.tree[&key].application.is_some() {
+            continue;
+        }
         match observe(config, &root, &path) {
             Ok(Some((node, _))) if captured.tree.get(&key) == Some(&node) => {}
             Ok(_) => {

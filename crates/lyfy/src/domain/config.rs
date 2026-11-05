@@ -315,12 +315,43 @@ impl Config {
         }
     }
 
+    pub fn application(
+        &self,
+        path: &Path,
+    ) -> Option<crate::domain::system_state::ApplicationExport> {
+        self.system_resources.iter().find_map(|r| match r {
+            crate::domain::system_state::SystemResourceRequest::Application {
+                path: declared,
+                format,
+                sensitive,
+            } if self.logical(declared).is_ok_and(|p| p == path) => {
+                Some(crate::domain::system_state::ApplicationExport {
+                    format: *format,
+                    sensitive: *sensitive,
+                })
+            }
+            _ => None,
+        })
+    }
+
     pub fn excluded(&self, logical: &Path) -> bool {
         if logical
             .extension()
             .is_some_and(|e| e == "pacnew" || e == "pacsave")
             && self.excluded(&logical.with_extension(""))
         {
+            return true;
+        }
+        if self.system_resources.iter().any(|r| match r {
+            crate::domain::system_state::SystemResourceRequest::Application { path, .. } => {
+                self.logical(path).is_ok_and(|p| {
+                    ["-wal", "-shm", "-journal"]
+                        .iter()
+                        .any(|suffix| logical == Path::new(&format!("{}{suffix}", p.display())))
+                })
+            }
+            _ => false,
+        }) {
             return true;
         }
         let physical = self.physical(logical);
