@@ -131,6 +131,7 @@ mod tests {
             selected_mounts: vec![],
             selected_paths: vec![],
             selected_resources: vec![],
+            identity_mappings: vec![],
             export_file: None,
             import_file: None,
             disabled_rules: vec![],

@@ -2,6 +2,7 @@ pub mod access;
 pub mod checks;
 pub mod config;
 pub mod diagnostics;
+pub mod identities;
 pub mod observation;
 pub mod package_files;
 pub mod packages;

@@ -36,6 +36,8 @@ pub struct Config {
     #[serde(default)]
     pub selected_resources: Vec<crate::domain::resources::ResourceId>,
     #[serde(default)]
+    pub identity_mappings: Vec<crate::domain::identities::IdentityMapping>,
+    #[serde(default)]
     pub export_file: Option<PathBuf>,
     #[serde(default)]
     pub import_file: Option<PathBuf>,
@@ -46,6 +48,14 @@ pub struct Config {
 impl Config {
     pub fn validate(&self) -> Result<()> {
         crate::domain::storage::validate(self)?;
+        let mut identities = std::collections::BTreeSet::new();
+        for mapping in &self.identity_mappings {
+            mapping.validate()?;
+            ensure!(
+                identities.insert((mapping.kind, mapping.source)),
+                "duplicate identity mapping"
+            );
+        }
         ensure!(self.system == "arch", "only system = arch is supported");
         ensure!(
             ["strict", "skip"].contains(&self.capture_errors.as_str()),

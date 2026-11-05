@@ -40,6 +40,7 @@ pub use domain::access::{Access, S3Credentials};
 pub use domain::checks::{CheckId, CheckResult, CheckStatus};
 pub use domain::config::Config;
 pub use domain::diagnostics::{Diagnostic, DiagnosticCode, Finding, Report};
+pub use domain::identities::{IdentityKind, IdentityMapping};
 pub use domain::observation::Observation;
 pub use domain::package_files::{FileDifference, PackageEvidence};
 pub use domain::packages::{Package, PackagePlan};
