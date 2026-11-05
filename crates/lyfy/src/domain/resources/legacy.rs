@@ -21,7 +21,7 @@ impl ResourceGraph {
             system.validate()?;
         }
         ensure!(
-            [1, 2, 3, 4, 5, 6].contains(&state.schema) && state.system == "arch",
+            [1, 2, 3, 4, 5, 6, 7].contains(&state.schema) && state.system == "arch",
             "unsupported resolved snapshot state"
         );
         ensure!(

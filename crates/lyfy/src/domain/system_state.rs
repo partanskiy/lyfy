@@ -416,6 +416,8 @@ pub enum SystemResourceRequest {
     Application {
         path: String,
         format: ApplicationKind,
+        #[serde(default = "sensitive_application")]
+        sensitive: bool,
     },
     Excluded {
         path: String,
@@ -450,4 +452,8 @@ impl SystemRequirement {
             Self::Boot { .. } => "boot".into(),
         }
     }
+}
+
+fn sensitive_application() -> bool {
+    true
 }

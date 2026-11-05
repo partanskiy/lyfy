@@ -92,6 +92,8 @@ pub struct Node {
     pub project: Option<Box<crate::domain::projects::GitProject>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mount: Option<Box<crate::domain::mounts::ExternalMount>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub application: Option<crate::domain::system_state::ApplicationKind>,
 }
 
 impl Node {
@@ -123,6 +125,13 @@ impl Node {
         ensure!(
             self.project.is_none() || self.mount.is_none(),
             "one node cannot own two baseline providers"
+        );
+        ensure!(
+            self.application.is_none()
+                || matches!(self.content, Content::File { .. })
+                    && self.hardlink.is_none()
+                    && self.package_baseline.is_none(),
+            "application exports require independent regular files"
         );
         if let Some(mount) = &self.mount {
             if let Some(path) = &mount.identity_file {
@@ -201,7 +210,7 @@ pub fn extended_state(tree: &Tree) -> bool {
 
 pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
     ensure!(
-        [1, 2, 3, 4, 5, 6, 7, 8].contains(&schema),
+        [1, 2, 3, 4, 5, 6, 7, 8, 9].contains(&schema),
         "unsupported snapshot schema"
     );
     ensure!(
@@ -209,6 +218,10 @@ pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
         "extended state requires schema 3"
     );
     for (key, node) in tree {
+        ensure!(
+            node.application.is_none() || schema >= 9,
+            "application exports require schema 9"
+        );
         ensure!(
             node.mount.is_none() || schema >= 7,
             "external mounts require schema 7"

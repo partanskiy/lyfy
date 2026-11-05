@@ -54,6 +54,7 @@ pub fn observe(
             package_baseline: None,
             project: None,
             mount: None,
+            application: None,
         },
         bytes,
     )))
