@@ -43,7 +43,7 @@ pub use domain::diagnostics::{Diagnostic, DiagnosticCode, Finding, Report};
 pub use domain::observation::Observation;
 pub use domain::package_files::{FileDifference, PackageEvidence};
 pub use domain::packages::{Package, PackagePlan};
-pub use domain::plan::{Change, Guard, Plan};
+pub use domain::plan::{Change, Guard, Plan, RequiredDependency};
 pub use domain::resources::{
     PackageOrigin, RecoveryDescription, RecoveryGuarantee, Resource, ResourceGraph, ResourceId,
     ResourceReference, ResourceSubject, SnapshotReference,

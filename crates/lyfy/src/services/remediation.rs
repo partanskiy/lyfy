@@ -52,8 +52,10 @@ pub fn plan(config: &Config, report: &Report) -> Result<Plan> {
         snapshot: "fmt".into(),
         changes,
         guards,
+        dependencies: vec![],
         packages: None,
         desired: Default::default(),
+        receipt: Default::default(),
         package_desired: None,
     })
 }

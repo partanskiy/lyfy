@@ -168,7 +168,7 @@ impl Applied {
             .any(|m| m.error.is_some() || m.result.as_ref().is_some_and(|r| r.exit_code() == 2))
         {
             2
-        } else if self.plan.changes.iter().any(|c| c.conflict.is_some())
+        } else if !self.plan.ready()
             || self
                 .mounts
                 .iter()

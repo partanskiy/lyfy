@@ -43,10 +43,7 @@ fn execute(
 ) -> Result<()> {
     let config = &context.config;
     let store = &context.repository;
-    ensure!(
-        plan.changes.iter().all(|c| c.conflict.is_none()),
-        "plan contains conflicts; nothing was written"
-    );
+    ensure!(plan.ready(), "plan contains conflicts; nothing was written");
     let root = Root::open(&config.root)?;
     let backup_store = Store::new(transaction.to_path_buf());
     let mut journal = Journal {
@@ -160,7 +157,7 @@ fn execute(
         root: config.root.clone(),
         home_dir: config.home_dir.clone(),
         host: config.host.clone(),
-        tree: plan.desired.clone(),
+        tree: plan.receipt.clone(),
     };
     if record_receipt {
         write_json(&receipt_path(config), &receipt)?;
