@@ -273,3 +273,55 @@ fn hardlinks_across_home_and_system_namespaces_keep_one_ownership_model() {
     );
     assert_eq!(f.ok(&["save"])["created"], false);
 }
+
+#[test]
+fn regular_files_and_symlinks_retain_nanosecond_mtime() {
+    use std::os::unix::fs::MetadataExt;
+    let f = Fixture::new();
+    let path = f.root.join("etc/example.conf");
+    let link = f.root.join("etc/fixture-link");
+    std::os::unix::fs::symlink("example.conf", &link).unwrap();
+    fn set(path: &std::path::Path, seconds: i64, nanoseconds: i64) {
+        use std::os::unix::ffi::OsStrExt;
+        let path = std::ffi::CString::new(path.as_os_str().as_bytes()).unwrap();
+        let times = [
+            libc::timespec {
+                tv_sec: 0,
+                tv_nsec: libc::UTIME_OMIT,
+            },
+            libc::timespec {
+                tv_sec: seconds,
+                tv_nsec: nanoseconds,
+            },
+        ];
+        // SAFETY: test paths and times remain valid; never follow the symlink.
+        assert_eq!(
+            unsafe {
+                libc::utimensat(
+                    libc::AT_FDCWD,
+                    path.as_ptr(),
+                    times.as_ptr(),
+                    libc::AT_SYMLINK_NOFOLLOW,
+                )
+            },
+            0
+        );
+    }
+    set(&path, 1_600_000_000, 123_456_789);
+    set(&link, 1_600_000_001, 987_654_321);
+    f.ok(&["save"]);
+    f.write("etc/example.conf", "changed\n");
+    set(&link, 1_700_000_001, 111_111_111);
+    f.ok(&["apply", "--overwrite", "true", "--write"]);
+    let file = fs::metadata(&path).unwrap();
+    let symlink = fs::symlink_metadata(&link).unwrap();
+    assert_eq!(
+        (file.mtime(), file.mtime_nsec()),
+        (1_600_000_000, 123_456_789)
+    );
+    assert_eq!(
+        (symlink.mtime(), symlink.mtime_nsec()),
+        (1_600_000_001, 987_654_321)
+    );
+    assert_eq!(f.ok(&["save"])["created"], false);
+}
