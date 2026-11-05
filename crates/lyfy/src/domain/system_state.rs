@@ -457,3 +457,11 @@ impl SystemRequirement {
 fn sensitive_application() -> bool {
     true
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApplicationExport {
+    pub format: ApplicationKind,
+    #[serde(default = "sensitive_application")]
+    pub sensitive: bool,
+}

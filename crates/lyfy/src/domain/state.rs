@@ -93,7 +93,7 @@ pub struct Node {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mount: Option<Box<crate::domain::mounts::ExternalMount>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub application: Option<crate::domain::system_state::ApplicationKind>,
+    pub application: Option<crate::domain::system_state::ApplicationExport>,
 }
 
 impl Node {
