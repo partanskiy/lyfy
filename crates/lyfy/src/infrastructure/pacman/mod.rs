@@ -18,6 +18,10 @@ pub fn inventory(config: &Config) -> Result<Vec<Package>> {
     Database::open(config)?.inventory()
 }
 
-pub fn database_path(config: &Config) -> Result<std::path::PathBuf> {
-    Ok(configuration::read(config)?.db_path)
+pub fn file_exclusions(config: &Config) -> Result<Vec<std::path::PathBuf>> {
+    let settings = configuration::read(config)?;
+    Ok([settings.db_path, settings.gpg_dir]
+        .into_iter()
+        .chain(settings.connection_files)
+        .collect())
 }

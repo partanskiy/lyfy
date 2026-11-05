@@ -244,3 +244,83 @@ fn protected_files_cannot_enter_recipe_assets() {
     assert_eq!(result.status.code(), Some(2));
     assert!(!f.data.join("hosts/laptop/HEAD").exists());
 }
+
+#[test]
+fn current_repository_policy_keeps_explicit_archives_and_recipes_pinned() {
+    for kind in ["archive", "local_recipe"] {
+        let f = Fixture::new();
+        installed(&f);
+        let path = if kind == "archive" {
+            archive(&f)
+        } else {
+            let path = f.temp.path().join("recipe");
+            fs::create_dir(&path).unwrap();
+            fs::write(path.join("PKGBUILD"), "pkgname=demo\npkgver=1\npkgrel=1\n").unwrap();
+            path
+        };
+        let staging = f.temp.path().join("sync");
+        fs::create_dir_all(staging.join("demo-1-1")).unwrap();
+        fs::write(
+            staging.join("demo-1-1/desc"),
+            "%NAME%\ndemo\n\n%VERSION%\n1-1\n\n",
+        )
+        .unwrap();
+        let sync = f.root.join("var/lib/pacman/sync");
+        fs::create_dir_all(&sync).unwrap();
+        assert!(
+            Command::new("/usr/bin/bsdtar")
+                .arg("-cf")
+                .arg(sync.join("custom.db"))
+                .arg("-C")
+                .arg(staging)
+                .arg("demo-1-1")
+                .status()
+                .unwrap()
+                .success()
+        );
+        f.write("etc/pacman.conf", "[options]\n[custom]\n");
+        let sources = json!([{"package":"demo","kind":kind,"path":path,"retain":true}]).to_string();
+        f.ok(&[
+            "save",
+            "--check_packages",
+            "true",
+            "--package_sources",
+            &sources,
+        ]);
+        assert_eq!(f.snapshot("laptop")["packages"][0]["source"], "native");
+        let old = f.root.join("var/lib/pacman/local/demo-1-1");
+        let desc = fs::read_to_string(old.join("desc"))
+            .unwrap()
+            .replace("1-1", "2-1");
+        fs::write(old.join("desc"), desc).unwrap();
+        fs::rename(old, f.root.join("var/lib/pacman/local/demo-2-1")).unwrap();
+        let plan = f.ok(&[
+            "apply",
+            "--check_packages",
+            "true",
+            "--install_packages",
+            "true",
+            "--package_version_policy",
+            "current",
+            "--elevate=never",
+        ]);
+        assert_eq!(plan["packages"]["actions"][0]["kind"], "change_version");
+        assert_eq!(plan["packages"]["actions"][0]["artifact"], true);
+        assert_eq!(plan["packages"]["actions"][0]["before_version"], "2-1");
+        let ids = json!([{"collection":"default","host":"laptop","subject":{"kind":"package","name":"demo"}}]).to_string();
+        let remove = f.ok(&[
+            "apply",
+            "--check_packages",
+            "true",
+            "--install_packages",
+            "true",
+            "--remove_packages",
+            "demo",
+            "--selected_resources",
+            &ids,
+            "--elevate=never",
+        ]);
+        assert_eq!(remove["packages"]["actions"][0]["kind"], "remove");
+        assert_eq!(remove["packages"]["actions"].as_array().unwrap().len(), 1);
+    }
+}
