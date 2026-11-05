@@ -28,14 +28,10 @@ fn git(data: &Path, args: &[&str]) {
     );
 }
 
-fn legacy_store(config: &Config, schema: u32) {
+fn fixture_store(config: &Config, schema: u32) {
     let bytes = b"saved\n";
     let hash = format!("{:x}", Sha256::digest(bytes));
-    let mut node = json!({"content":{"kind":"file","sha256":hash},"mode":416,"owner":null});
-    if schema == 2 {
-        node["attributes"] = json!({});
-        node["hardlink"] = json!(null);
-    }
+    let node = json!({"content":{"kind":"file","sha256":hash},"mode":416,"owner":null});
     let manifest = serde_json::to_vec(&json!({
         "schema":schema,"system":"arch","host":"laptop","created_ns":1,"base":null,
         "changes":{"home/.config/app":node,"home/.config/removed":null},
@@ -78,101 +74,103 @@ fn legacy_store(config: &Config, schema: u32) {
             &["config", "user.email", "test@example.invalid"],
         );
         git(&config.data_dir, &["add", "."]);
-        git(&config.data_dir, &["commit", "-m", "test: legacy snapshot"]);
+        git(
+            &config.data_dir,
+            &["commit", "-m", "test: fixture snapshot"],
+        );
     }
 }
 
 #[test]
-fn schema_one_and_two_stores_keep_views_apply_and_archive_recovery() {
+fn current_stores_preserve_views_apply_and_archive_recovery() {
     for format in ["directory", "git"] {
-        for schema in [1, 2] {
-            let temp = tempfile::tempdir().unwrap();
-            let config = config(temp.path(), format);
-            fs::create_dir_all(config.root.join("home/test/.config")).unwrap();
-            legacy_store(&config, schema);
-            let context = Context::new(config.clone()).unwrap();
-            let view = context.snapshot("default").unwrap();
-            let graph = view.resources().unwrap();
-            assert_eq!(graph.resources.len(), 3);
-            assert!(
-                graph
-                    .resources
-                    .iter()
-                    .any(|r| matches!(r.recovery, RecoveryDescription::Deletion {}))
-            );
-            assert!(
-                graph
-                    .resources
-                    .iter()
-                    .any(|r| matches!(r.reference.subject, ResourceSubject::Package { .. }))
-            );
-            let hash = view.state().sizes.keys().next().unwrap();
-            let mut contents = String::new();
-            std::io::Read::read_to_string(&mut view.open_content(hash).unwrap(), &mut contents)
-                .unwrap();
-            assert_eq!(contents, "saved\n");
-            assert_eq!(
-                execute(&context, Request::Apply { write: true })
-                    .unwrap()
-                    .exit_code,
-                0
-            );
-            let target = config.root.join("home/test/.config/app");
-            assert_eq!(fs::read_to_string(&target).unwrap(), contents);
+        let schema = lyfy::SNAPSHOT_SCHEMA;
+        let temp = tempfile::tempdir().unwrap();
+        let config = config(temp.path(), format);
+        fs::create_dir_all(config.root.join("home/test/.config")).unwrap();
+        fixture_store(&config, schema);
+        let context = Context::new(config.clone()).unwrap();
+        let view = context.snapshot("default").unwrap();
+        let graph = view.resources().unwrap();
+        assert_eq!(graph.resources.len(), 3);
+        assert!(
+            graph
+                .resources
+                .iter()
+                .any(|r| matches!(r.recovery, RecoveryDescription::Deletion {}))
+        );
+        assert!(
+            graph
+                .resources
+                .iter()
+                .any(|r| matches!(r.reference.subject, ResourceSubject::Package { .. }))
+        );
+        let hash = view.state().sizes.keys().next().unwrap();
+        let mut contents = String::new();
+        std::io::Read::read_to_string(&mut view.open_content(hash).unwrap(), &mut contents)
+            .unwrap();
+        assert_eq!(contents, "saved\n");
+        assert_eq!(
+            execute(&context, Request::Apply { write: true })
+                .unwrap()
+                .exit_code,
+            0
+        );
+        let target = config.root.join("home/test/.config/app");
+        assert_eq!(fs::read_to_string(&target).unwrap(), contents);
 
-            let archive = temp.path().join("state.lyfy");
-            let exporter = Context::new(Config {
-                export_file: Some(archive.clone()),
-                ..config.clone()
-            })
+        let archive = temp.path().join("state.lyfy");
+        let exporter = Context::new(Config {
+            export_file: Some(archive.clone()),
+            ..config.clone()
+        })
+        .unwrap();
+        assert_eq!(
+            execute(
+                &exporter,
+                Request::Save {
+                    dry_run: false,
+                    capture_only: false
+                }
+            )
+            .unwrap()
+            .exit_code,
+            0
+        );
+        let imported = Context::new(Config {
+            data_dir: temp.path().join("imported"),
+            storage_format: "directory".into(),
+            import_file: Some(archive),
+            ..config.clone()
+        })
+        .unwrap();
+        assert_eq!(
+            execute(
+                &imported,
+                Request::Save {
+                    dry_run: false,
+                    capture_only: false
+                }
+            )
+            .unwrap()
+            .exit_code,
+            0
+        );
+        imported
+            .snapshot("default")
+            .unwrap()
+            .resources()
+            .unwrap()
+            .validate()
             .unwrap();
-            assert_eq!(
-                execute(
-                    &exporter,
-                    Request::Save {
-                        dry_run: false,
-                        capture_only: false
-                    }
-                )
+        fs::write(&target, "changed\n").unwrap();
+        assert_eq!(
+            execute(&imported, Request::Apply { write: true })
                 .unwrap()
                 .exit_code,
-                0
-            );
-            let imported = Context::new(Config {
-                data_dir: temp.path().join("imported"),
-                storage_format: "directory".into(),
-                import_file: Some(archive),
-                ..config.clone()
-            })
-            .unwrap();
-            assert_eq!(
-                execute(
-                    &imported,
-                    Request::Save {
-                        dry_run: false,
-                        capture_only: false
-                    }
-                )
-                .unwrap()
-                .exit_code,
-                0
-            );
-            imported
-                .snapshot("default")
-                .unwrap()
-                .resources()
-                .unwrap()
-                .validate()
-                .unwrap();
-            fs::write(&target, "changed\n").unwrap();
-            assert_eq!(
-                execute(&imported, Request::Apply { write: true })
-                    .unwrap()
-                    .exit_code,
-                0
-            );
-            assert_eq!(fs::read_to_string(&target).unwrap(), contents);
-        }
+            0
+        );
+        assert_eq!(fs::read_to_string(&target).unwrap(), contents);
     }
 }
 
@@ -437,4 +435,17 @@ fn execution_seals_reject_validly_encoded_metadata_tampering() {
         .unwrap();
     assert!(execute(&executor, Request::Apply { write: true }).is_err());
     assert_eq!(fs::read_to_string(target).unwrap(), "keep local\n");
+}
+
+#[test]
+fn prior_and_unknown_snapshot_formats_are_rejected() {
+    for format in ["directory", "git"] {
+        for schema in [1, 8, 10] {
+            let temp = tempfile::tempdir().unwrap();
+            let config = config(temp.path(), format);
+            fs::create_dir_all(config.root.join("home/test/.config")).unwrap();
+            fixture_store(&config, schema);
+            assert!(Context::new(config).unwrap().snapshot("default").is_err());
+        }
+    }
 }

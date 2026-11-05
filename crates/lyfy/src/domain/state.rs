@@ -361,6 +361,13 @@ impl Snapshot {
                     .all(|h| crate::domain::config::is_digest(h)),
                 "invalid observation fingerprint"
             );
+            for (key, time) in &observed.mtimes {
+                ensure!(
+                    observed.files.contains_key(key) && time.nanoseconds < 1_000_000_000,
+                    "invalid observed mtime"
+                );
+                crate::domain::resources::ResourceSubject::Path { key: key.clone() }.validate()?;
+            }
         }
         let tree = self
             .changes

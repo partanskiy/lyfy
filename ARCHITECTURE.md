@@ -287,26 +287,33 @@ authentication and any one-shot privileged handoff; the library never elevates.
 Package builds execute without root; privileged writes use verified plans/content
 and trusted system journals without modifying user repositories.
 
-Current schemas/readers and file behavior remain valid during staged migration.
-New resource kinds require explicit schema compatibility, coverage diagnostics
-and temporary-target tests before any recovery guarantee is advertised.
+On 2026-11-06 the user explicitly removed backward compatibility as a requirement:
+lyfy is not deployed yet. Only the current snapshot/archive formats are supported;
+prior and unknown schemas fail explicitly. Do not add migration adapters or retain
+old readers for compatibility. New resource kinds require complete current-format
+validation, coverage diagnostics and temporary-target tests.
 
 Package file baselines compare concrete observations with libalpm mtree evidence.
 Verified unchanged payloads become pinned package references, while concrete
 exceptions retain the original baseline and observed metadata. Provider absence
 or version drift is an explicit apply dependency. Namespace roots carry directory
-properties and cannot be deleted/retyped. These additions use snapshot schema 3
-and portable state schema 2; prior readers remain supported by current code.
-Acquisition catalogs use stored schema 4/portable schema 3; separate observation
-fingerprints use stored schema 5. Git-project descriptions use stored schema 6
-and portable schema 4. Projects retain verified object closure and staging/local
-work through normal concrete payloads. The projects service owns classification,
-selection boundaries and verification; Git mechanisms remain in infrastructure.
-External mount descriptions use stored schema 7/portable schema 5. The external
-service owns source identity, topology and connection/copy/materialization policy;
-infrastructure owns mountinfo observation and held filesystem descriptors.
-Yandex Disk is a separate concrete REST storage adapter, with input-owned OAuth,
-cooperative exclusive writers and immutable ready-generation publication.
+properties and cannot be deleted/retyped. The current stored schema is 9 and the
+portable archive schema is 7. Resource graph schema 1 is independent of these
+encodings. Snapshots carry package acquisition catalogs, separate observations,
+Git projects, external mount requirements, system catalogs, application exports,
+generated state and nanosecond file/symlink mtimes. Projects retain object closure
+and staging/local work through concrete payloads. External source identity and
+held filesystem descriptors prevent disconnected mounts from becoming deletions.
+Yandex Disk is a separate concrete REST storage adapter with input-owned OAuth,
+cooperative writers and immutable ready-generation publication.
+
+The system service owns public identities, persistent unit enablement and
+storage/boot coverage. Account execution is explicit, privileged and journaled;
+passwords and private bootstrap material stay outside snapshots. SQLite uses
+consistent native backup images and transactional restoration. Generated state
+uses closed producers with Landlock write confinement and exact output hashes.
+Coverage reports distinguish captured state from unresolved recovery prerequisites;
+file restoration does not prove bare-metal boot or runtime activation.
 
 ## Enforcement
 
