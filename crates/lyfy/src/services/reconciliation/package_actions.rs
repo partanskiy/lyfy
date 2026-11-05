@@ -22,8 +22,16 @@ pub fn connect(plans: &mut [&mut Plan]) {
                     a.package.name == package.name && a.kind != PackageActionKind::SetReason
                 })
             {
+                let reason = packages
+                    .actions
+                    .iter()
+                    .find(|a| a.package.name == package.name)
+                    .and_then(|a| a.before_explicit)
+                    .unwrap_or(package.explicit);
                 packages.actions.retain(|a| a.package.name != package.name);
                 packages.actions.push(PackageAction {
+                    before_version: Some(package.version.clone()),
+                    before_explicit: Some(reason),
                     package: package.clone(),
                     kind: PackageActionKind::Reinstall,
                     artifact: true,

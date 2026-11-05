@@ -30,6 +30,8 @@ pub fn plan(config: &Config, desired: &[Package], current: &[Package]) -> Result
                 artifact = false;
             }
             plan.actions.push(PackageAction {
+                before_version: current.map(|p| p.version.clone()),
+                before_explicit: current.map(|p| p.explicit),
                 package: package.clone(),
                 kind,
                 artifact,
@@ -41,6 +43,8 @@ pub fn plan(config: &Config, desired: &[Package], current: &[Package]) -> Result
             && let Some(package) = installed.get(name)
         {
             plan.actions.push(PackageAction {
+                before_version: Some(package.version.clone()),
+                before_explicit: Some(package.explicit),
                 package: (*package).clone(),
                 kind: PackageActionKind::Remove,
                 artifact: false,
