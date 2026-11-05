@@ -54,6 +54,19 @@ pub struct Options {
     pub check_packages: Option<bool>,
     #[arg(long, global = true, env = "LYFY_PACKAGE_FILE_POLICY")]
     pub package_file_policy: Option<String>,
+    #[arg(long, global = true, env = "LYFY_PACKAGE_SOURCES", value_parser = parse_package_sources)]
+    pub package_sources: Option<serde_json::Value>,
+    #[arg(long, global = true, env = "LYFY_PACKAGE_VERSION_POLICY")]
+    pub package_version_policy: Option<String>,
+    #[arg(long, global = true, env = "LYFY_BUILD_PACKAGES", action = clap::ArgAction::Set)]
+    pub build_packages: Option<bool>,
+    #[arg(
+        long,
+        global = true,
+        env = "LYFY_REMOVE_PACKAGES",
+        value_delimiter = ','
+    )]
+    pub remove_packages: Option<Vec<String>>,
     #[arg(long, env = "LYFY_INSTALL_PACKAGES", global = true, action = clap::ArgAction::Set)]
     pub install_packages: Option<bool>,
     #[arg(long, env = "LYFY_OVERWRITE", global = true, action = clap::ArgAction::Set)]
@@ -154,6 +167,12 @@ fn parse_identity_mappings(value: &str) -> Result<serde_json::Value, String> {
     let mappings: Vec<lyfy::IdentityMapping> =
         serde_json::from_str(value).map_err(|e| format!("invalid identity mappings JSON: {e}"))?;
     serde_json::to_value(mappings).map_err(|e| e.to_string())
+}
+
+fn parse_package_sources(value: &str) -> Result<serde_json::Value, String> {
+    let sources: Vec<lyfy::PackageSource> =
+        serde_json::from_str(value).map_err(|e| format!("invalid package_sources JSON: {e}"))?;
+    serde_json::to_value(sources).map_err(|e| e.to_string())
 }
 
 #[derive(Debug, Subcommand)]

@@ -75,6 +75,10 @@ pub(super) fn defaults() -> Config {
         require_uki: true,
         check_packages: true,
         package_file_policy: "capture".into(),
+        package_sources: vec![],
+        package_version_policy: "locked".into(),
+        build_packages: false,
+        remove_packages: vec![],
         install_packages: false,
         overwrite: false,
         prune: false,
@@ -165,7 +169,7 @@ pub fn resolve(options: Options, command: &super::cli::Command) -> Result<Launch
     if value["base_host"] == "" {
         value["base_host"] = Value::Null;
     }
-    for key in ["disabled_rules", "selected_paths"] {
+    for key in ["disabled_rules", "selected_paths", "remove_packages"] {
         if value[key] == serde_json::json!([""]) {
             value[key] = serde_json::json!([]);
         }

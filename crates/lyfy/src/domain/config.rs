@@ -21,6 +21,14 @@ pub struct Config {
     pub check_packages: bool,
     #[serde(default = "capture_package_files")]
     pub package_file_policy: String,
+    #[serde(default)]
+    pub package_sources: Vec<crate::domain::acquisition::PackageSource>,
+    #[serde(default = "locked_packages")]
+    pub package_version_policy: String,
+    #[serde(default)]
+    pub build_packages: bool,
+    #[serde(default)]
+    pub remove_packages: Vec<String>,
     pub install_packages: bool,
     pub overwrite: bool,
     pub prune: bool,
@@ -50,6 +58,25 @@ pub struct Config {
 impl Config {
     pub fn validate(&self) -> Result<()> {
         crate::domain::storage::validate(self)?;
+        let mut package_sources = std::collections::BTreeSet::new();
+        for source in &self.package_sources {
+            source.validate()?;
+            ensure!(
+                package_sources.insert(&source.package),
+                "duplicate package source"
+            );
+        }
+        ensure!(
+            ["locked", "current"].contains(&self.package_version_policy.as_str()),
+            "package_version_policy must be locked or current"
+        );
+        let mut removals = std::collections::BTreeSet::new();
+        ensure!(
+            self.remove_packages
+                .iter()
+                .all(|name| crate::domain::packages::valid_name(name) && removals.insert(name)),
+            "invalid or duplicate package removal"
+        );
         let mut identities = std::collections::BTreeSet::new();
         for mapping in &self.identity_mappings {
             mapping.validate()?;
@@ -263,6 +290,10 @@ fn strict_capture() -> String {
 
 fn capture_package_files() -> String {
     "capture".into()
+}
+
+fn locked_packages() -> String {
+    "locked".into()
 }
 
 pub fn absolute(path: &Path) -> Result<()> {
