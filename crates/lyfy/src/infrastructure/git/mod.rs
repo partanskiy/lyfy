@@ -45,6 +45,7 @@ impl Repository {
         command
             .args(["--no-pager", "--literal-pathspecs", "-C"])
             .arg(&self.path)
+            .args(["-c", &format!("safe.directory={}", self.path.display())])
             .args([
                 "-c",
                 "core.hooksPath=/dev/null",

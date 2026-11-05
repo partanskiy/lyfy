@@ -10,7 +10,9 @@ use crate::services::files::observe;
 use anyhow::{Result, ensure};
 use std::{collections::BTreeSet, path::PathBuf};
 
+mod receipts;
 mod selection;
+pub use receipts::{read_receipts, record_receipts, validate_receipt};
 
 pub fn receipt_path(config: &Config) -> PathBuf {
     let context = format!(
@@ -74,7 +76,7 @@ pub fn build(context: &Context) -> Result<Plan> {
     );
     let root = Root::open(&config.root)?;
     let receipt_file = receipt_path(config);
-    let previous: Tree = if receipt_file.try_exists()? {
+    let mut previous: Tree = if receipt_file.try_exists()? {
         let receipt: Receipt = read_json(&receipt_file)?;
         ensure!(
             receipt.root == config.root
@@ -86,6 +88,28 @@ pub fn build(context: &Context) -> Result<Plan> {
     } else {
         Tree::new()
     };
+    for receipt in context.restore_receipts.values() {
+        validate_receipt(config, receipt)?;
+        previous.retain(|key, _| {
+            !(key.starts_with("home/")
+                && config
+                    .path_for_key(key)
+                    .is_ok_and(|p| config.managed(&p) && config.path_selected(&p)))
+        });
+        previous.extend(
+            receipt
+                .tree
+                .iter()
+                .filter(|(key, node)| {
+                    key.starts_with("home/")
+                        && node.owner.is_none()
+                        && config
+                            .path_for_key(key)
+                            .is_ok_and(|p| config.managed(&p) && config.path_selected(&p))
+                })
+                .map(|(k, n)| (k.clone(), n.clone())),
+        );
+    }
     let available = tree;
     let mut keys: BTreeSet<String> = available.keys().chain(previous.keys()).cloned().collect();
     keys.extend(store.tombstones(&config.host, &id)?);
