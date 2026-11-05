@@ -76,7 +76,7 @@ fn read(stream: &mut TcpStream) -> Option<Request> {
         .filter_map(|s| s.split_once('='))
         .map(|(k, v)| (decode(k), decode(v)))
         .collect();
-    let headers: BTreeMap<_, _> = lines
+    let headers: BTreeMap<String, String> = lines
         .filter_map(|s| s.split_once(':'))
         .map(|(k, v)| (k.to_ascii_lowercase(), v.trim().into()))
         .collect();
