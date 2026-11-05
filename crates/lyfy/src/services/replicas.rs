@@ -57,7 +57,7 @@ fn copy(context: &Context, mount: &Mount, backend: &str, source_id: &str) -> Res
     let snapshot = Snapshot {
         system_state: state.system_state,
         observed: None,
-        schema: crate::domain::acquisition::content::stored_from_portable(state.schema),
+        schema: crate::domain::state::SNAPSHOT_SCHEMA,
         system: "arch".into(),
         host: state.host,
         created_ns: state.created_ns,

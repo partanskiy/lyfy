@@ -271,14 +271,7 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
             .as_ref()
             .map(|s| s.selected(&tree, &deletions, config))
             .transpose()?,
-        schema: crate::domain::acquisition::content::portable_schema(&tree, packages.as_deref())
-            .max(if snapshot.system_state.is_some() {
-                6
-            } else if package_inventory {
-                1
-            } else {
-                3
-            }),
+        schema: crate::domain::state::ARCHIVE_SCHEMA,
         system: snapshot.system,
         host: config.host.clone(),
         source_snapshot: context.source_snapshot.clone().unwrap_or(id),

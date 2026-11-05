@@ -256,7 +256,7 @@ impl Store {
         );
         let snapshot: Snapshot = serde_json::from_reader(file)?;
         ensure!(
-            [1, 2, 3, 4, 5, 6, 7, 8, 9].contains(&snapshot.schema)
+            snapshot.schema == crate::domain::state::SNAPSHOT_SCHEMA
                 && snapshot.system == "arch"
                 && snapshot.host == host,
             "unsupported or mismatched snapshot"

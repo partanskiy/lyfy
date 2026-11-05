@@ -64,59 +64,20 @@ pub fn required(tree: &Tree, packages: Option<&[Package]>) -> Result<BTreeSet<St
     Ok(result)
 }
 
-pub fn stored_schema(tree: &Tree, packages: Option<&[Package]>) -> u32 {
-    if tree
-        .values()
-        .any(|n| n.application.is_some() || n.generated.is_some() || n.mtime.is_some())
-    {
-        9
-    } else if tree.values().any(|n| n.mount.is_some()) {
-        7
-    } else if tree.values().any(|n| n.project.is_some()) {
-        6
-    } else if observations(tree, packages).any(|p| p.origin.is_some()) {
-        4
-    } else if crate::domain::state::extended_state(tree) {
-        3
-    } else {
-        2
-    }
-}
-
-pub fn portable_schema(tree: &Tree, packages: Option<&[Package]>) -> u32 {
-    let stored = stored_schema(tree, packages);
-    if stored >= 6 { stored - 2 } else { stored - 1 }
-}
-
-pub fn stored_from_portable(schema: u32) -> u32 {
-    if schema >= 4 { schema + 2 } else { schema + 1 }
-}
-
 pub fn validate(
     schema: u32,
     portable: bool,
     tree: &Tree,
     packages: Option<&[Package]>,
 ) -> Result<()> {
-    let minimum = if tree
-        .values()
-        .any(|n| n.application.is_some() || n.generated.is_some() || n.mtime.is_some())
-    {
-        if portable { 7 } else { 9 }
-    } else if tree.values().any(|n| n.mount.is_some()) {
-        if portable { 5 } else { 7 }
-    } else if tree.values().any(|n| n.project.is_some()) {
-        if portable { 4 } else { 6 }
-    } else if observations(tree, packages).any(|p| p.origin.is_some()) {
-        if portable { 3 } else { 4 }
-    } else if crate::domain::state::extended_state(tree) {
-        if portable { 2 } else { 3 }
-    } else {
-        1
-    };
     ensure!(
-        schema >= minimum && schema <= if portable { 7 } else { 9 },
-        "unsupported package acquisition schema"
+        schema
+            == if portable {
+                crate::domain::state::ARCHIVE_SCHEMA
+            } else {
+                crate::domain::state::SNAPSHOT_SCHEMA
+            },
+        "unsupported recovery schema; only the current format is supported"
     );
     retained(tree, packages)?;
     Ok(())

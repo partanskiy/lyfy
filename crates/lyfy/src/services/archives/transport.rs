@@ -99,14 +99,7 @@ pub fn capture_channel(
     }
     let state = SnapshotState {
         system_state: (!system.empty()).then_some(system.clone()),
-        schema: crate::domain::acquisition::content::portable_schema(&tree, inventory.as_deref())
-            .max(if !system.empty() {
-                6
-            } else if package_inventory {
-                1
-            } else {
-                3
-            }),
+        schema: crate::domain::state::ARCHIVE_SCHEMA,
         system: "arch".into(),
         host: context.config.host.clone(),
         source_snapshot: "capture".into(),

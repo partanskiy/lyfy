@@ -14,23 +14,11 @@ impl ResourceGraph {
     pub fn from_snapshot(state: &SnapshotState, source: SnapshotReference) -> Result<Self> {
         source.validate()?;
         if let Some(system) = &state.system_state {
-            ensure!(
-                state.schema >= 6,
-                "system resources require portable schema 6"
-            );
             system.validate()?;
         }
         ensure!(
-            [1, 2, 3, 4, 5, 6, 7].contains(&state.schema) && state.system == "arch",
+            state.schema == crate::domain::state::ARCHIVE_SCHEMA && state.system == "arch",
             "unsupported resolved snapshot state"
-        );
-        ensure!(
-            state.package_inventory || state.schema >= 3,
-            "provider catalog requires portable schema 3"
-        );
-        ensure!(
-            state.schema >= 2 || !crate::domain::state::extended_state(&state.tree),
-            "extended snapshot state requires schema 2"
         );
         ensure!(
             source.host == state.host && source.snapshot == state.source_snapshot,

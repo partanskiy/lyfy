@@ -43,17 +43,7 @@ pub fn view_at(context: &Context, id: &str) -> Result<crate::domain::state::Snap
     }
     Ok(crate::domain::state::SnapshotState {
         system_state: snapshot.system_state.clone(),
-        schema: crate::domain::acquisition::content::portable_schema(
-            &tree,
-            snapshot.packages.as_deref(),
-        )
-        .max(if snapshot.system_state.is_some() {
-            6
-        } else if !snapshot.package_inventory {
-            3
-        } else {
-            1
-        }),
+        schema: crate::domain::state::ARCHIVE_SCHEMA,
         system: snapshot.system,
         host: config.host.clone(),
         source_snapshot: id.into(),
@@ -171,18 +161,9 @@ pub fn commit(
         observed,
     } = publication;
     let packages = captured.packages;
-    let schema_tree = changes
-        .iter()
-        .filter_map(|(k, n)| n.clone().map(|n| (k.clone(), n)))
-        .collect();
-    let schema =
-        crate::domain::acquisition::content::stored_schema(&schema_tree, packages.as_deref())
-            .max(if system_state.is_some() { 8 } else { 2 })
-            .max(if observed.is_some() { 5 } else { 2 })
-            .max(if captured.inventory { 2 } else { 4 });
     let snapshot = Snapshot {
         system_state,
-        schema,
+        schema: crate::domain::state::SNAPSHOT_SCHEMA,
         system: "arch".into(),
         host: config.host.clone(),
         created_ns: timestamp(),

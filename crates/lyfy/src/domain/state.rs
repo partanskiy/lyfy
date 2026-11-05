@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
+pub const SNAPSHOT_SCHEMA: u32 = 9;
+pub const ARCHIVE_SCHEMA: u32 = 7;
+
 pub type Tree = BTreeMap<String, Node>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -236,38 +239,12 @@ impl Node {
     }
 }
 
-pub fn extended_state(tree: &Tree) -> bool {
-    tree.iter().any(|(key, node)| {
-        key == "system/"
-            || key == "home/"
-            || node.package_baseline.is_some()
-            || matches!(node.content, Content::PackageFile { .. })
-    })
-}
-
 pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
     ensure!(
-        [1, 2, 3, 4, 5, 6, 7, 8, 9].contains(&schema),
-        "unsupported snapshot schema"
-    );
-    ensure!(
-        schema >= 3 || !extended_state(tree),
-        "extended state requires schema 3"
+        schema == SNAPSHOT_SCHEMA,
+        "unsupported snapshot schema; only the current format is supported"
     );
     for (key, node) in tree {
-        ensure!(
-            (node.application.is_none() && node.generated.is_none() && node.mtime.is_none())
-                || schema >= 9,
-            "application exports require schema 9"
-        );
-        ensure!(
-            node.mount.is_none() || schema >= 7,
-            "external mounts require schema 7"
-        );
-        ensure!(
-            node.project.is_none() || schema >= 6,
-            "Git projects require schema 6"
-        );
         node.validate()?;
         if key == "home/" || key == "system/" {
             ensure!(node.directory(), "namespace root must be a directory");
@@ -372,27 +349,19 @@ pub struct ReplicaSource {
 impl Snapshot {
     pub fn validate_encoding(&self) -> Result<()> {
         if let Some(system) = &self.system_state {
-            ensure!(self.schema >= 8, "system resources require schema 8");
             system.validate()?;
         }
-        ensure!(
-            self.observed.is_none() || self.schema >= 5,
-            "observations require schema 5"
-        );
         if let Some(observed) = &self.observed {
             ensure!(
                 observed
                     .files
                     .values()
                     .chain(observed.packages.values())
+                    .chain(observed.system.values())
                     .all(|h| crate::domain::config::is_digest(h)),
                 "invalid observation fingerprint"
             );
         }
-        ensure!(
-            self.package_inventory || self.schema >= 4,
-            "provider catalog requires schema 4"
-        );
         let tree = self
             .changes
             .iter()
