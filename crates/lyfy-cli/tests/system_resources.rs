@@ -258,3 +258,43 @@ fn common_service_update_survives_saves_before_apply() {
     ]);
     assert!(!link.is_symlink());
 }
+
+#[test]
+fn service_instances_pin_the_template_without_changing_sibling_instances() {
+    let f = Fixture::new();
+    fs::create_dir_all(f.root.join("usr/lib/systemd/system")).unwrap();
+    fs::create_dir_all(f.root.join("etc/systemd/system/multi-user.target.wants")).unwrap();
+    f.write(
+        "usr/lib/systemd/system/fixture@.service",
+        "[Service]\nExecStart=/usr/bin/true\n",
+    );
+    let first = f
+        .root
+        .join("etc/systemd/system/multi-user.target.wants/fixture@first.service");
+    let second = f
+        .root
+        .join("etc/systemd/system/multi-user.target.wants/fixture@second.service");
+    for path in [&first, &second] {
+        std::os::unix::fs::symlink("/usr/lib/systemd/system/fixture@.service", path).unwrap();
+    }
+    let resources = json!([{"kind":"service","name":"fixture@first.service"}]).to_string();
+    f.ok(&["save", "--system_resources", &resources]);
+    let state = f.snapshot("laptop");
+    assert_eq!(
+        state["system_state"]["services"][0]["definition"]["key"],
+        "system/usr/lib/systemd/system/fixture@.service"
+    );
+    fs::remove_file(&first).unwrap();
+    fs::remove_file(&second).unwrap();
+    let selector = json!([{"collection":"default","host":"laptop","subject":{"kind":"service","name":"fixture@first.service"}}]).to_string();
+    f.ok(&[
+        "apply",
+        "--selected_resources",
+        &selector,
+        "--restore_services",
+        "true",
+        "--write",
+    ]);
+    assert!(first.is_symlink());
+    assert!(!second.is_symlink());
+}

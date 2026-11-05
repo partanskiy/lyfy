@@ -203,3 +203,66 @@ fn protected_mount_roots_fail_instead_of_publishing_empty_backups() {
     assert_eq!(captured.status.code(), Some(2));
     assert!(captured.stdout.is_empty());
 }
+
+#[test]
+fn an_independent_child_collection_does_not_require_a_common_generation() {
+    let f = setup();
+    let mounts = serde_json::json!([
+        {"name":"parent","path":"/etc/tree","backend":"local","apply":true},
+        {"name":"child","path":"/etc/tree/deep","backend":"local","base_host":""}
+    ])
+    .to_string();
+    f.ok(&[
+        "save",
+        "--host",
+        "common",
+        "--selected_mounts",
+        "default,parent",
+        "--mounts",
+        &mounts,
+    ]);
+    f.ok(&["save", "--base_host", "common", "--mounts", &mounts]);
+    let root = f.temp.path().join("backend/mounts");
+    assert_eq!(
+        snapshot(&root.join("parent/hosts/laptop"))["base"]["host"],
+        "common"
+    );
+    assert!(snapshot(&root.join("child/hosts/laptop"))["base"].is_null());
+    assert!(!root.join("child/hosts/common").exists());
+}
+
+#[test]
+fn nested_writes_under_a_readonly_parent_are_planned_before_mutation() {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    let f = setup();
+    let parent = f.root.join("etc/tree");
+    fs::set_permissions(&parent, fs::Permissions::from_mode(0o555)).unwrap();
+    f.ok(&["save"]);
+    fs::set_permissions(&parent, fs::Permissions::from_mode(0o755)).unwrap();
+    f.write("etc/tree/deep/child", "local target change\n");
+    let result = f.run(&[
+        "apply",
+        "--selected_mounts",
+        "parent,child",
+        "--overwrite",
+        "true",
+        "--write",
+        "--elevate=never",
+    ]);
+    let mode = fs::metadata(&parent).unwrap().mode() & 0o777;
+    let content = f.read("etc/tree/deep/child");
+    fs::set_permissions(&parent, fs::Permissions::from_mode(0o755)).unwrap();
+    if fs::metadata(&parent).unwrap().uid() == 0 {
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        assert_eq!(mode, 0o555);
+        assert_eq!(content, "child\n");
+    } else {
+        assert_eq!(result.status.code(), Some(1));
+        assert_eq!(mode, 0o755);
+        assert_eq!(content, "local target change\n");
+    }
+}

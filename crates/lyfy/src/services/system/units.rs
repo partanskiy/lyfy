@@ -67,29 +67,44 @@ pub fn capture_units(context: &Context, root: &Root, tree: &Tree) -> Result<Vec<
             ServiceEnablement::Disabled
         };
         let mut definition = None;
-        for directory in ["/etc/systemd/system", "/usr/lib/systemd/system"] {
-            let path = Path::new(directory).join(name);
-            let Some(stat) = root.metadata(&path)? else {
-                continue;
-            };
-            if stat.st_mode & libc::S_IFMT == libc::S_IFLNK {
+        let template = name.split_once('@').and_then(|(prefix, instance)| {
+            instance
+                .rsplit_once('.')
+                .filter(|(instance, _)| !instance.is_empty())
+                .map(|(_, kind)| format!("{prefix}@.{kind}"))
+        });
+        let mut candidates = vec![name.clone()];
+        if let Some(template) = template {
+            candidates.push(template);
+        }
+        for candidate in candidates {
+            for directory in ["/etc/systemd/system", "/usr/lib/systemd/system"] {
+                let path = Path::new(directory).join(&candidate);
+                let Some(stat) = root.metadata(&path)? else {
+                    continue;
+                };
+                if stat.st_mode & libc::S_IFMT == libc::S_IFLNK {
+                    ensure!(
+                        root.read_link(&path)? == "/dev/null" && masked,
+                        "linked/aliased unit definitions require an explicit concrete unit resource: {name}"
+                    );
+                    continue;
+                }
                 ensure!(
-                    root.read_link(&path)? == "/dev/null" && masked,
-                    "linked/aliased unit definitions require an explicit concrete unit resource: {name}"
+                    stat.st_mode & libc::S_IFMT == libc::S_IFREG,
+                    "unsupported service definition"
                 );
-                continue;
+                let key = config.key(&path)?;
+                definition = Some(UnitDefinition {
+                    sha256: hash_file(&mut root.open_content(&path)?, config.max_file_bytes)?,
+                    package: tree.get(&key).and_then(|n| n.package()).cloned(),
+                    key,
+                });
+                break;
             }
-            ensure!(
-                stat.st_mode & libc::S_IFMT == libc::S_IFREG,
-                "unsupported service definition"
-            );
-            let key = config.key(&path)?;
-            definition = Some(UnitDefinition {
-                sha256: hash_file(&mut root.open_content(&path)?, config.max_file_bytes)?,
-                package: tree.get(&key).and_then(|n| n.package()).cloned(),
-                key,
-            });
-            break;
+            if definition.is_some() {
+                break;
+            }
         }
         ensure!(
             masked || definition.is_some(),

@@ -64,6 +64,7 @@ pub fn requires_root(context: &Context) -> Result<bool> {
             if node
                 .owner
                 .is_some_and(|(owner, group)| owner != uid || !groups.contains(&group))
+                || node.directory() && node.mode & 0o200 == 0
                 || node.mode & 0o6000 != 0
                 || node.mode & 0o400 == 0
                 || node
