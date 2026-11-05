@@ -7,6 +7,7 @@ pub(crate) mod download;
 mod mtree;
 mod native;
 mod provenance;
+pub(crate) mod signatures;
 pub use native::Database;
 pub mod restore;
 

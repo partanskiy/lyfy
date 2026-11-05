@@ -14,6 +14,7 @@ pub struct Settings {
     pub known_repositories: bool,
     pub sources: BTreeMap<String, RepositorySettings>,
     pub signature_policy: Vec<String>,
+    pub local_signature_policy: Vec<String>,
     pub architecture: String,
     pub cache_dirs: Vec<PathBuf>,
     pub gpg_dir: PathBuf,
@@ -120,6 +121,9 @@ fn parse(
                     .extend(value.split_whitespace().map(str::to_owned)),
                 "SigLevel" => settings
                     .signature_policy
+                    .extend(value.split_whitespace().map(str::to_owned)),
+                "LocalFileSigLevel" => settings
+                    .local_signature_policy
                     .extend(value.split_whitespace().map(str::to_owned)),
                 "Architecture" => {
                     settings.architecture = value
