@@ -115,11 +115,24 @@ pub fn build(context: &Context) -> Result<Plan> {
         );
     }
     let mut available = tree;
+    let mut deleted = store.tombstones(&config.host, &id)?;
+    let unit_dependencies = crate::services::system::plan_units(
+        config,
+        &root,
+        snapshot.system_state.as_ref(),
+        &mut available,
+        &mut deleted,
+    )?;
     let mut keys: BTreeSet<String> = available.keys().chain(previous.keys()).cloned().collect();
-    keys.extend(store.tombstones(&config.host, &id)?);
+    keys.extend(deleted);
     selection::validate_request(config, &keys, snapshot.packages.as_deref())?;
     keys.retain(|key| {
-        config
+        crate::services::system::unit_path_selected(
+            config,
+            snapshot.system_state.as_ref(),
+            key,
+            available.get(key).or_else(|| previous.get(key)),
+        ) && config
             .path_for_key(key)
             .is_ok_and(|p| config.managed(&p) && config.path_selected(&p))
     });
@@ -151,6 +164,7 @@ pub fn build(context: &Context) -> Result<Plan> {
     let (mut dependencies, guards) =
         selection::dependencies(config, &root, &available, &keys, &mut desired)?;
     dependencies.extend(identity_plan.dependencies);
+    dependencies.extend(unit_dependencies);
     let mut changes = vec![];
     crate::domain::state::validate_tree(&desired)?;
     let mut live = Tree::new();
