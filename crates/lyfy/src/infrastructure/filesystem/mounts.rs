@@ -25,33 +25,6 @@ fn mount_id(file: &File) -> Result<u64> {
     Ok(stat.stx_mnt_id)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::Root;
-    use std::{fs, path::Path};
-    #[test]
-    fn held_boundaries_never_redirect_writes_into_a_replacement_directory() {
-        let temp = tempfile::tempdir().unwrap();
-        fs::create_dir(temp.path().join("mount")).unwrap();
-        let root = Root::open(temp.path())
-            .unwrap()
-            .bind_boundaries(&[("/mount".into(), None)])
-            .unwrap();
-        fs::rename(temp.path().join("mount"), temp.path().join("held")).unwrap();
-        fs::create_dir(temp.path().join("mount")).unwrap();
-        root.put(Path::new("/mount/data"), Some(b"held"), None, 0o600, None)
-            .unwrap();
-        assert_eq!(fs::read(temp.path().join("held/data")).unwrap(), b"held");
-        assert!(!temp.path().join("mount/data").exists());
-        assert!(
-            Root::open(temp.path())
-                .unwrap()
-                .bind_boundaries(&[("/mount".into(), Some(u64::MAX))])
-                .is_err()
-        );
-    }
-}
-
 impl Root {
     pub fn bind_boundaries(mut self, paths: &[(PathBuf, Option<u64>)]) -> Result<Self> {
         let mut boundaries = BTreeMap::new();
@@ -86,5 +59,32 @@ impl Root {
             .map(File::try_clone)
             .transpose()
             .map_err(Into::into)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Root;
+    use std::{fs, path::Path};
+    #[test]
+    fn held_boundaries_never_redirect_writes_into_a_replacement_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir(temp.path().join("mount")).unwrap();
+        let root = Root::open(temp.path())
+            .unwrap()
+            .bind_boundaries(&[("/mount".into(), None)])
+            .unwrap();
+        fs::rename(temp.path().join("mount"), temp.path().join("held")).unwrap();
+        fs::create_dir(temp.path().join("mount")).unwrap();
+        root.put(Path::new("/mount/data"), Some(b"held"), None, 0o600, None)
+            .unwrap();
+        assert_eq!(fs::read(temp.path().join("held/data")).unwrap(), b"held");
+        assert!(!temp.path().join("mount/data").exists());
+        assert!(
+            Root::open(temp.path())
+                .unwrap()
+                .bind_boundaries(&[("/mount".into(), Some(u64::MAX))])
+                .is_err()
+        );
     }
 }
