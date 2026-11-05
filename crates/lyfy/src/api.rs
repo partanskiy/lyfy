@@ -110,7 +110,11 @@ impl Context {
         mut self,
         receipts: std::collections::BTreeMap<String, crate::domain::plan::Receipt>,
     ) -> Result<Self> {
-        for receipt in receipts.values() {
+        for (name, receipt) in &receipts {
+            anyhow::ensure!(
+                name == "default" || self.config.mounts.iter().any(|m| &m.name == name),
+                "unknown restore receipt collection"
+            );
             crate::services::reconciliation::validate_receipt(&self.config, receipt)?;
         }
         self.restore_receipts = receipts;
