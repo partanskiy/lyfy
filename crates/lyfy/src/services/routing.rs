@@ -100,6 +100,9 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
             .expect("validated backend");
         let mut scoped = config.clone();
         scoped.include = vec![mount.path.clone()];
+        if let Some(host) = &mount.base_host {
+            scoped.base_host = (!host.is_empty()).then(|| host.clone());
+        }
         scoped.exclude.retain(|p| {
             config
                 .logical(p)
