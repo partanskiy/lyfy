@@ -32,6 +32,10 @@ pub struct Config {
     #[serde(default)]
     pub selected_mounts: Vec<String>,
     #[serde(default)]
+    pub selected_paths: Vec<String>,
+    #[serde(default)]
+    pub selected_resources: Vec<crate::domain::resources::ResourceId>,
+    #[serde(default)]
     pub export_file: Option<PathBuf>,
     #[serde(default)]
     pub import_file: Option<PathBuf>,
@@ -75,8 +79,42 @@ impl Config {
             .iter()
             .chain(&self.exclude)
             .chain(&self.ownership_roots)
+            .chain(&self.selected_paths)
         {
             self.logical(path)?;
+        }
+        for resource in &self.selected_resources {
+            resource.validate()?;
+            ensure!(
+                resource.host == self.host,
+                "selected resource belongs to another host"
+            );
+            ensure!(
+                resource.collection == "default"
+                    || self.mounts.iter().any(|m| m.name == resource.collection),
+                "unknown resource collection"
+            );
+            match &resource.subject {
+                crate::domain::resources::ResourceSubject::Path { key } => ensure!(
+                    self.path_owner(&self.path_for_key(key)?) == resource.collection,
+                    "selected path belongs to another collection"
+                ),
+                crate::domain::resources::ResourceSubject::Package { .. } => {
+                    ensure!(
+                        self.check_packages,
+                        "package selection requires check_packages"
+                    );
+                    let owner = self
+                        .mounts
+                        .iter()
+                        .find(|m| m.packages)
+                        .map_or("default", |m| &m.name);
+                    ensure!(
+                        owner == resource.collection,
+                        "package inventory belongs to another collection"
+                    );
+                }
+            }
         }
         Ok(())
     }
