@@ -133,6 +133,9 @@ pub enum RecoveryDescription {
     File {
         node: Node,
     },
+    GitProject {
+        node: Node,
+    },
     Deletion {},
     Package {
         observed: Package,
@@ -155,6 +158,10 @@ impl Resource {
         match (&self.reference.subject, &self.recovery) {
             (ResourceSubject::Path { .. }, RecoveryDescription::File { node }) => {
                 node.validate()?
+            }
+            (ResourceSubject::Path { .. }, RecoveryDescription::GitProject { node }) => {
+                ensure!(node.project.is_some(), "missing Git recovery description");
+                node.validate()?;
             }
             (ResourceSubject::Path { key }, RecoveryDescription::Deletion {}) => {
                 ensure!(

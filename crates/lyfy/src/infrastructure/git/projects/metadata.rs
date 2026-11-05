@@ -50,7 +50,7 @@ pub fn copy(source: &Path, target: &Path) -> Result<()> {
             source,
             &["config", "--bool", "--get", "core.sparsecheckout"]
         )
-        .is_err(),
+        .map_or(true, |v| v != "true"),
         "sparse Git checkouts require explicit layout migration"
     );
     let root = Root::open(Path::new("/"))?;

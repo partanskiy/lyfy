@@ -87,7 +87,11 @@ impl ResourceGraph {
             }
             resources.push(Resource {
                 reference: path_reference(key),
-                recovery: RecoveryDescription::File { node: node.clone() },
+                recovery: if node.project.is_some() {
+                    RecoveryDescription::GitProject { node: node.clone() }
+                } else {
+                    RecoveryDescription::File { node: node.clone() }
+                },
                 guarantee: RecoveryGuarantee::Recorded,
                 dependencies: dependencies.into_iter().collect(),
             });
