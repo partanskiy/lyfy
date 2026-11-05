@@ -43,6 +43,7 @@ pub fn observe(
                 root.attributes(path)?
             },
             hardlink: None,
+            package_baseline: None,
         },
         bytes,
     )))

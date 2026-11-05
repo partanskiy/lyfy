@@ -126,6 +126,9 @@ pub fn save_diff(before: &Tree, after: &Tree) -> Vec<SavedChange> {
                 if old.hardlink != new.hardlink {
                     fields.push("hardlink");
                 }
+                if old.package_baseline != new.package_baseline {
+                    fields.push("package_baseline");
+                }
             }
             Some(SavedChange {
                 key: key.clone(),

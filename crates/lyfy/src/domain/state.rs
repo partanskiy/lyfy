@@ -79,11 +79,14 @@ pub struct Node {
     pub attributes: BTreeMap<String, Vec<u8>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hardlink: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub package_baseline: Option<crate::domain::package_files::PackageBaseline>,
 }
 
 impl Node {
     pub fn materialized(&self) -> Self {
         let mut node = self.clone();
+        node.package_baseline = None;
         if let Content::PackageFile { sha256, .. } = &self.content {
             node.content = Content::File {
                 sha256: sha256.clone(),
@@ -95,6 +98,22 @@ impl Node {
         matches!(self.content, Content::Directory)
     }
     pub fn validate(&self) -> Result<()> {
+        if let Some(baseline) = &self.package_baseline {
+            baseline.validate()?;
+            ensure!(
+                matches!(
+                    self.content,
+                    Content::File { .. } | Content::PackageFile { .. }
+                ),
+                "package baseline requires a regular file"
+            );
+            if let Content::PackageFile { package, sha256 } = &self.content {
+                ensure!(
+                    package == &baseline.package && sha256 == &baseline.sha256,
+                    "package content and baseline disagree"
+                );
+            }
+        }
         ensure!(self.mode <= 0o7777, "invalid Unix permission bits");
         for (name, value) in &self.attributes {
             ensure!(
@@ -132,7 +151,10 @@ impl Node {
 
 pub fn extended_state(tree: &Tree) -> bool {
     tree.iter().any(|(key, node)| {
-        key == "system/" || key == "home/" || matches!(node.content, Content::PackageFile { .. })
+        key == "system/"
+            || key == "home/"
+            || node.package_baseline.is_some()
+            || matches!(node.content, Content::PackageFile { .. })
     })
 }
 

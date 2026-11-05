@@ -12,6 +12,7 @@ fn snapshot() -> (SnapshotReference, SnapshotState) {
         snapshot: "1".repeat(64),
     };
     let node = Node {
+        package_baseline: None,
         content: Content::File {
             sha256: "a".repeat(64),
         },
