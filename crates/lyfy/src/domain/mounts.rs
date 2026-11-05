@@ -11,7 +11,23 @@ pub struct MountIdentity {
 }
 
 impl MountIdentity {
+    pub fn equivalent(&self, other: &Self) -> bool {
+        if self.volume.starts_with("marker:") {
+            self.volume == other.volume
+        } else if self.volume.starts_with("uuid:") {
+            self.volume == other.volume && self.root == other.root
+        } else {
+            self == other
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
+        if let Some(value) = self.volume.strip_prefix("marker:") {
+            ensure!(
+                crate::domain::config::is_digest(value),
+                "invalid volume marker hash"
+            );
+        }
         ensure!(
             !self.volume.is_empty() && !self.volume.chars().any(char::is_control),
             "missing stable volume or mount-instance identity"
