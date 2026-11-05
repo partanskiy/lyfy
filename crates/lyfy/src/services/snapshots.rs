@@ -97,6 +97,18 @@ pub fn resources(
 pub fn baseline(context: &Context) -> Result<Baseline> {
     let config = &context.config;
     let store = &context.repository;
+    let unbased = config
+        .mounts
+        .iter()
+        .any(|m| config.include == vec![m.path.clone()] && m.base_host.as_deref() == Some(""));
+    if unbased && store.has_head(&config.host)? {
+        ensure_unbased(
+            store
+                .load(&config.host, &store.head(&config.host)?)?
+                .base
+                .is_none(),
+        )?;
+    }
     let selected = config
         .base_host
         .as_ref()
@@ -255,4 +267,12 @@ pub fn commit(
         exported: None,
         replicas: vec![],
     })
+}
+
+fn ensure_unbased(unbased: bool) -> Result<()> {
+    anyhow::ensure!(
+        unbased,
+        "detaching an accepted base requires an explicit migration into a new collection"
+    );
+    Ok(())
 }

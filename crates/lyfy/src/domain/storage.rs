@@ -84,6 +84,8 @@ pub struct Mount {
     #[serde(default)]
     pub system: bool,
     #[serde(default)]
+    pub base_host: Option<String>,
+    #[serde(default)]
     pub exclude: Vec<String>,
     #[serde(default)]
     pub max_file_bytes: Option<u64>,
@@ -183,6 +185,15 @@ pub fn validate(config: &Config) -> Result<()> {
     let mut names = BTreeSet::new();
     let mut roots = BTreeSet::new();
     for mount in &config.mounts {
+        if let Some(host) = &mount.base_host
+            && !host.is_empty()
+        {
+            identifier(host)?;
+            ensure!(
+                host != &config.host,
+                "mount base host must differ from host"
+            );
+        }
         if let Some(policy) = &mount.external {
             if let Some(path) = &policy.identity_file {
                 crate::domain::acquisition::relative(path)?;
