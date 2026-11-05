@@ -14,6 +14,7 @@ impl ResourceGraph {
         self.source.validate()?;
         let mut resources = BTreeMap::new();
         let mut identities = BTreeSet::new();
+        let mut subjects = BTreeSet::new();
         for resource in &self.resources {
             resource.validate()?;
             ensure!(
@@ -23,6 +24,10 @@ impl ResourceGraph {
             ensure!(
                 identities.insert(resource.reference.identity()),
                 "multiple versions of one logical resource"
+            );
+            ensure!(
+                subjects.insert((&resource.reference.source.host, &resource.reference.subject)),
+                "multiple collections own the same host resource"
             );
             ensure!(
                 self.diagnostics.is_empty() || resource.guarantee == RecoveryGuarantee::Recorded,
