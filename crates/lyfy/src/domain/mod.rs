@@ -5,6 +5,7 @@ pub(crate) mod common_state;
 pub mod config;
 pub mod diagnostics;
 pub mod identities;
+pub(crate) mod mounts;
 pub mod observation;
 pub mod package_files;
 pub mod packages;

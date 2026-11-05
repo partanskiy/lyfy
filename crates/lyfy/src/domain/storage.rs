@@ -53,6 +53,8 @@ pub struct Mount {
     #[serde(default)]
     pub git_project: bool,
     #[serde(default)]
+    pub external: Option<crate::domain::mounts::ExternalPolicy>,
+    #[serde(default)]
     pub history: History,
     #[serde(default)]
     pub retain: usize,
@@ -129,6 +131,15 @@ pub fn validate(config: &Config) -> Result<()> {
     let mut names = BTreeSet::new();
     let mut roots = BTreeSet::new();
     for mount in &config.mounts {
+        if let Some(policy) = &mount.external {
+            ensure!(
+                !mount.git_project,
+                "external and Git boundaries require separate nested scopes"
+            );
+            if let Some(identity) = &policy.expected {
+                identity.validate()?;
+            }
+        }
         ensure!(
             mount.history != History::CurrentOnly || mount.retain == 0,
             "retain is only valid with retained history"

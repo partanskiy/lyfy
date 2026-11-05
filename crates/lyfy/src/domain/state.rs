@@ -88,6 +88,8 @@ pub struct Node {
     pub package_baseline: Option<Box<crate::domain::package_files::PackageBaseline>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project: Option<Box<crate::domain::projects::GitProject>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mount: Option<Box<crate::domain::mounts::ExternalMount>>,
 }
 
 impl Node {
@@ -104,6 +106,7 @@ impl Node {
         let mut node = self.clone();
         node.package_baseline = None;
         node.project = None;
+        node.mount = None;
         if let Content::PackageFile { sha256, .. } = &self.content {
             node.content = Content::File {
                 sha256: sha256.clone(),
@@ -115,6 +118,13 @@ impl Node {
         matches!(self.content, Content::Directory)
     }
     pub fn validate(&self) -> Result<()> {
+        if let Some(mount) = &self.mount {
+            ensure!(
+                self.directory(),
+                "external mount boundary must be a directory"
+            );
+            mount.identity.validate()?;
+        }
         if let Some(project) = &self.project {
             ensure!(self.directory(), "Git project boundary must be a directory");
             project.validate()?;
@@ -182,7 +192,7 @@ pub fn extended_state(tree: &Tree) -> bool {
 
 pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
     ensure!(
-        [1, 2, 3, 4, 5, 6].contains(&schema),
+        [1, 2, 3, 4, 5, 6, 7].contains(&schema),
         "unsupported snapshot schema"
     );
     ensure!(
@@ -190,6 +200,10 @@ pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
         "extended state requires schema 3"
     );
     for (key, node) in tree {
+        ensure!(
+            node.mount.is_none() || schema >= 7,
+            "external mounts require schema 7"
+        );
         ensure!(
             node.project.is_none() || schema >= 6,
             "Git projects require schema 6"
