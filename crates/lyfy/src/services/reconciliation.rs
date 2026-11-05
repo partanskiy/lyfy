@@ -326,6 +326,15 @@ pub fn build(context: &Context) -> Result<Plan> {
         external_mounts,
         packages: package_plan,
         identity_actions: identity_plan.actions,
+        coverage: if config.selection_active() {
+            vec![]
+        } else {
+            snapshot
+                .system_state
+                .as_ref()
+                .map(|s| s.coverage.clone())
+                .unwrap_or_default()
+        },
         receipt,
         desired,
         package_desired,

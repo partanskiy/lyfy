@@ -261,6 +261,10 @@ pub fn commit(
             .count(),
         packages_changed,
         files,
+        coverage: snapshot
+            .system_state
+            .map(|s| s.coverage)
+            .unwrap_or_default(),
         complete: diagnostics.is_empty(),
         diagnostics,
         mounts: vec![],
