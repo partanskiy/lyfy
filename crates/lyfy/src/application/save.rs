@@ -93,7 +93,14 @@ fn capture_and_publish(
         "publishing snapshot"
     }));
     let entries = current.len();
-    let publication = snapshots::prepare(context, base, current, captured.deletions, inventory)?;
+    let publication = snapshots::prepare(
+        context,
+        base,
+        current,
+        captured.deletions,
+        inventory,
+        captured.system_state,
+    )?;
     let mut result =
         snapshots::commit(context, publication, entries, dry_run, captured.diagnostics)?;
     archives::export(context, &mut result);

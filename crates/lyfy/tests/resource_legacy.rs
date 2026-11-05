@@ -26,6 +26,7 @@ fn snapshot() -> (SnapshotReference, SnapshotState) {
     let mut link = node.clone();
     link.hardlink = Some("home/data/a".into());
     let state = SnapshotState {
+        system_state: None,
         schema: 1,
         system: "arch".into(),
         host: "laptop".into(),

@@ -41,6 +41,7 @@ pub fn view_at(context: &Context, id: &str) -> Result<crate::domain::state::Snap
         }
     }
     Ok(crate::domain::state::SnapshotState {
+        system_state: snapshot.system_state.clone(),
         schema: if !snapshot.package_inventory
             && !tree
                 .values()
@@ -148,6 +149,7 @@ pub fn commit(
 ) -> Result<Saved> {
     let config = &context.config;
     let intent::Publication {
+        system_state,
         base,
         changes,
         captured,
@@ -155,6 +157,7 @@ pub fn commit(
     } = publication;
     let packages = captured.packages;
     let snapshot = Snapshot {
+        system_state,
         schema: if changes.values().flatten().any(|n| n.mount.is_some()) {
             7
         } else if changes.values().flatten().any(|n| n.project.is_some()) {
