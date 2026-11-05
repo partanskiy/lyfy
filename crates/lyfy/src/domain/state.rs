@@ -16,6 +16,8 @@ pub struct SnapshotState {
     #[serde(default)]
     pub created_ns: u128,
     pub tree: Tree,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_state: Option<crate::domain::system_state::SystemState>,
     pub deletions: std::collections::BTreeSet<String>,
     pub packages: Option<Vec<crate::domain::packages::Package>>,
     #[serde(
@@ -291,6 +293,8 @@ pub struct Snapshot {
     pub base: Option<Reference>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub observed: Option<crate::domain::common_state::Observations>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_state: Option<crate::domain::system_state::SystemState>,
     // None is an explicit deletion relative to the pinned base.
     pub changes: BTreeMap<String, Option<Node>>,
     pub packages: Option<Vec<crate::domain::packages::Package>>,
@@ -316,6 +320,10 @@ pub struct ReplicaSource {
 
 impl Snapshot {
     pub fn validate_encoding(&self) -> Result<()> {
+        if let Some(system) = &self.system_state {
+            ensure!(self.schema >= 8, "system resources require schema 8");
+            system.validate()?;
+        }
         ensure!(
             self.observed.is_none() || self.schema >= 5,
             "observations require schema 5"
@@ -353,6 +361,7 @@ impl Snapshot {
             && self.host == other.host
             && self.base == other.base
             && self.observed == other.observed
+            && self.system_state == other.system_state
             && self.changes == other.changes
             && self.packages == other.packages
             && self.package_inventory == other.package_inventory

@@ -94,6 +94,7 @@ pub fn capture_channel(
         }
     }
     let state = SnapshotState {
+        system_state: None,
         schema: if package_inventory
             || tree
                 .values()

@@ -31,6 +31,7 @@ fn context(
     fs::write(local.join("ALPM_DB_VERSION"), "9\n").unwrap();
     let path = temp.join("source.lyfy");
     let state = SnapshotState {
+        system_state: None,
         schema: 3,
         system: "arch".into(),
         host: config.host.clone(),

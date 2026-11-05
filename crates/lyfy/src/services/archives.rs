@@ -93,6 +93,7 @@ pub fn capture(context: &Context, persist: bool) -> Result<Captured> {
     );
     let inventory = catalog.is_none() || state.package_inventory && context.config.check_packages;
     let mut captured = Captured {
+        system_state: state.system_state,
         diagnostics: state.diagnostics,
         inventory: Some(crate::domain::packages::PackageCapture {
             packages: catalog,
@@ -148,6 +149,7 @@ pub fn apply_source(mut context: Context) -> Result<Context> {
         changes.insert(key, None);
     }
     store.save(&Snapshot {
+        system_state: state.system_state,
         observed: None,
         replica_source: None,
         schema: crate::domain::acquisition::content::stored_from_portable(state.schema),

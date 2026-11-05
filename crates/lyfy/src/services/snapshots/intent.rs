@@ -9,6 +9,7 @@ use anyhow::{Result, ensure};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub struct Publication {
+    pub system_state: Option<crate::domain::system_state::SystemState>,
     pub base: Option<Reference>,
     pub changes: BTreeMap<String, Option<Node>>,
     pub captured: PackageCapture,
@@ -29,6 +30,7 @@ pub fn prepare(
     current: Tree,
     mut deleted: BTreeSet<String>,
     mut captured: PackageCapture,
+    system_state: Option<crate::domain::system_state::SystemState>,
 ) -> Result<Publication> {
     let store = &context.repository;
     let config = &context.config;
@@ -127,6 +129,7 @@ pub fn prepare(
         }
     }
     Ok(Publication {
+        system_state,
         base: base.reference,
         changes,
         captured,

@@ -12,6 +12,7 @@ mod package_files;
 
 pub struct Captured {
     pub tree: Tree,
+    pub system_state: Option<crate::domain::system_state::SystemState>,
     pub diagnostics: Vec<CaptureDiagnostic>,
     pub inventory: Option<crate::domain::packages::PackageCapture>,
     pub deletions: std::collections::BTreeSet<String>,
@@ -40,6 +41,7 @@ pub fn scan(
     let mut omitted = std::collections::BTreeSet::new();
     let mut captured = Captured {
         tree: Tree::new(),
+        system_state: None,
         diagnostics: vec![],
         inventory: None,
         deletions: Default::default(),

@@ -262,6 +262,7 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         })
         .collect();
     Ok(SnapshotState {
+        system_state: snapshot.system_state,
         schema: if package_inventory
             || tree
                 .values()
