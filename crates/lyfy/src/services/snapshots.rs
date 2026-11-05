@@ -1,16 +1,18 @@
 use crate::Context;
 use crate::domain::{
-    packages::PackageCapture,
     results::{CaptureDiagnostic, SaveChangeKind, Saved, save_diff},
-    state::{Node, Reference, Snapshot, Tree},
+    state::{Reference, Snapshot, Tree},
 };
 use crate::infrastructure::store::timestamp;
 use anyhow::{Context as _, Result};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
+mod intent;
+pub use intent::prepare;
 
 pub struct Baseline {
     pub reference: Option<Reference>,
     pub tree: Tree,
+    pub packages: Option<Vec<crate::domain::packages::Package>>,
 }
 
 pub fn view(context: &Context) -> Result<crate::domain::state::SnapshotState> {
@@ -101,12 +103,16 @@ pub fn baseline(context: &Context) -> Result<Baseline> {
             })
         })
         .transpose()?;
-    let tree = reference
+    let state = reference
         .as_ref()
-        .map(|r| store.effective(&r.host, &r.id).map(|(_, t)| t))
-        .transpose()?
-        .unwrap_or_default();
-    Ok(Baseline { reference, tree })
+        .map(|r| store.effective(&r.host, &r.id))
+        .transpose()?;
+    let (tree, packages) = state.map(|(s, t)| (t, s.packages)).unwrap_or_default();
+    Ok(Baseline {
+        reference,
+        tree,
+        packages,
+    })
 }
 
 pub fn previous_keys(context: &Context) -> Result<BTreeSet<String>> {
@@ -124,18 +130,23 @@ pub fn previous_keys(context: &Context) -> Result<BTreeSet<String>> {
 
 pub fn commit(
     context: &Context,
-    base: Option<Reference>,
-    changes: BTreeMap<String, Option<Node>>,
-    captured: PackageCapture,
+    publication: intent::Publication,
     entries: usize,
     dry_run: bool,
     diagnostics: Vec<CaptureDiagnostic>,
 ) -> Result<Saved> {
     let config = &context.config;
+    let intent::Publication {
+        base,
+        changes,
+        captured,
+        observed,
+    } = publication;
     let packages = captured.packages;
     let snapshot = Snapshot {
-        observed: None,
-        schema: if !captured.inventory
+        schema: if observed.is_some() {
+            5
+        } else if !captured.inventory
             || packages
                 .as_ref()
                 .is_some_and(|p| p.iter().any(|p| p.origin.is_some()))
@@ -161,6 +172,7 @@ pub fn commit(
         host: config.host.clone(),
         created_ns: timestamp(),
         base,
+        observed,
         changes,
         packages,
         package_inventory: captured.inventory,

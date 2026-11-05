@@ -3,7 +3,6 @@ use crate::domain::observation::Observation;
 use crate::domain::results::{CaptureDiagnostic, MountedSave, Saved};
 use crate::services::{archives, capture, packages, replicas, routing, session, snapshots};
 use anyhow::{Result, ensure};
-use std::collections::BTreeMap;
 
 pub(crate) fn run(
     context: &Context,
@@ -74,26 +73,12 @@ fn capture_and_publish(
         "save always creates a new immutable snapshot"
     );
     let base = snapshots::baseline(context)?;
-    let mut previous = snapshots::previous_keys(context)?;
     let captured = if config.import_file.is_some() || context.capture_source.is_some() {
         archives::capture(context, !dry_run)?
     } else {
         capture::scan(context, !dry_run, observer)?
     };
     let current = captured.tree;
-    previous.extend(captured.deletions);
-    let mut changes = BTreeMap::new();
-    for (key, node) in &current {
-        if base.tree.get(key) != Some(node) {
-            changes.insert(key.clone(), Some(node.clone()));
-        }
-    }
-    previous.extend(base.tree.into_keys());
-    for key in previous {
-        if config.managed(&config.path_for_key(&key)?) && !current.contains_key(&key) {
-            changes.insert(key, None);
-        }
-    }
     observer(Observation::SaveStage("capturing package inventory"));
     let inventory = match captured.inventory {
         Some(inventory) => inventory,
@@ -107,15 +92,10 @@ fn capture_and_publish(
     } else {
         "publishing snapshot"
     }));
-    let mut result = snapshots::commit(
-        context,
-        base.reference,
-        changes,
-        inventory,
-        current.len(),
-        dry_run,
-        captured.diagnostics,
-    )?;
+    let entries = current.len();
+    let publication = snapshots::prepare(context, base, current, captured.deletions, inventory)?;
+    let mut result =
+        snapshots::commit(context, publication, entries, dry_run, captured.diagnostics)?;
     archives::export(context, &mut result);
     observer(Observation::SaveStage("replicating committed snapshot"));
     replicas::publish(context, &mut result);
