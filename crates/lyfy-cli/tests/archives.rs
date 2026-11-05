@@ -103,3 +103,38 @@ fn preview_does_not_create_an_export_and_existing_exports_are_preserved() {
     assert_eq!(fs::read_to_string(path).unwrap(), "existing export");
     assert!(!f.data.exists());
 }
+
+#[test]
+fn a_narrow_archive_does_not_turn_unmentioned_receipts_into_deletions() {
+    let f = Fixture::new();
+    f.ok(&["save"]);
+    f.ok(&["apply", "--write"]);
+    let archive = f.temp.path().join("curated.lyfy");
+    f.ok(&[
+        "save",
+        "--host",
+        "curated",
+        "--include",
+        "/etc/example.conf",
+        "--export_file",
+        archive.to_str().unwrap(),
+    ]);
+    f.write("etc/example.conf", "changed selected file\n");
+    f.write("home/test/.config/app.conf", "unmentioned local data\n");
+    f.ok(&[
+        "apply",
+        "--import_file",
+        archive.to_str().unwrap(),
+        "--prune",
+        "true",
+        "--overwrite",
+        "true",
+        "--write",
+    ]);
+    assert_eq!(f.read("etc/example.conf"), "common\n");
+    assert_eq!(
+        f.read("home/test/.config/app.conf"),
+        "unmentioned local data\n"
+    );
+    assert!(f.root.join("etc/os-release").exists());
+}
