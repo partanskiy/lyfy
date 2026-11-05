@@ -167,6 +167,29 @@ impl Root {
         Ok(())
     }
 
+    pub fn set_file_metadata(
+        &self,
+        path: &Path,
+        mode: u32,
+        owner: Option<(u32, u32)>,
+    ) -> Result<()> {
+        let file = self.open_content(path)?;
+        if let Some((uid, gid)) = owner {
+            // SAFETY: the descriptor names the checked regular file.
+            ensure!(
+                unsafe { libc::fchown(file.as_raw_fd(), uid, gid) } == 0,
+                "set file owner"
+            );
+        }
+        // SAFETY: valid held regular-file descriptor.
+        ensure!(
+            unsafe { libc::fchmod(file.as_raw_fd(), mode) } == 0,
+            "set file mode"
+        );
+        file.sync_all()?;
+        Ok(())
+    }
+
     pub fn remove(&self, path: &Path, directory: bool) -> Result<()> {
         let (dir, leaf) = self.parent(path, false)?;
         let flags = if directory { libc::AT_REMOVEDIR } else { 0 };

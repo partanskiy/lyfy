@@ -108,6 +108,13 @@ impl Root {
         Ok((dir, leaf))
     }
 
+    pub fn anchored(&self, path: &Path) -> Result<(File, std::path::PathBuf)> {
+        let (parent, _) = self.parent(path, false)?;
+        let path = Path::new(&format!("/proc/self/fd/{}", parent.as_raw_fd()))
+            .join(path.file_name().context("missing anchored leaf")?);
+        Ok((parent, path))
+    }
+
     pub fn metadata(&self, path: &Path) -> Result<Option<libc::stat>> {
         if path == Path::new("/") || self.boundaries.contains_key(path) {
             let directory = self
