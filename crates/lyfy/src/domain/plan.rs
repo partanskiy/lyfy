@@ -21,6 +21,8 @@ pub struct Guard {
 pub struct Plan {
     pub host: String,
     pub snapshot: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_archive: Option<String>,
     pub changes: Vec<Change>,
     pub guards: Vec<Guard>,
     pub dependencies: Vec<RequiredDependency>,

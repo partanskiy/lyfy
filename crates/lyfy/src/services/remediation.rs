@@ -50,6 +50,7 @@ pub fn plan(config: &Config, report: &Report) -> Result<Plan> {
     Ok(Plan {
         host: config.host.clone(),
         snapshot: "fmt".into(),
+        source_archive: None,
         changes,
         guards,
         dependencies: vec![],

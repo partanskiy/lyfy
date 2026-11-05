@@ -10,6 +10,8 @@ pub struct Context {
     pub(crate) access: crate::domain::access::Access,
     pub(crate) capture_source: Option<std::path::PathBuf>,
     pub(crate) restore_sources: std::collections::BTreeMap<String, std::path::PathBuf>,
+    pub(crate) restore_hashes: std::collections::BTreeMap<String, String>,
+    pub(crate) restore_hash: Option<String>,
     pub(crate) restore_receipts: std::collections::BTreeMap<String, crate::domain::plan::Receipt>,
     pub(crate) source_snapshot: Option<String>,
     pub(crate) package_baselines: bool,
@@ -53,6 +55,8 @@ impl Context {
             access: Default::default(),
             capture_source: None,
             restore_sources: Default::default(),
+            restore_hashes: Default::default(),
+            restore_hash: None,
             restore_receipts: Default::default(),
             source_snapshot: None,
             package_baselines: config.check_packages,
@@ -101,6 +105,29 @@ impl Context {
         directory: &std::path::Path,
     ) -> Result<std::collections::BTreeMap<String, std::path::PathBuf>> {
         crate::services::archives::export_apply(self, directory)
+    }
+
+    pub fn seal_restore_sources(
+        &self,
+        sources: &std::collections::BTreeMap<String, std::path::PathBuf>,
+    ) -> Result<std::collections::BTreeMap<String, String>> {
+        crate::services::archives::seal_restore_sources(self, sources)
+    }
+
+    pub fn with_restore_source_hashes(
+        mut self,
+        hashes: std::collections::BTreeMap<String, String>,
+    ) -> Result<Self> {
+        anyhow::ensure!(
+            hashes.len() == self.restore_sources.len()
+                && hashes
+                    .iter()
+                    .all(|(name, hash)| self.restore_sources.contains_key(name)
+                        && crate::domain::config::is_digest(hash)),
+            "source hashes must match the selected archives"
+        );
+        self.restore_hashes = hashes;
+        Ok(self)
     }
 
     pub fn prepare_packages(

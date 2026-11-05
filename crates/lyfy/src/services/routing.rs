@@ -75,6 +75,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
                 fallback.package_baselines = context.package_baselines;
                 fallback.package_artifacts = context.package_artifacts.clone();
                 fallback.restore_sources = context.restore_sources.clone();
+                fallback.restore_hash = context.restore_hashes.get("default").cloned();
                 fallback.restore_receipts = context
                     .restore_receipts
                     .iter()
@@ -189,6 +190,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
         scoped_context.package_baselines = context.package_baselines;
         scoped_context.package_artifacts = context.package_artifacts.clone();
         scoped_context.restore_sources = context.restore_sources.clone();
+        scoped_context.restore_hash = context.restore_hashes.get(&mount.name).cloned();
         scoped_context.restore_receipts = context
             .restore_receipts
             .iter()

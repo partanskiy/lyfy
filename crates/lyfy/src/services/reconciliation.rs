@@ -255,6 +255,7 @@ pub fn build(context: &Context) -> Result<Plan> {
     Ok(Plan {
         host: config.host.clone(),
         snapshot: context.source_snapshot.clone().unwrap_or(id),
+        source_archive: context.restore_hash.clone(),
         changes,
         guards,
         dependencies,

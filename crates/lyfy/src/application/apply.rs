@@ -11,6 +11,7 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
         plan: Plan {
             host: context.config.host.clone(),
             snapshot: context.config.snapshot.clone(),
+            source_archive: None,
             changes: vec![],
             guards: vec![],
             dependencies: vec![],
