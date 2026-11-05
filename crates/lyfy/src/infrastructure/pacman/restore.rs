@@ -65,6 +65,7 @@ pub fn run(config: &Config, desired: &[Package]) -> Result<()> {
 fn execute(args: &[String]) -> Result<()> {
     let status = Command::new("/usr/bin/pacman")
         .args(args)
+        .stdout(std::process::Stdio::from(std::io::stderr()))
         .env("LC_ALL", "C")
         .status()?;
     ensure!(
