@@ -23,6 +23,9 @@ pub fn preflight(context: &AppContext, plan: &Plan) -> Result<()> {
             root.check_mutable(parent)?;
         }
         if let Some(node) = &change.after {
+            if node.generated.is_some() {
+                crate::infrastructure::generated::preflight(&config.root)?;
+            }
             root.probe_metadata(
                 &path,
                 node,
@@ -174,7 +177,19 @@ fn execute(
                     }
                 }
                 Content::File { sha256 } => {
-                    if node.application.is_some() && change.before.is_some() {
+                    if let Some(producer) = node.generated {
+                        let mut generated =
+                            crate::infrastructure::generated::produce(&config.root, producer)?;
+                        ensure!(
+                            crate::infrastructure::filesystem::hash_file(
+                                &mut generated,
+                                config.max_file_bytes
+                            )? == *sha256,
+                            "target inputs do not reproduce the saved generated output"
+                        );
+                        root.put_file(&path, &mut generated, node.mode, owner)?;
+                        root.set_attributes(&path, &node.attributes)?;
+                    } else if node.application.is_some() && change.before.is_some() {
                         crate::infrastructure::sqlite::restore(
                             &root,
                             &path,

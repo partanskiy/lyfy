@@ -118,6 +118,7 @@ pub fn scan(
                 crate::services::applications::check_unclassified(config, &root, &path)?;
                 let (node, file) =
                     observe(config, &root, &path)?.context("file disappeared during save")?;
+                crate::services::generated::verify(context, &node)?;
                 let provided = package_files::candidate(
                     &package_files,
                     &root,

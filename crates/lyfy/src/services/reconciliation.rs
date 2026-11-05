@@ -203,6 +203,9 @@ pub fn build(context: &Context) -> Result<Plan> {
         live.insert(guard.key.clone(), guard.expected.clone());
     }
     crate::services::files::link_tree(config, &root, &mut live)?;
+    dependencies.extend(crate::services::generated::dependencies(
+        config, &desired, &live,
+    ));
     dependencies.extend(package_files::requirements(config, &desired, &live)?);
     dependencies.extend(crate::services::projects::dependencies(
         config, &available, &keys, &previous,
@@ -266,7 +269,9 @@ pub fn build(context: &Context) -> Result<Plan> {
     }
     changes.sort_by_key(|c| {
         let depth = c.key.matches('/').count();
-        let group = if c.after.as_ref().is_some_and(Node::directory) {
+        let group = if c.after.as_ref().is_some_and(|n| n.generated.is_some()) {
+            4
+        } else if c.after.as_ref().is_some_and(Node::directory) {
             0
         } else if c.after.as_ref().is_some_and(|n| n.hardlink.is_some()) {
             2
