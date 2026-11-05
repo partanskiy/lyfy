@@ -24,7 +24,7 @@ pub(crate) fn validate(graph: &ResourceGraph) -> Result<()> {
             RecoveryDescription::File { node } => {
                 files.tree.insert(key.clone(), node.clone());
             }
-            RecoveryDescription::Deletion => {
+            RecoveryDescription::Deletion {} => {
                 files.deleted.insert(key);
             }
             RecoveryDescription::Package { .. } => unreachable!("validated resource subject"),

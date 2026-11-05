@@ -126,7 +126,7 @@ fn schema_one_and_two_stores_keep_views_apply_and_archive_recovery() {
                 graph
                     .resources
                     .iter()
-                    .any(|r| matches!(r.recovery, RecoveryDescription::Deletion))
+                    .any(|r| matches!(r.recovery, RecoveryDescription::Deletion {}))
             );
             assert!(
                 graph

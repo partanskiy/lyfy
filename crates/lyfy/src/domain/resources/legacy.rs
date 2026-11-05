@@ -65,7 +65,7 @@ impl ResourceGraph {
         }
         resources.extend(state.deletions.iter().map(|key| Resource {
             reference: path_reference(key),
-            recovery: RecoveryDescription::Deletion,
+            recovery: RecoveryDescription::Deletion {},
             guarantee: RecoveryGuarantee::Recorded,
             dependencies: vec![],
         }));
@@ -75,7 +75,7 @@ impl ResourceGraph {
             }),
             recovery: RecoveryDescription::Package {
                 observed: package.clone(),
-                origin: PackageOrigin::Unknown,
+                origin: PackageOrigin::Unknown {},
             },
             guarantee: RecoveryGuarantee::Recorded,
             dependencies: vec![],
