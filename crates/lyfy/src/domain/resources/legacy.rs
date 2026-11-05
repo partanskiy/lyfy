@@ -18,6 +18,10 @@ impl ResourceGraph {
             "unsupported resolved snapshot state"
         );
         ensure!(
+            state.schema >= 2 || !crate::domain::state::extended_state(&state.tree),
+            "extended snapshot state requires schema 2"
+        );
+        ensure!(
             source.host == state.host && source.snapshot == state.source_snapshot,
             "resource source differs from snapshot state"
         );
