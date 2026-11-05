@@ -1,6 +1,6 @@
 use crate::Context;
 use crate::domain::{
-    common_state::{Observations, fingerprints, merge},
+    common_state::{Observations, file_fingerprints, fingerprints, merge, merge_files},
     packages::{Package, PackageCapture},
     state::{Node, Reference, Tree},
 };
@@ -41,7 +41,7 @@ pub fn prepare(
     if base.reference.is_some() {
         let current_packages = catalog(captured.packages.as_deref());
         observed = Some(Observations {
-            files: fingerprints(&current)?,
+            files: file_fingerprints(&current)?,
             packages: fingerprints(&current_packages)?,
         });
         if store.has_head(&config.host)? {
@@ -67,13 +67,13 @@ pub fn prepare(
             old_tree.retain(managed);
             let mut incoming = base.tree.clone();
             incoming.retain(managed);
-            let rebased = merge(&fingerprints(&old_tree)?, &host, &incoming)?;
+            let rebased = merge_files(&file_fingerprints(&old_tree)?, &host, &incoming, false)?;
             let old_observations = previous
                 .observed
                 .as_ref()
                 .map(|o| o.files.clone())
-                .unwrap_or(fingerprints(&host)?);
-            desired = merge(&old_observations, &rebased, &current)?;
+                .unwrap_or(file_fingerprints(&host)?);
+            desired = merge_files(&old_observations, &rebased, &current, true)?;
             if captured.inventory && captured.packages.is_some() {
                 let old = catalog(old_base.as_ref().and_then(|(s, _)| s.packages.as_deref()));
                 let host = catalog(previous.packages.as_deref());

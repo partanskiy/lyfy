@@ -26,8 +26,17 @@ pub fn merge<T: Clone + Serialize>(
     desired: &BTreeMap<String, T>,
     incoming: &BTreeMap<String, T>,
 ) -> Result<BTreeMap<String, T>> {
-    let left = fingerprints(desired)?;
-    let right = fingerprints(incoming)?;
+    merge_using(old, desired, incoming, fingerprints)
+}
+
+fn merge_using<T: Clone, F: Fn(&BTreeMap<String, T>) -> Result<BTreeMap<String, String>>>(
+    old: &BTreeMap<String, String>,
+    desired: &BTreeMap<String, T>,
+    incoming: &BTreeMap<String, T>,
+    fingerprint: F,
+) -> Result<BTreeMap<String, T>> {
+    let left = fingerprint(desired)?;
+    let right = fingerprint(incoming)?;
     let keys: BTreeSet<_> = old.keys().chain(left.keys()).chain(right.keys()).collect();
     let mut result = BTreeMap::new();
     let mut conflicts = vec![];
@@ -49,5 +58,35 @@ pub fn merge<T: Clone + Serialize>(
         "common/host reconciliation conflicts: {}",
         conflicts.join(", ")
     );
+    Ok(result)
+}
+
+/// mtimes remain local metadata; copying identical content on another machine
+/// must not turn every file into a conflicting common-state exception.
+pub fn file_fingerprints(tree: &crate::domain::state::Tree) -> Result<BTreeMap<String, String>> {
+    fingerprints(
+        &tree
+            .iter()
+            .map(|(k, n)| (k.clone(), n.without_timestamps()))
+            .collect(),
+    )
+}
+
+pub fn merge_files(
+    old: &BTreeMap<String, String>,
+    desired: &crate::domain::state::Tree,
+    incoming: &crate::domain::state::Tree,
+    observations: bool,
+) -> Result<crate::domain::state::Tree> {
+    let mut result = merge_using(old, desired, incoming, file_fingerprints)?;
+    if observations {
+        for (key, node) in &mut result {
+            if let Some(live) = incoming.get(key)
+                && live.without_timestamps() == node.without_timestamps()
+            {
+                node.mtime = live.mtime;
+            }
+        }
+    }
     Ok(result)
 }
