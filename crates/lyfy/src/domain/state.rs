@@ -201,7 +201,7 @@ pub fn extended_state(tree: &Tree) -> bool {
 
 pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
     ensure!(
-        [1, 2, 3, 4, 5, 6, 7].contains(&schema),
+        [1, 2, 3, 4, 5, 6, 7, 8].contains(&schema),
         "unsupported snapshot schema"
     );
     ensure!(

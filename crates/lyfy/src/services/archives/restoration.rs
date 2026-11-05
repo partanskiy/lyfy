@@ -262,16 +262,15 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         })
         .collect();
     Ok(SnapshotState {
-        system_state: snapshot.system_state,
-        schema: if package_inventory
-            || tree
-                .values()
-                .any(|n| n.project.is_some() || n.mount.is_some())
-        {
-            crate::domain::acquisition::content::portable_schema(&tree, packages.as_deref())
-        } else {
-            3
-        },
+        system_state: snapshot.system_state.clone(),
+        schema: crate::domain::acquisition::content::portable_schema(&tree, packages.as_deref())
+            .max(if snapshot.system_state.is_some() {
+                6
+            } else if package_inventory {
+                1
+            } else {
+                3
+            }),
         system: snapshot.system,
         host: config.host.clone(),
         source_snapshot: context.source_snapshot.clone().unwrap_or(id),

@@ -42,18 +42,17 @@ pub fn view_at(context: &Context, id: &str) -> Result<crate::domain::state::Snap
     }
     Ok(crate::domain::state::SnapshotState {
         system_state: snapshot.system_state.clone(),
-        schema: if !snapshot.package_inventory
-            && !tree
-                .values()
-                .any(|n| n.project.is_some() || n.mount.is_some())
-        {
+        schema: crate::domain::acquisition::content::portable_schema(
+            &tree,
+            snapshot.packages.as_deref(),
+        )
+        .max(if snapshot.system_state.is_some() {
+            6
+        } else if !snapshot.package_inventory {
             3
         } else {
-            crate::domain::acquisition::content::portable_schema(
-                &tree,
-                snapshot.packages.as_deref(),
-            )
-        },
+            1
+        }),
         system: snapshot.system,
         host: config.host.clone(),
         source_snapshot: id.into(),
@@ -156,36 +155,18 @@ pub fn commit(
         observed,
     } = publication;
     let packages = captured.packages;
+    let schema_tree = changes
+        .iter()
+        .filter_map(|(k, n)| n.clone().map(|n| (k.clone(), n)))
+        .collect();
+    let schema =
+        crate::domain::acquisition::content::stored_schema(&schema_tree, packages.as_deref())
+            .max(if system_state.is_some() { 8 } else { 2 })
+            .max(if observed.is_some() { 5 } else { 2 })
+            .max(if captured.inventory { 2 } else { 4 });
     let snapshot = Snapshot {
         system_state,
-        schema: if changes.values().flatten().any(|n| n.mount.is_some()) {
-            7
-        } else if changes.values().flatten().any(|n| n.project.is_some()) {
-            6
-        } else if observed.is_some() {
-            5
-        } else if !captured.inventory
-            || packages
-                .as_ref()
-                .is_some_and(|p| p.iter().any(|p| p.origin.is_some()))
-            || changes
-                .values()
-                .flatten()
-                .any(|n| n.package().is_some_and(|p| p.origin.is_some()))
-        {
-            4
-        } else if changes.iter().any(|(k, n)| {
-            k == "home/"
-                || k == "system/"
-                || n.as_ref().is_some_and(|n| {
-                    n.package_baseline.is_some()
-                        || matches!(n.content, crate::domain::state::Content::PackageFile { .. })
-                })
-        }) {
-            3
-        } else {
-            2
-        },
+        schema,
         system: "arch".into(),
         host: config.host.clone(),
         created_ns: timestamp(),
