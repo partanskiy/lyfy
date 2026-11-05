@@ -28,7 +28,10 @@ impl Disk {
         for component in &components[..components.len().saturating_sub(1)] {
             current.push('/');
             current.push_str(component);
-            self.mkdir(&current)?;
+            if !self.directories.borrow().contains(&current) {
+                self.mkdir(&current)?;
+                self.directories.borrow_mut().insert(current.clone());
+            }
         }
         Ok(())
     }

@@ -14,6 +14,7 @@ pub struct Disk {
     credentials: YandexCredentials,
     expected: RefCell<BTreeMap<String, Option<String>>>,
     writer: RefCell<Option<String>>,
+    directories: RefCell<std::collections::BTreeSet<String>>,
 }
 
 impl Disk {
@@ -52,6 +53,7 @@ impl Disk {
             credentials,
             expected: Default::default(),
             writer: Default::default(),
+            directories: Default::default(),
         })
     }
 
