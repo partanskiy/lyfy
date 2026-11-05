@@ -247,7 +247,7 @@ pub fn build(context: &Context) -> Result<Plan> {
     } else {
         None
     };
-    if config.selection_active()
+    if (config.selection_active() || !snapshot.package_inventory)
         && let Some(plan) = &mut package_plan
     {
         plan.extra_explicit.clear();

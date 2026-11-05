@@ -5,6 +5,26 @@ use crate::domain::{
 use anyhow::{Result, ensure};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub fn select_catalog(
+    tree: &Tree,
+    packages: Option<&[Package]>,
+    all: bool,
+) -> Option<Vec<Package>> {
+    let names: BTreeSet<_> = tree
+        .values()
+        .filter_map(|n| n.package().map(|p| &p.name))
+        .collect();
+    packages
+        .map(|packages| {
+            packages
+                .iter()
+                .filter(|p| all || names.contains(&p.name))
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .filter(|p| !p.is_empty())
+}
+
 fn observations<'a>(
     tree: &'a Tree,
     packages: Option<&'a [Package]>,

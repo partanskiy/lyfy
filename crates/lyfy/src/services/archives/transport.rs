@@ -21,6 +21,9 @@ pub fn capture_channel(
     let mut tree = Tree::new();
     let mut diagnostics = vec![];
     let mut inventory = None;
+    let mut complete_inventory = false;
+    let mut catalogs =
+        std::collections::BTreeMap::<String, crate::domain::packages::Package>::new();
     let mut deletions = std::collections::BTreeSet::new();
     for mut scope in routing::capture_scopes(context)? {
         if let Some(detail) = scope.error {
@@ -34,7 +37,10 @@ pub fn capture_channel(
         let captured = capture::scan(&scope.context, true, observer)?;
         for (hash, _) in crate::domain::acquisition::content::retained(
             &captured.tree,
-            captured.inventory.as_ref().and_then(|p| p.as_deref()),
+            captured
+                .inventory
+                .as_ref()
+                .and_then(|p| p.packages.as_deref()),
         )? {
             store.put_file(&hash, &mut scope.context.repository.object_file(&hash)?)?;
         }
@@ -49,13 +55,29 @@ pub fn capture_channel(
         }
         diagnostics.extend(captured.diagnostics);
         deletions.extend(captured.deletions);
-        if scope.context.config.check_packages {
-            inventory = match captured.inventory {
-                Some(inventory) => inventory,
-                None => packages::capture(&scope.context.config)?,
-            };
+        let observation = match captured.inventory {
+            Some(captured) => captured,
+            None => crate::domain::packages::PackageCapture {
+                packages: packages::capture(&scope.context.config)?,
+                inventory: scope.context.config.check_packages,
+            },
+        };
+        if observation.inventory && observation.packages.is_some() {
+            complete_inventory = true;
+        }
+        for package in observation.packages.into_iter().flatten() {
+            if let Some(previous) = catalogs.insert(package.name.clone(), package.clone()) {
+                ensure!(
+                    previous == package,
+                    "capture scopes observed incompatible package sources"
+                );
+            }
         }
     }
+    if !catalogs.is_empty() {
+        inventory = Some(catalogs.into_values().collect());
+    }
+    let package_inventory = complete_inventory || inventory.is_none();
     let mut result = Saved::empty(&context.config.host, false);
     result.entries = tree.len();
     result.complete = diagnostics.is_empty();
@@ -72,7 +94,11 @@ pub fn capture_channel(
         }
     }
     let state = SnapshotState {
-        schema: crate::domain::acquisition::content::portable_schema(&tree, inventory.as_deref()),
+        schema: if package_inventory {
+            crate::domain::acquisition::content::portable_schema(&tree, inventory.as_deref())
+        } else {
+            3
+        },
         system: "arch".into(),
         host: context.config.host.clone(),
         source_snapshot: "capture".into(),
@@ -80,7 +106,7 @@ pub fn capture_channel(
         tree,
         deletions,
         packages: inventory,
-        package_inventory: true,
+        package_inventory,
         diagnostics,
         sizes,
     };

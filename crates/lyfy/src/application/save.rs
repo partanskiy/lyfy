@@ -97,7 +97,10 @@ fn capture_and_publish(
     observer(Observation::SaveStage("capturing package inventory"));
     let inventory = match captured.inventory {
         Some(inventory) => inventory,
-        None => packages::capture(config)?,
+        None => crate::domain::packages::PackageCapture {
+            packages: packages::capture(config)?,
+            inventory: true,
+        },
     };
     observer(Observation::SaveStage(if dry_run {
         "comparing snapshots"

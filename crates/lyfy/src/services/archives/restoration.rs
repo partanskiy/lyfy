@@ -207,14 +207,22 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         .into_iter()
         .filter(|(key, _)| keys.contains(key))
         .collect();
-    let packages: Option<Vec<_>> = snapshot
-        .packages
-        .filter(|_| config.check_packages && config.packages_selected())
-        .map(|p| {
-            p.into_iter()
-                .filter(|p| config.package_selected(&p.name))
-                .collect()
+    let mut packages = crate::domain::acquisition::content::select_catalog(
+        &tree,
+        snapshot.packages.as_deref(),
+        config.check_packages && config.packages_selected(),
+    );
+    if let Some(packages) = &mut packages {
+        packages.retain(|p| {
+            config.package_selected(&p.name)
+                || tree
+                    .values()
+                    .any(|n| n.package().is_some_and(|node| node.name == p.name))
         });
+    }
+    let package_inventory =
+        snapshot.package_inventory && config.check_packages && config.packages_selected()
+            || packages.is_none();
     let mut sizes = crate::domain::acquisition::content::retained(&tree, packages.as_deref())?;
     for node in tree.values() {
         if let Content::File { sha256 } = &node.content
@@ -237,7 +245,11 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         })
         .collect();
     Ok(SnapshotState {
-        schema: crate::domain::acquisition::content::portable_schema(&tree, packages.as_deref()),
+        schema: if package_inventory {
+            crate::domain::acquisition::content::portable_schema(&tree, packages.as_deref())
+        } else {
+            3
+        },
         system: snapshot.system,
         host: config.host.clone(),
         source_snapshot: context.source_snapshot.clone().unwrap_or(id),
@@ -245,7 +257,7 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         tree,
         deletions,
         packages,
-        package_inventory: snapshot.package_inventory,
+        package_inventory,
         diagnostics: vec![],
         sizes,
     })
