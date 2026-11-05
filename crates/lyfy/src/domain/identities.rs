@@ -22,6 +22,8 @@ impl IdentityMapping {
         ensure!(
             !self.target.is_empty()
                 && self.target.len() <= 255
+                && !self.target.starts_with('-')
+                && !self.target.contains(',')
                 && !self
                     .target
                     .chars()

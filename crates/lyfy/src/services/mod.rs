@@ -11,4 +11,5 @@ pub(crate) mod replicas;
 pub(crate) mod routing;
 pub(crate) mod session;
 pub(crate) mod snapshots;
+pub(crate) mod system;
 pub(crate) mod transactions;

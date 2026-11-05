@@ -54,6 +54,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
         fallback.check_packages = false;
         fallback.install_packages = false;
     }
+    fallback.check_system = config.check_system && !config.mounts.iter().any(|m| m.system);
     fallback
         .exclude
         .extend(roots.iter().map(|p| p.to_string_lossy().into_owned()));
@@ -73,6 +74,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
                 let mut fallback = Context::new(fallback)?.with_access(context.access.clone())?;
                 fallback.capture_source = context.capture_source.clone();
                 fallback.package_baselines = context.package_baselines;
+                fallback.system_baselines = context.system_baselines;
                 fallback.package_artifacts = context.package_artifacts.clone();
                 fallback.restore_sources = context.restore_sources.clone();
                 fallback.restore_hash = context.restore_hashes.get("default").cloned();
@@ -110,6 +112,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
                 .filter(|child| *child != root && child.starts_with(root))
                 .map(|p| p.to_string_lossy().into_owned()),
         );
+        scoped.check_system = config.check_system && mount.system;
         scoped.check_packages = config.check_packages && mount.packages;
         scoped.install_packages = config.install_packages && mount.packages;
         if apply && !config.packages_selected() {
@@ -219,6 +222,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
         }
         scoped_context.capture_source = context.capture_source.clone();
         scoped_context.package_baselines = context.package_baselines;
+        scoped_context.system_baselines = context.system_baselines;
         scoped_context.package_artifacts = context.package_artifacts.clone();
         scoped_context.restore_sources = context.restore_sources.clone();
         scoped_context.restore_hash = context.restore_hashes.get(&mount.name).cloned();
