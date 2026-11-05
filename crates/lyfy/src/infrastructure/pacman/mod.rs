@@ -1,7 +1,9 @@
 pub(crate) mod artifacts;
 mod audit;
 pub mod baselines;
+pub(crate) mod build;
 mod configuration;
+pub(crate) mod download;
 mod mtree;
 mod native;
 mod provenance;
