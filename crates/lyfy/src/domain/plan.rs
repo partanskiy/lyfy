@@ -26,6 +26,8 @@ pub struct Plan {
     pub changes: Vec<Change>,
     pub guards: Vec<Guard>,
     pub dependencies: Vec<RequiredDependency>,
+    #[serde(default)]
+    pub external_mounts: std::collections::BTreeMap<String, crate::domain::mounts::ExternalMount>,
     pub packages: Option<PackagePlan>,
     #[serde(skip)]
     pub desired: Tree,

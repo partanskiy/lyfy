@@ -162,6 +162,8 @@ pub fn build(context: &Context) -> Result<Plan> {
     dependencies.extend(crate::services::projects::dependencies(
         config, &available, &keys, &previous,
     )?);
+    let (external_mounts, required) = crate::services::external::plan(context, &available, &keys)?;
+    dependencies.extend(required);
     for key in keys {
         let path = config.path_for_key(&key)?;
         ensure!(config.key(&path)? == key, "noncanonical target namespace");
@@ -262,6 +264,7 @@ pub fn build(context: &Context) -> Result<Plan> {
         changes,
         guards,
         dependencies,
+        external_mounts,
         packages: package_plan,
         receipt,
         desired,
