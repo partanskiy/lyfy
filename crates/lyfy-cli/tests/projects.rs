@@ -143,3 +143,81 @@ fn independent_project_restores_history_index_worktree_and_ignored_files() {
     assert_eq!(git(&restored, &["rev-parse", "HEAD"]), head);
     assert_eq!(git(&restored, &["show", ":tracked"]), "staged\n");
 }
+
+#[test]
+fn alternate_objects_are_retained_without_the_original_object_store() {
+    let f = Fixture::new();
+    let source = project(&f);
+    let external = f.temp.path().join("external-objects");
+    fs::rename(source.join(".git/objects"), &external).unwrap();
+    fs::create_dir_all(source.join(".git/objects/info")).unwrap();
+    fs::write(
+        source.join(".git/objects/info/alternates"),
+        format!("{}\n", external.display()),
+    )
+    .unwrap();
+    f.ok(&["save", "--selected_mounts", "demo"]);
+    fs::remove_dir_all(&source).unwrap();
+    fs::remove_dir_all(external).unwrap();
+    let target = f.temp.path().join("restored");
+    fs::create_dir_all(target.join("home/test")).unwrap();
+    f.ok(&[
+        "apply",
+        "--root",
+        target.to_str().unwrap(),
+        "--selected_mounts",
+        "demo",
+        "--write",
+    ]);
+    let restored = target.join("home/test/Projects/demo");
+    git(&restored, &["fsck", "--full"]);
+    assert!(!restored.join(".git/objects/info/alternates").exists());
+}
+
+#[test]
+fn unsupported_or_incomplete_git_layouts_never_publish_complete_snapshots() {
+    for kind in ["shallow", "linked", "lfs", "missing", "split", "submodule"] {
+        let f = Fixture::new();
+        let source = project(&f);
+        match kind {
+            "shallow" => fs::write(
+                source.join(".git/shallow"),
+                git(&source, &["rev-parse", "HEAD"]),
+            )
+            .unwrap(),
+            "linked" => {
+                fs::rename(source.join(".git"), f.temp.path().join("common-git")).unwrap();
+                fs::write(source.join(".git"), "gitdir: /missing\n").unwrap();
+            }
+            "lfs" => {
+                fs::write(source.join("pointer"), "version https://git-lfs.github.com/spec/v1\noid sha256:0000000000000000000000000000000000000000000000000000000000000000\nsize 10\n").unwrap();
+                git(&source, &["add", "pointer"]);
+            }
+            "missing" => fs::remove_dir_all(source.join(".git/objects")).unwrap(),
+            "split" => {
+                git(&source, &["update-index", "--split-index"]);
+            }
+            "submodule" => {
+                let head = git(&source, &["rev-parse", "HEAD"]);
+                git(
+                    &source,
+                    &[
+                        "update-index",
+                        "--add",
+                        "--cacheinfo",
+                        &format!("160000,{},child", head.trim()),
+                    ],
+                );
+            }
+            _ => unreachable!(),
+        }
+        let output = f.run(&["save", "--selected_mounts", "demo"]);
+        assert_eq!(output.status.code(), Some(2), "{kind}");
+        assert!(
+            !f.temp
+                .path()
+                .join("projects-store/mounts/demo/hosts/laptop/HEAD")
+                .exists()
+        );
+    }
+}
