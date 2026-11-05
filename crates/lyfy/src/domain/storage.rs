@@ -165,7 +165,7 @@ pub fn validate(config: &Config) -> Result<()> {
         }
         ensure!(
             backend.kind != BackendKind::Git || backend.recipients.is_empty(),
-            "Git readable payloads cannot use age encryption; select directory or S3"
+            "Git readable payloads cannot use age encryption; select directory, S3 or Yandex Disk"
         );
         for recipient in &backend.recipients {
             ensure!(
