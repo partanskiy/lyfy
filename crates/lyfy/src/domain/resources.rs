@@ -7,6 +7,8 @@ use crate::domain::{
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 
+mod graph;
+
 /// An immutable generation in one logical collection and storage destination.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

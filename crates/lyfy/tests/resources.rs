@@ -107,3 +107,78 @@ fn package_observation_does_not_claim_provenance_or_recovery() {
     };
     assert!(serde_json::from_value::<ResourceGraph>(serde_json::to_value(graph).unwrap()).is_ok());
 }
+
+fn graph(resources: Vec<Resource>) -> ResourceGraph {
+    ResourceGraph {
+        schema: 1,
+        source: source(),
+        resources,
+        diagnostics: vec![],
+    }
+}
+
+#[test]
+fn closed_graph_rejects_missing_duplicate_and_cyclic_dependencies() {
+    let a = file("home/a");
+    let mut b = file("home/b");
+    b.dependencies.push(a.reference.clone());
+    assert!(graph(vec![b.clone()]).validate().is_err());
+    assert!(graph(vec![a.clone(), a.clone()]).validate().is_err());
+    let mut cycle = a.clone();
+    cycle.dependencies.push(b.reference.clone());
+    assert!(graph(vec![b.clone(), cycle]).validate().is_err());
+    let mut replica = a.clone();
+    replica.reference.source.backend = "other".into();
+    assert!(graph(vec![a.clone(), replica]).validate().is_err());
+    b.dependencies.push(a.reference.clone());
+    assert!(graph(vec![a, b]).validate().is_err());
+    let mut unknown = graph(vec![]);
+    unknown.schema = 99;
+    assert!(unknown.validate().is_err());
+}
+
+#[test]
+fn dependency_order_is_stable_and_guarantees_cover_the_closure() {
+    let mut a = file("home/a");
+    let mut b = file("home/b");
+    a.dependencies.push(b.reference.clone());
+    let expected = vec![b.reference.clone(), a.reference.clone()];
+    assert_eq!(
+        graph(vec![a.clone(), b.clone()])
+            .dependency_order()
+            .unwrap(),
+        expected
+    );
+    assert_eq!(
+        graph(vec![b.clone(), a.clone()])
+            .dependency_order()
+            .unwrap(),
+        expected
+    );
+    a.guarantee = RecoveryGuarantee::Independent;
+    assert!(graph(vec![a.clone(), b.clone()]).validate().is_err());
+    b.guarantee = RecoveryGuarantee::Independent;
+    let mut complete = graph(vec![a, b]);
+    complete.validate().unwrap();
+    complete.diagnostics.push(lyfy::CaptureDiagnostic {
+        path: "/example".into(),
+        detail: "incomplete".into(),
+    });
+    assert!(complete.validate().is_err());
+}
+
+#[test]
+fn dependency_walk_handles_a_long_chain_without_recursive_calls() {
+    let mut resources = Vec::<Resource>::new();
+    for i in 0..2000 {
+        let mut next = file(&format!("home/node-{i}"));
+        if let Some(previous) = resources.last() {
+            next.dependencies.push(previous.reference.clone());
+        }
+        resources.push(next);
+    }
+    let order = graph(resources.clone()).dependency_order().unwrap();
+    assert_eq!(order.len(), resources.len());
+    assert_eq!(order.first(), Some(&resources[0].reference));
+    assert_eq!(order.last(), Some(&resources.last().unwrap().reference));
+}
