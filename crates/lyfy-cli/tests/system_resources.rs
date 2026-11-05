@@ -18,7 +18,7 @@ fn public_accounts_round_trip_without_raw_databases_or_password_fields() {
     let requests = json!([{"kind":"user","name":"backup"}]).to_string();
     f.ok(&["save", "--system_resources", &requests]);
     let snapshot = f.snapshot("laptop");
-    assert_eq!(snapshot["schema"], 8);
+    assert_eq!(snapshot["schema"], 9);
     let text = snapshot.to_string();
     assert!(!text.contains("REDACTED"));
     assert!(snapshot["changes"].get("system/etc/passwd").is_none());

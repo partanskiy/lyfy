@@ -94,7 +94,7 @@ fn retained_package_archives_round_trip_after_the_original_disappears() {
             export.to_str().unwrap(),
         ]);
         if format == "directory" {
-            assert_eq!(f.snapshot("laptop")["schema"], 4);
+            assert_eq!(f.snapshot("laptop")["schema"], 9);
             assert!(f.data.join("objects").join(&digest).exists());
         } else {
             assert!(f.data.join("hosts/laptop/assets").join(&digest).exists());
@@ -164,7 +164,7 @@ fn pinned_aur_recipe_and_auxiliary_inputs_are_copied_without_evaluation() {
         &sources,
     ]);
     let state = f.snapshot("laptop");
-    assert_eq!(state["schema"], 4);
+    assert_eq!(state["schema"], 9);
     assert_eq!(state["packages"][0]["origin"]["kind"], "recipe");
     assert_eq!(
         state["packages"][0]["origin"]["source"]["files"]["PKGBUILD"]["content"]["sha256"],

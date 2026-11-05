@@ -82,7 +82,7 @@ fn unchanged_payloads_are_references_and_concrete_exceptions_round_trip() {
         save(&f, format, &[]);
         if format == "directory" {
             let state = f.snapshot("laptop");
-            assert_eq!(state["schema"], 3);
+            assert_eq!(state["schema"], 9);
             assert_eq!(
                 state["changes"]["system/usr/bin/demo"]["content"]["kind"],
                 "package_file"
@@ -220,7 +220,7 @@ fn root_and_home_directory_properties_survive_archive_restore() {
         archive.to_str().unwrap(),
     ]);
     let snapshot = f.snapshot("laptop");
-    assert_eq!(snapshot["schema"], 3);
+    assert_eq!(snapshot["schema"], 9);
     assert_eq!(snapshot["changes"]["system/"]["mode"], 0o555);
     assert_eq!(snapshot["changes"]["home/"]["mode"], 0o750);
     fs::set_permissions(&f.root, fs::Permissions::from_mode(0o700)).unwrap();

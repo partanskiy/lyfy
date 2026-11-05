@@ -116,7 +116,7 @@ fn file_collections_keep_a_partial_catalog_without_claiming_an_inventory() {
         archive.to_str().unwrap(),
     ]);
     let state = manifest(&store.join("mounts/data"));
-    assert_eq!(state["schema"], 4);
+    assert_eq!(state["schema"], 9);
     assert_eq!(state["package_inventory"], false);
     assert_eq!(state["packages"].as_array().unwrap().len(), 1);
     let restored = f.temp.path().join("restored");
