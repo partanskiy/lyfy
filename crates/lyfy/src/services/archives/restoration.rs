@@ -50,6 +50,9 @@ pub fn requires_root(context: &Context) -> Result<bool> {
             if !config.managed(&path) || !config.path_selected(&path) {
                 continue;
             }
+            if !root.writable_parent(&path)? {
+                return Ok(true);
+            }
             if node.owner.is_some_and(|(owner, _)| owner != uid)
                 || node.mode & 0o6000 != 0
                 || node.mode & 0o400 == 0
@@ -73,6 +76,18 @@ pub fn requires_root(context: &Context) -> Result<bool> {
                 }
                 Err(error) => return Err(error),
                 _ => {}
+            }
+        }
+        for key in source.repository.tombstones(&config.host, &id)? {
+            let path = config.path_for_key(&key)?;
+            if config.managed(&path)
+                && config.path_selected(&path)
+                && (!root.writable_parent(&path)?
+                    || root
+                        .metadata(&path)?
+                        .is_some_and(|m| m.st_uid != uid || m.st_mode & 0o400 == 0))
+            {
+                return Ok(true);
             }
         }
     }

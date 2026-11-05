@@ -151,4 +151,37 @@ impl Root {
             path = path.parent().context("missing filesystem ancestor")?;
         }
     }
+
+    pub fn writable_parent(&self, mut path: &Path) -> Result<bool> {
+        let directory = loop {
+            match self.parent(path, false) {
+                Ok((directory, _)) => break directory,
+                Err(error)
+                    if error
+                        .downcast_ref::<std::io::Error>()
+                        .is_some_and(|e| e.kind() == std::io::ErrorKind::NotFound) =>
+                {
+                    path = path.parent().context("missing destination ancestor")?;
+                }
+                Err(error)
+                    if error
+                        .downcast_ref::<std::io::Error>()
+                        .is_some_and(|e| e.kind() == std::io::ErrorKind::PermissionDenied) =>
+                {
+                    return Ok(false);
+                }
+                Err(error) => return Err(error),
+            }
+        };
+        // SAFETY: the checked directory is held open; effective credentials
+        // and actual ACLs determine whether new entries can be created.
+        Ok(unsafe {
+            libc::faccessat(
+                directory.as_raw_fd(),
+                c".".as_ptr(),
+                libc::W_OK | libc::X_OK,
+                libc::AT_EACCESS,
+            )
+        } == 0)
+    }
 }
