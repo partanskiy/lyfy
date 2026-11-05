@@ -1,7 +1,9 @@
 use crate::domain::{config::Config, packages::Package};
 use crate::infrastructure::pacman;
 use anyhow::Result;
+mod planning;
 mod preparation;
+pub use planning::{effects, plan};
 mod sources;
 pub use preparation::prepare;
 pub use sources::capture as capture_sources;
