@@ -129,6 +129,34 @@ pub fn restore_identities(context: &Context, plan: &crate::domain::plan::Plan) -
 }
 
 pub fn connect(plans: &mut [&mut crate::domain::plan::Plan]) {
+    let mut ids = std::collections::BTreeMap::new();
+    let mut names = std::collections::BTreeMap::new();
+    let mut conflicting = false;
+    for action in plans.iter().flat_map(|p| &p.identity_actions) {
+        let (kind, name, id) = match action {
+            crate::domain::system_state::IdentityAction::CreateGroup { name, id } => {
+                (crate::domain::identities::IdentityKind::Group, name, *id)
+            }
+            crate::domain::system_state::IdentityAction::CreateUser { name, id, .. } => {
+                (crate::domain::identities::IdentityKind::User, name, *id)
+            }
+            _ => continue,
+        };
+        conflicting |= ids.insert((kind, id), name).is_some_and(|old| old != name)
+            || names.insert((kind, name), id).is_some_and(|old| old != id);
+    }
+    if conflicting {
+        for plan in plans.iter_mut() {
+            plan.dependencies
+                .push(crate::domain::plan::RequiredDependency {
+                    key: "identities".into(),
+                    reason: "selected collections propose conflicting account identities".into(),
+                    satisfied: false,
+                    package: None,
+                });
+        }
+        return;
+    }
     let mut seen = Vec::new();
     for plan in plans {
         plan.identity_actions.retain(|action| {
