@@ -99,4 +99,50 @@ fn age_storage_encrypts_manifests_and_payloads_and_restores_verified_content() {
             .unwrap()
             .contains("AGE-SECRET-KEY")
     );
+    let recovery_identity = f.temp.path().join("separate-key-backup");
+    fs::copy(&identity, &recovery_identity).unwrap();
+    fs::remove_file(&identity).unwrap();
+    fs::remove_dir_all(&backend).unwrap();
+    let target = f.temp.path().join("second-laptop");
+    fs::create_dir_all(target.join("home/test")).unwrap();
+    fs::create_dir_all(target.join("etc")).unwrap();
+    fs::write(target.join("etc/untouched"), "machine specific").unwrap();
+    let failed = f.run(&[
+        "apply",
+        "--root",
+        target.to_str().unwrap(),
+        "--selected_mounts",
+        "config",
+        "--selected_paths",
+        "/etc/example.conf",
+        "--import_file",
+        export.to_str().unwrap(),
+        "--identity_files",
+        "",
+        "--write",
+    ]);
+    assert!(!failed.status.success());
+    assert!(!target.join("etc/example.conf").exists());
+    f.ok(&[
+        "apply",
+        "--root",
+        target.to_str().unwrap(),
+        "--selected_mounts",
+        "config",
+        "--selected_paths",
+        "/etc/example.conf",
+        "--import_file",
+        export.to_str().unwrap(),
+        "--identity_files",
+        recovery_identity.to_str().unwrap(),
+        "--write",
+    ]);
+    assert_eq!(
+        fs::read_to_string(target.join("etc/example.conf")).unwrap(),
+        "common\n"
+    );
+    assert_eq!(
+        fs::read_to_string(target.join("etc/untouched")).unwrap(),
+        "machine specific"
+    );
 }
