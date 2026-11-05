@@ -33,7 +33,7 @@ See [the library boundary](library.md).
 | prune | false | Permit deleting explicitly tracked paths absent from desired state |
 | max_file_bytes | 0 | Maximum regular-file bytes during capture/planning; 0 is unlimited |
 | capture_errors | strict | strict blocks incomplete saves; explicit skip records diagnostics and returns 2 |
-| mounts | [] | Named VFS paths, backend, history, restore and replica policies |
+| mounts | [] | Named VFS paths, backend, history, restore, git_project and replica policies |
 | backends | [] | Named Git/directory/S3 destinations and public age recipients |
 | selected_mounts | [] | Comma-separated mount names; empty selects normal operation scopes |
 | selected_paths | [] | Apply-only prefixes within their owning collections; preserve nested scopes |

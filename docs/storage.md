@@ -153,5 +153,10 @@ they do not retain another payload copy. Complete archives describe the resolved
 desired generation and use the existing portable schema. Import records its own
 observations. Current-only retention continues to preserve accepted base pins.
 
+Stored schema 6 and portable schema 4 add typed Git-project descriptions on
+directory boundaries. Normalized Git metadata, object packs and working files
+are ordinary verified payloads, so archives, encryption, replicas and retention
+use their existing mechanisms. Earlier stored/portable descriptions remain readable.
+
 An archive carries all concrete and retained source objects. External package
 references remain declared dependencies; export does not acquire missing inputs.

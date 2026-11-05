@@ -100,6 +100,10 @@ Mount/backend CLI and ENV overrides accept a complete JSON array.
 selected_mounts accepts comma-separated names including default.
 Data mounts participate in ordinary apply only when apply=true; explicit
 selection permits their restoration. Lists replace lower-priority lists.
+git_project=true declares an independent Git repository recovery boundary.
+Object closure, refs, index and local/ignored work are retained; incomplete
+or unsupported layouts block complete capture. Partial working-file restore
+never resets repository metadata. Full metadata restore selects the whole project.
 .TP
 .B selected_paths, selected_resources
 Apply-only path prefixes and logical resource identities. selected_paths and
