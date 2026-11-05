@@ -26,10 +26,7 @@ fn decode(value: &str) -> Result<String> {
             ensure!(index + 3 < bytes.len(), "invalid mountinfo escape");
             let value = std::str::from_utf8(&bytes[index + 1..index + 4])?;
             let byte = u8::from_str_radix(value, 8)?;
-            ensure!(
-                [b' ', b'\t', b'\n', b'\\'].contains(&byte),
-                "invalid mountinfo escape"
-            );
+            ensure!(b" \t\n\\".contains(&byte), "invalid mountinfo escape");
             output.push(byte);
             index += 4;
         } else {
