@@ -74,6 +74,13 @@ fn resource_keys_and_descriptions_reject_unsafe_or_unknown_state() {
     let mut value = serde_json::to_value(&resource).unwrap();
     value["guarantee"] = json!("automatic");
     assert!(serde_json::from_value::<Resource>(value).is_err());
+    assert!(
+        serde_json::from_value::<RecoveryDescription>(json!({"kind":"deletion","extra":true}))
+            .is_err()
+    );
+    assert!(
+        serde_json::from_value::<PackageOrigin>(json!({"kind":"unknown","extra":true})).is_err()
+    );
 }
 
 #[test]
@@ -89,7 +96,7 @@ fn package_observation_does_not_claim_provenance_or_recovery() {
             explicit: true,
             source: "native".into(),
         },
-        origin: PackageOrigin::Unknown,
+        origin: PackageOrigin::Unknown {},
     };
     resource.validate().unwrap();
     resource.guarantee = RecoveryGuarantee::Reconstructible;
@@ -200,7 +207,7 @@ fn filesystem_resources_require_directory_and_hardlink_dependencies() {
     graph(vec![directory.clone(), child.clone()])
         .validate()
         .unwrap();
-    directory.recovery = RecoveryDescription::Deletion;
+    directory.recovery = RecoveryDescription::Deletion {};
     assert!(graph(vec![directory, child]).validate().is_err());
 
     let primary = file("home/a");

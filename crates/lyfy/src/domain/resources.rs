@@ -113,7 +113,7 @@ pub enum RecoveryGuarantee {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PackageOrigin {
-    Unknown,
+    Unknown {},
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -122,7 +122,7 @@ pub enum RecoveryDescription {
     File {
         node: Node,
     },
-    Deletion,
+    Deletion {},
     Package {
         observed: Package,
         origin: PackageOrigin,
@@ -145,7 +145,7 @@ impl Resource {
             (ResourceSubject::Path { .. }, RecoveryDescription::File { node }) => {
                 node.validate()?
             }
-            (ResourceSubject::Path { .. }, RecoveryDescription::Deletion) => {}
+            (ResourceSubject::Path { .. }, RecoveryDescription::Deletion {}) => {}
             (ResourceSubject::Package { name }, RecoveryDescription::Package { observed, .. }) => {
                 ensure!(name == &observed.name, "package resource identity mismatch");
                 ensure!(!observed.version.is_empty(), "package version is missing");

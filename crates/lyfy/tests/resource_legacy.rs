@@ -66,7 +66,7 @@ fn legacy_description_preserves_metadata_deletions_and_unresolved_packages() {
             (ResourceSubject::Path { key }, RecoveryDescription::File { node }) => {
                 assert_eq!(node, &state.tree[key])
             }
-            (ResourceSubject::Path { key }, RecoveryDescription::Deletion) => {
+            (ResourceSubject::Path { key }, RecoveryDescription::Deletion {}) => {
                 assert!(state.deletions.contains(key))
             }
             (
@@ -75,7 +75,7 @@ fn legacy_description_preserves_metadata_deletions_and_unresolved_packages() {
             ) => {
                 assert_eq!(name, "demo");
                 assert_eq!(observed, &state.packages.as_ref().unwrap()[0]);
-                assert_eq!(*origin, PackageOrigin::Unknown);
+                assert_eq!(*origin, PackageOrigin::Unknown {});
             }
             _ => panic!("unexpected legacy resource"),
         }
