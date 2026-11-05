@@ -13,6 +13,8 @@ pub struct Context {
     pub(crate) restore_receipts: std::collections::BTreeMap<String, crate::domain::plan::Receipt>,
     pub(crate) source_snapshot: Option<String>,
     pub(crate) package_baselines: bool,
+    pub(crate) package_artifacts:
+        std::collections::BTreeMap<String, crate::domain::acquisition::PreparedPackage>,
     pub(crate) config: Config,
     pub(crate) repository: crate::infrastructure::store::Store,
 }
@@ -53,6 +55,7 @@ impl Context {
             restore_receipts: Default::default(),
             source_snapshot: None,
             package_baselines: config.check_packages,
+            package_artifacts: Default::default(),
             repository: crate::infrastructure::store::Store::configured(&config),
             config,
         })
@@ -96,6 +99,30 @@ impl Context {
         directory: &std::path::Path,
     ) -> Result<std::collections::BTreeMap<String, std::path::PathBuf>> {
         crate::services::archives::export_apply(self, directory)
+    }
+
+    pub fn prepare_packages(
+        &self,
+        directory: &std::path::Path,
+        requested: &[crate::domain::packages::Package],
+    ) -> Result<std::collections::BTreeMap<String, crate::domain::acquisition::PreparedPackage>>
+    {
+        crate::services::archives::prepare_packages(self, directory, requested)
+    }
+
+    pub fn with_package_artifacts(
+        mut self,
+        artifacts: std::collections::BTreeMap<String, crate::domain::acquisition::PreparedPackage>,
+    ) -> Result<Self> {
+        for (name, artifact) in &artifacts {
+            artifact.validate()?;
+            anyhow::ensure!(
+                name == &artifact.package.name,
+                "package artifact identity mismatch"
+            );
+        }
+        self.package_artifacts = artifacts;
+        Ok(self)
     }
 
     pub fn apply_requires_root(&self) -> Result<bool> {

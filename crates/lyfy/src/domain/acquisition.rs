@@ -113,6 +113,31 @@ pub struct PackageSource {
     pub build_requirements: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PreparedPackage {
+    pub package: crate::domain::packages::Package,
+    pub path: PathBuf,
+    pub sha256: String,
+    pub signature: Option<PathBuf>,
+}
+
+impl PreparedPackage {
+    pub fn validate(&self) -> Result<()> {
+        self.package.validate()?;
+        crate::domain::config::absolute(&self.path)?;
+        ContentReference {
+            sha256: self.sha256.clone(),
+            size: 0,
+        }
+        .validate()?;
+        if let Some(path) = &self.signature {
+            crate::domain::config::absolute(path)?;
+        }
+        Ok(())
+    }
+}
+
 pub fn relative(path: &str) -> Result<()> {
     ensure!(
         !path.is_empty()
