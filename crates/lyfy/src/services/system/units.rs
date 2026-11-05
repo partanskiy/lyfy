@@ -184,3 +184,32 @@ pub fn unit_path_selected(
     });
     !owned || config.restore_services && config.check_system && !config.selection_active()
 }
+
+pub fn definition_guards(
+    config: &Config,
+    root: &Root,
+    system: Option<&SystemState>,
+    desired: &Tree,
+) -> Result<Vec<crate::domain::plan::Guard>> {
+    let mut guards = Vec::new();
+    if !config.restore_services || !config.check_system || config.selection_active() {
+        return Ok(guards);
+    }
+    for definition in system
+        .into_iter()
+        .flat_map(|s| &s.services)
+        .filter_map(|u| u.definition.as_ref())
+    {
+        if desired.contains_key(&definition.key) {
+            continue;
+        }
+        let path = config.path_for_key(&definition.key)?;
+        if let Some((node, _)) = observe(config, root, &path)? {
+            guards.push(crate::domain::plan::Guard {
+                key: definition.key.clone(),
+                expected: node,
+            });
+        }
+    }
+    Ok(guards)
+}

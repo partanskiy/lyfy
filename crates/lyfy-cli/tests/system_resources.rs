@@ -97,3 +97,59 @@ fn identities_match_names_and_conflicting_numeric_ids_block_plans() {
             .success()
     );
 }
+
+#[test]
+fn service_links_require_permission_and_do_not_start_daemons() {
+    let f = Fixture::new();
+    fs::create_dir_all(f.root.join("etc/systemd/system/multi-user.target.wants")).unwrap();
+    f.write("etc/systemd/system/demo.service", "[Unit]\nDescription=Fixture\n[Service]\nExecStart=/usr/bin/true\n[Install]\nWantedBy=multi-user.target\n");
+    let link = f
+        .root
+        .join("etc/systemd/system/multi-user.target.wants/demo.service");
+    std::os::unix::fs::symlink("../demo.service", &link).unwrap();
+    let resources = json!([{"kind":"service","name":"demo.service"}]).to_string();
+    f.ok(&["save", "--system_resources", &resources]);
+    assert_eq!(
+        f.snapshot("laptop")["system_state"]["services"][0]["enablement"],
+        "enabled"
+    );
+    fs::remove_file(&link).unwrap();
+    let preview = f.run(&["apply", "--write"]);
+    assert_eq!(preview.status.code(), Some(1));
+    assert!(!link.exists());
+    f.ok(&["apply", "--restore_services", "true", "--write"]);
+    assert_eq!(
+        fs::read_link(&link).unwrap().to_str(),
+        Some("../demo.service")
+    );
+    assert!(
+        f.ok(&["apply", "--restore_services", "true"])["changes"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        f.ok(&["save", "--system_resources", &resources])["created"],
+        false
+    );
+    fs::remove_file(&link).unwrap();
+    f.ok(&["save", "--system_resources", &resources]);
+    std::os::unix::fs::symlink("../demo.service", &link).unwrap();
+    assert_eq!(
+        f.run(&["apply", "--restore_services", "true", "--write"])
+            .status
+            .code(),
+        Some(1)
+    );
+    f.ok(&[
+        "apply",
+        "--restore_services",
+        "true",
+        "--prune",
+        "true",
+        "--overwrite",
+        "true",
+        "--write",
+    ]);
+    assert!(!link.exists());
+}
