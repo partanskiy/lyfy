@@ -18,6 +18,10 @@ impl ResourceGraph {
             "unsupported resolved snapshot state"
         );
         ensure!(
+            state.package_inventory || state.schema >= 3,
+            "provider catalog requires portable schema 3"
+        );
+        ensure!(
             state.schema >= 2 || !crate::domain::state::extended_state(&state.tree),
             "extended snapshot state requires schema 2"
         );
@@ -69,11 +73,13 @@ impl ResourceGraph {
                 dependencies.insert(path_reference(target));
             }
             if let Some(package) = node.package() {
-                if let Some(previous) = packages.insert(package.name.clone(), package.clone()) {
+                if let Some(previous) = packages.get(&package.name) {
                     ensure!(
-                        previous == *package,
+                        previous.name == package.name && previous.version == package.version,
                         "package baseline differs from inventory"
                     );
+                } else {
+                    packages.insert(package.name.clone(), package.clone());
                 }
                 dependencies.insert(reference(ResourceSubject::Package {
                     name: package.name.clone(),

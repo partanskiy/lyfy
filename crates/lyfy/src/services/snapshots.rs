@@ -1,6 +1,6 @@
 use crate::Context;
 use crate::domain::{
-    packages::Package,
+    packages::PackageCapture,
     results::{CaptureDiagnostic, SaveChangeKind, Saved, save_diff},
     state::{Node, Reference, Snapshot, Tree},
 };
@@ -39,10 +39,14 @@ pub fn view_at(context: &Context, id: &str) -> Result<crate::domain::state::Snap
         }
     }
     Ok(crate::domain::state::SnapshotState {
-        schema: crate::domain::acquisition::content::portable_schema(
-            &tree,
-            snapshot.packages.as_deref(),
-        ),
+        schema: if !snapshot.package_inventory {
+            3
+        } else {
+            crate::domain::acquisition::content::portable_schema(
+                &tree,
+                snapshot.packages.as_deref(),
+            )
+        },
         system: snapshot.system,
         host: config.host.clone(),
         source_snapshot: id.into(),
@@ -122,16 +126,18 @@ pub fn commit(
     context: &Context,
     base: Option<Reference>,
     changes: BTreeMap<String, Option<Node>>,
-    packages: Option<Vec<Package>>,
+    captured: PackageCapture,
     entries: usize,
     dry_run: bool,
     diagnostics: Vec<CaptureDiagnostic>,
 ) -> Result<Saved> {
     let config = &context.config;
+    let packages = captured.packages;
     let snapshot = Snapshot {
-        schema: if packages
-            .as_ref()
-            .is_some_and(|p| p.iter().any(|p| p.origin.is_some()))
+        schema: if !captured.inventory
+            || packages
+                .as_ref()
+                .is_some_and(|p| p.iter().any(|p| p.origin.is_some()))
             || changes
                 .values()
                 .flatten()
@@ -156,7 +162,7 @@ pub fn commit(
         base,
         changes,
         packages,
-        package_inventory: true,
+        package_inventory: captured.inventory,
         diagnostics,
         replica_source: None,
     };

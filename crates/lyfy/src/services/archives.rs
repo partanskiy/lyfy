@@ -80,14 +80,19 @@ pub fn capture(context: &Context, persist: bool) -> Result<Captured> {
         persist.then_some(&context.repository),
         context.capture_source.is_some(),
     )?;
+    let catalog = crate::domain::acquisition::content::select_catalog(
+        &state.tree,
+        state.packages.as_deref(),
+        context.config.check_packages,
+    );
+    let inventory = catalog.is_none() || state.package_inventory && context.config.check_packages;
     let mut captured = Captured {
-        tree: state.tree,
         diagnostics: state.diagnostics,
-        inventory: Some(if context.config.check_packages {
-            state.packages
-        } else {
-            None
+        inventory: Some(crate::domain::packages::PackageCapture {
+            packages: catalog,
+            inventory,
         }),
+        tree: state.tree,
         deletions: state.deletions,
     };
     if context.capture_source.is_some() {

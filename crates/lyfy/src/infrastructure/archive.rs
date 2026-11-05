@@ -73,6 +73,10 @@ pub fn read(
         state.packages.as_deref(),
     )?;
     ensure!(
+        state.package_inventory || state.schema >= 3,
+        "provider catalog requires portable schema 3"
+    );
+    ensure!(
         state.schema >= 2 || !crate::domain::state::extended_state(&state.tree),
         "extended archive state requires schema 2"
     );
@@ -103,10 +107,13 @@ pub fn read(
         .filter(|(key, _)| config.path_for_key(key).is_ok_and(|p| config.managed(&p)))
         .map(|(k, n)| (k.clone(), n.clone()))
         .collect();
-    let selected = crate::domain::acquisition::content::required(
+    let selected_catalog = crate::domain::acquisition::content::select_catalog(
         &selected_tree,
-        state.packages.as_deref().filter(|_| config.check_packages),
-    )?;
+        state.packages.as_deref(),
+        config.check_packages,
+    );
+    let selected =
+        crate::domain::acquisition::content::required(&selected_tree, selected_catalog.as_deref())?;
     let declared =
         crate::domain::acquisition::content::retained(&state.tree, state.packages.as_deref())?;
     ensure!(
@@ -143,6 +150,9 @@ pub fn read(
         "archive contains unexpected trailing content"
     );
     if filter_scope {
+        state.packages = selected_catalog;
+        state.package_inventory =
+            state.packages.is_none() || state.package_inventory && config.check_packages;
         state
             .tree
             .retain(|key, _| config.path_for_key(key).is_ok_and(|p| config.managed(&p)));

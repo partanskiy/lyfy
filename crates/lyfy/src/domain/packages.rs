@@ -32,6 +32,11 @@ impl Package {
     }
 }
 
+pub(crate) struct PackageCapture {
+    pub packages: Option<Vec<Package>>,
+    pub inventory: bool,
+}
+
 pub fn valid_name(name: &str) -> bool {
     !name.is_empty()
         && !name.starts_with(['-', '.'])

@@ -14,7 +14,7 @@ mod package_files;
 pub struct Captured {
     pub tree: Tree,
     pub diagnostics: Vec<CaptureDiagnostic>,
-    pub inventory: Option<Option<Vec<crate::domain::packages::Package>>>,
+    pub inventory: Option<crate::domain::packages::PackageCapture>,
     pub deletions: std::collections::BTreeSet<String>,
 }
 
@@ -190,6 +190,7 @@ pub fn scan(
             "package inventory changed during capture"
         );
         let mut inventory = index.packages;
+        let observed = inventory.clone();
         let names = (!config.check_packages).then(|| {
             captured
                 .tree
@@ -203,23 +204,26 @@ pub fn scan(
             &mut inventory,
             names.as_ref(),
         )?;
-        let providers: std::collections::BTreeMap<_, _> =
-            inventory.iter().map(|p| (&p.name, p)).collect();
+        anyhow::ensure!(
+            crate::infrastructure::pacman::inventory(config)? == observed,
+            "package inventory changed during source capture"
+        );
         for node in captured.tree.values_mut() {
             if let Some(baseline) = &mut node.package_baseline {
-                baseline.package = (*providers
-                    .get(&baseline.package.name)
-                    .context("package observation disappeared")?)
-                .clone();
+                baseline.package.origin = None;
             }
             if let Content::PackageFile { package, .. } = &mut node.content {
-                *package = (*providers
-                    .get(&package.name)
-                    .context("package observation disappeared")?)
-                .clone();
+                package.origin = None;
             }
         }
-        captured.inventory = Some(config.check_packages.then_some(inventory));
+        if let Some(names) = &names {
+            inventory.retain(|p| names.contains(&p.name));
+        }
+        let complete = config.check_packages || inventory.is_empty();
+        captured.inventory = Some(crate::domain::packages::PackageCapture {
+            packages: (!inventory.is_empty()).then_some(inventory),
+            inventory: complete,
+        });
         for path in index.absent {
             let path = Path::new(&path);
             anyhow::ensure!(
