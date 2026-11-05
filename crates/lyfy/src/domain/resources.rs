@@ -162,7 +162,12 @@ impl Resource {
                     "namespace root cannot be deleted"
                 );
             }
-            (ResourceSubject::Package { name }, RecoveryDescription::Package { observed, .. }) => {
+            (
+                ResourceSubject::Package { name },
+                RecoveryDescription::Package { observed, origin },
+            ) => {
+                observed.validate()?;
+                origin.validate()?;
                 ensure!(name == &observed.name, "package resource identity mismatch");
                 ensure!(!observed.version.is_empty(), "package version is missing");
                 ensure!(

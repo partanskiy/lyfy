@@ -13,6 +13,25 @@ pub struct Package {
     pub origin: Option<Box<crate::domain::resources::PackageOrigin>>,
 }
 
+impl Package {
+    pub fn validate(&self) -> Result<()> {
+        ensure!(
+            valid_name(&self.name)
+                && !self.version.is_empty()
+                && !self
+                    .version
+                    .chars()
+                    .any(|c| c.is_control() || c.is_whitespace())
+                && ["native", "foreign", "unknown"].contains(&self.source.as_str()),
+            "invalid package observation"
+        );
+        if let Some(origin) = &self.origin {
+            origin.validate()?;
+        }
+        Ok(())
+    }
+}
+
 pub fn valid_name(name: &str) -> bool {
     !name.is_empty()
         && !name.starts_with(['-', '.'])

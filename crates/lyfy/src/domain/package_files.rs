@@ -60,6 +60,7 @@ pub struct PackageBaseline {
 
 impl PackageBaseline {
     pub fn validate(&self) -> anyhow::Result<()> {
+        self.package.validate()?;
         anyhow::ensure!(
             crate::domain::packages::valid_name(&self.package.name)
                 && !self.package.version.is_empty()
