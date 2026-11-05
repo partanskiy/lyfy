@@ -189,7 +189,37 @@ pub fn scan(
             crate::infrastructure::pacman::inventory(config)? == index.packages,
             "package inventory changed during capture"
         );
-        captured.inventory = Some(config.check_packages.then_some(index.packages));
+        let mut inventory = index.packages;
+        let names = (!config.check_packages).then(|| {
+            captured
+                .tree
+                .values()
+                .filter_map(|n| n.package().map(|p| p.name.clone()))
+                .collect()
+        });
+        crate::services::packages::capture_sources(
+            context,
+            persist,
+            &mut inventory,
+            names.as_ref(),
+        )?;
+        let providers: std::collections::BTreeMap<_, _> =
+            inventory.iter().map(|p| (&p.name, p)).collect();
+        for node in captured.tree.values_mut() {
+            if let Some(baseline) = &mut node.package_baseline {
+                baseline.package = (*providers
+                    .get(&baseline.package.name)
+                    .context("package observation disappeared")?)
+                .clone();
+            }
+            if let Content::PackageFile { package, .. } = &mut node.content {
+                *package = (*providers
+                    .get(&package.name)
+                    .context("package observation disappeared")?)
+                .clone();
+            }
+        }
+        captured.inventory = Some(config.check_packages.then_some(inventory));
         for path in index.absent {
             let path = Path::new(&path);
             anyhow::ensure!(
