@@ -205,3 +205,56 @@ fn selecting_one_service_preserves_other_unit_links_and_files() {
     );
     assert_eq!(f.read("etc/example.conf"), "unrelated local edit\n");
 }
+
+#[test]
+fn common_service_update_survives_saves_before_apply() {
+    let f = Fixture::new();
+    fs::create_dir_all(f.root.join("etc/systemd/system/multi-user.target.wants")).unwrap();
+    f.write(
+        "etc/systemd/system/demo.service",
+        "[Service]\nExecStart=/usr/bin/true\n",
+    );
+    let link = f
+        .root
+        .join("etc/systemd/system/multi-user.target.wants/demo.service");
+    std::os::unix::fs::symlink("../demo.service", &link).unwrap();
+    let resources = json!([{"kind":"service","name":"demo.service"}]).to_string();
+    f.ok(&["save", "--host", "common", "--system_resources", &resources]);
+    f.ok(&[
+        "save",
+        "--base_host",
+        "common",
+        "--system_resources",
+        &resources,
+    ]);
+    fs::remove_file(&link).unwrap();
+    f.ok(&["save", "--host", "common", "--system_resources", &resources]);
+    std::os::unix::fs::symlink("../demo.service", &link).unwrap();
+    f.ok(&[
+        "save",
+        "--base_host",
+        "common",
+        "--system_resources",
+        &resources,
+    ]);
+    assert_eq!(
+        f.snapshot("laptop")["system_state"]["services"][0]["enablement"],
+        "disabled"
+    );
+    assert_eq!(
+        f.ok(&["save", "--system_resources", &resources])["created"],
+        false
+    );
+    assert!(link.is_symlink());
+    f.ok(&[
+        "apply",
+        "--restore_services",
+        "true",
+        "--prune",
+        "true",
+        "--overwrite",
+        "true",
+        "--write",
+    ]);
+    assert!(!link.is_symlink());
+}
