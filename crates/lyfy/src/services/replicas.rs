@@ -55,7 +55,7 @@ fn copy(context: &Context, mount: &Mount, backend: &str, source_id: &str) -> Res
         changes.insert(key, None);
     }
     let snapshot = Snapshot {
-        schema: 2,
+        schema: if state.schema >= 2 { 3 } else { 2 },
         system: "arch".into(),
         host: state.host,
         created_ns: state.created_ns,

@@ -142,7 +142,13 @@ pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
         schema >= 3 || !extended_state(tree),
         "extended state requires schema 3"
     );
-    validate_tree(tree)
+    for (key, node) in tree {
+        node.validate()?;
+        if key == "home/" || key == "system/" {
+            ensure!(node.directory(), "namespace root must be a directory");
+        }
+    }
+    Ok(())
 }
 
 pub fn validate_tree(tree: &Tree) -> Result<()> {

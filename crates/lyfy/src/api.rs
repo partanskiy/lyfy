@@ -12,6 +12,7 @@ pub struct Context {
     pub(crate) restore_sources: std::collections::BTreeMap<String, std::path::PathBuf>,
     pub(crate) restore_receipts: std::collections::BTreeMap<String, crate::domain::plan::Receipt>,
     pub(crate) source_snapshot: Option<String>,
+    pub(crate) package_baselines: bool,
     pub(crate) config: Config,
     pub(crate) repository: crate::infrastructure::store::Store,
 }
@@ -51,6 +52,7 @@ impl Context {
             restore_sources: Default::default(),
             restore_receipts: Default::default(),
             source_snapshot: None,
+            package_baselines: config.check_packages,
             repository: crate::infrastructure::store::Store::configured(&config),
             config,
         })
