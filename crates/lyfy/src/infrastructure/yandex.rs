@@ -41,7 +41,7 @@ impl Disk {
         );
         let prefix = connection.prefix.trim_end_matches('/');
         ensure!(
-            (prefix.starts_with("app:/") || prefix.starts_with("disk:/"))
+            (connection.prefix.starts_with("app:/") || connection.prefix.starts_with("disk:/"))
                 && prefix.split('/').skip(1).all(|p| !p.is_empty()
                     && p != "."
                     && p != ".."

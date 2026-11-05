@@ -99,6 +99,7 @@ fn read_yandex(path: &std::path::Path) -> Result<String> {
         .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
         .open(path)?;
     let metadata = file.metadata()?;
+    // SAFETY: geteuid has no pointer arguments and only observes caller identity.
     ensure!(
         metadata.is_file()
             && metadata.len() <= 16384
