@@ -9,6 +9,8 @@ use serde::Serialize;
 pub struct Context {
     pub(crate) access: crate::domain::access::Access,
     pub(crate) capture_source: Option<std::path::PathBuf>,
+    pub(crate) restore_sources: std::collections::BTreeMap<String, std::path::PathBuf>,
+    pub(crate) source_snapshot: Option<String>,
     pub(crate) config: Config,
     pub(crate) repository: crate::infrastructure::store::Store,
 }
@@ -45,6 +47,8 @@ impl Context {
         Ok(Self {
             access: Default::default(),
             capture_source: None,
+            restore_sources: Default::default(),
+            source_snapshot: None,
             repository: crate::infrastructure::store::Store::configured(&config),
             config,
         })
@@ -65,6 +69,21 @@ impl Context {
     pub fn with_capture_source(mut self, path: std::path::PathBuf) -> Result<Self> {
         crate::domain::config::absolute(&path)?;
         self.capture_source = Some(path);
+        Ok(self)
+    }
+
+    pub fn with_restore_sources(
+        mut self,
+        sources: std::collections::BTreeMap<String, std::path::PathBuf>,
+    ) -> Result<Self> {
+        for (name, path) in &sources {
+            anyhow::ensure!(
+                name == "default" || self.config.mounts.iter().any(|m| &m.name == name),
+                "unknown restore source collection"
+            );
+            crate::domain::config::absolute(path)?;
+        }
+        self.restore_sources = sources;
         Ok(self)
     }
 
@@ -127,6 +146,10 @@ pub fn execute_observed(
     anyhow::ensure!(
         !context.config.selection_active() || matches!(request, Request::Apply { .. }),
         "path/resource selectors are available only for apply"
+    );
+    anyhow::ensure!(
+        context.restore_sources.is_empty() || matches!(request, Request::Apply { .. }),
+        "restore source transport is apply-only"
     );
     context.repository.begin();
     let (data, exit_code) = match request {

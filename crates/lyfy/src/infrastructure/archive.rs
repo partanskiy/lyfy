@@ -1,5 +1,5 @@
 use crate::domain::{
-    config::{Config, identifier, is_digest},
+    config::{Config, identifier, is_digest, is_revision},
     state::{Content, SnapshotState, validate_tree},
 };
 use crate::infrastructure::{filesystem::hash_file, store::Store};
@@ -61,6 +61,10 @@ pub fn read(
         "unsupported archive state"
     );
     identifier(&state.host)?;
+    ensure!(
+        is_revision(&state.source_snapshot) || (filter_scope && state.source_snapshot == "capture"),
+        "archive source is not a pinned generation"
+    );
     validate_tree(&state.tree)?;
     for key in state.tree.keys().chain(state.deletions.iter()) {
         let path = config.path_for_key(key)?;
