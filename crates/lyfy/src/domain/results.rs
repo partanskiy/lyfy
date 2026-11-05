@@ -18,6 +18,8 @@ pub struct Saved {
     pub complete: bool,
     pub diagnostics: Vec<CaptureDiagnostic>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub coverage: Vec<crate::domain::system_state::CoverageItem>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub mounts: Vec<MountedSave>,
     pub exported: Option<std::path::PathBuf>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -49,6 +51,7 @@ impl Saved {
             changed: false,
             complete: true,
             diagnostics: vec![],
+            coverage: vec![],
             mounts: vec![],
             exported: None,
             replicas: vec![],

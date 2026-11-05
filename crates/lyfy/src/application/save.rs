@@ -37,6 +37,7 @@ pub(crate) fn run(
                 combined.packages_changed |= result.packages_changed;
                 combined.complete &= result.complete;
                 combined.diagnostics.extend(result.diagnostics.clone());
+                combined.coverage.extend(result.coverage.clone());
                 (Some(Box::new(result)), None)
             }
             Err(error) => {

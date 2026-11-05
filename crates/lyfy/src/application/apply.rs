@@ -18,6 +18,7 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
             external_mounts: Default::default(),
             packages: None,
             identity_actions: vec![],
+            coverage: vec![],
             desired: Default::default(),
             receipt: Default::default(),
             package_desired: None,

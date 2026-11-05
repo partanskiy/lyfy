@@ -213,6 +213,34 @@ pub fn save(result: &lyfy::Saved) -> String {
     if result.packages_changed {
         let _ = writeln!(out, "Package inventory changed.");
     }
+    if !result.coverage.is_empty() {
+        let count = |status| {
+            result
+                .coverage
+                .iter()
+                .filter(|item| item.status == status)
+                .count()
+        };
+        let _ = writeln!(
+            out,
+            "Recovery coverage: {} accounted, {} excluded, {} unresolved",
+            count(lyfy::CoverageStatus::Accounted),
+            count(lyfy::CoverageStatus::Excluded),
+            count(lyfy::CoverageStatus::Unresolved)
+        );
+        for item in result
+            .coverage
+            .iter()
+            .filter(|item| item.status == lyfy::CoverageStatus::Unresolved)
+        {
+            let _ = writeln!(
+                out,
+                "UNRESOLVED {}: {}",
+                safe(&item.key),
+                safe(&item.reason)
+            );
+        }
+    }
     for diagnostic in &result.diagnostics {
         let _ = writeln!(
             out,
