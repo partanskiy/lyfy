@@ -90,6 +90,11 @@ impl Config {
                 "selected resource belongs to another host"
             );
             ensure!(
+                self.selected_mounts.is_empty()
+                    || self.selected_mounts.contains(&resource.collection),
+                "resource selection contradicts selected_mounts"
+            );
+            ensure!(
                 resource.collection == "default"
                     || self.mounts.iter().any(|m| m.name == resource.collection),
                 "unknown resource collection"
@@ -115,6 +120,16 @@ impl Config {
                     );
                 }
             }
+        }
+        for selected in &self.selected_paths {
+            ensure!(
+                self.selected_mounts.is_empty()
+                    || self
+                        .selected_mounts
+                        .iter()
+                        .any(|m| m == self.path_owner(&self.logical(selected).unwrap())),
+                "path selection contradicts selected_mounts"
+            );
         }
         Ok(())
     }
