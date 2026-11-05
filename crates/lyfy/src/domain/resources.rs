@@ -7,6 +7,7 @@ use crate::domain::{
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 
+mod filesystem;
 mod graph;
 
 /// An immutable generation in one logical collection and storage destination.
