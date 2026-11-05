@@ -33,6 +33,7 @@ See [the library boundary](library.md).
 | selected_mounts | [] | Comma-separated mount names; empty selects normal operation scopes |
 | selected_paths | [] | Apply-only prefixes within their owning collections; preserve nested scopes |
 | selected_resources | [] | Apply-only JSON list of collection/host/subject resource identities |
+| identity_mappings | [] | Explicit user/group source IDs mapped to existing target names |
 | export_file | unset | Complete archive destination for save; select one scope |
 | import_file | unset | Verified archive source for save/apply; select one scope |
 | identity_files | [] | Absolute age identity paths; input-owned connection material |
@@ -89,3 +90,15 @@ XDG parent directories are not chmodded. An existing app repository/state
 directory must already be private and owned by the invoking user. A root
 deployment needs explicitly chosen trusted data/state/home paths; changing the
 invoking user must not accidentally select another user's defaults.
+
+`apply --elevate=auto|never|required` controls the input-owned one-shot root
+executor. It has no ENV/TOML equivalent. The caller resolves storage and exports
+selected verified archives; root keeps system receipts/journals below
+`/var/lib/lyfy/apply/<state-profile-hash>`. User-only apply runs directly when its
+ownership and metadata permit. See [apply privileges](save.md#apply-privileges).
+
+`identity_mappings` accepts TOML tables or a complete JSON array via flag/ENV:
+`[{"kind":"user","source":1000,"target":"workuser"}]`. Kinds are user/group.
+Mappings apply to numeric system ownership and named POSIX ACL entries. Home
+ownership stays symbolic. Only needed names are looked up in the target
+`/etc/passwd` or `/etc/group`; a missing name blocks all selected writes.

@@ -119,6 +119,35 @@ mounts/backends are TOML arrays of tables. Their snake_case flags and ENV
 overrides accept a complete JSON array. selected_mounts accepts comma-separated
 names, including `default`. Lists replace the lower-precedence list.
 
+## Apply privileges
+
+Apply uses `--elevate=auto|never|required`, like save. Auto requests sudo for
+protected actions on the running system when stdin and stderr are terminals.
+User-owned file restoration runs directly when its permissions, groups and
+attributes permit. Required explicitly requests sudo; never keeps current
+privileges. `--write` remains a separate, explicit execution permission.
+
+The caller reads selected sources with its own credentials and prepares private,
+verified archives. The one-shot executor imports these into disposable storage
+and plans against the target again. It never publishes to caller repositories.
+System journals and trusted receipts use `/var/lib/lyfy/apply/<state-profile-hash>`;
+the caller updates its receipt only from confirmed execution results, checking
+that its history has not changed concurrently. Caller receipts can provide home
+history; they cannot authorize replacement of system preimages.
+
+Before target writes, every selected scope must pass planning and destination
+metadata checks. A write preflight creates and removes private empty staging
+objects on the destination filesystem to test ownership, modes and attributes.
+Preview does not perform these staging writes. Immutable/append-only targets,
+unsupported metadata and cross-filesystem hardlinks block execution. Runtime
+errors stop later scopes; completed actions retain their journals and backups.
+There is no automatic rollback or crash resume.
+
+`identity_mappings` explicitly maps source UID/GID values to existing target
+names, including named ACL entries. Home ownership maps to the destination home
+owner. Ordinary CLI reports show attribute names and byte counts, omitting their
+values; the private archive and executor channel preserve those values.
+
 ## Partial apply
 
 `selected_paths` selects comma-separated logical prefixes for apply. Each prefix

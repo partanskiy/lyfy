@@ -15,6 +15,7 @@ lyfy \- declarative system maintenance for Arch Linux
 .RI [ options ]
 .B apply
 .RB [ \-\-write ]
+.RB [ \-\-elevate [=auto|never|required]]
 .br
 .B lyfy
 .RI [ options ]
@@ -131,7 +132,7 @@ Untracked files are retained, and directory deletion is nonrecursive.
 .IP
 Package restoration additionally requires
 .BR "\-\-install_packages true" ,
-existing root privileges and text display.
+root execution and text display.
 It uses a full pacman upgrade for missing native packages and restores
 affected installation reasons.
 Missing foreign packages require deliberate handling.
@@ -147,7 +148,7 @@ Other findings require manual review.
 .SH OPTIONS
 .TP
 .BR \-\-elevate [=auto|never|required]
-Choose the sudo policy for lint or save.
+Choose the sudo policy for lint, save or apply.
 The default auto policy requests authentication only when stdin and stderr
 are terminals and root is /.
 Never disables the request; required always requests it for a non-root user.
@@ -157,6 +158,14 @@ Refusal or failure stops that launch.
 This launch policy has no configuration key or environment equivalent.
 For save, only protected capture runs elevated. The original caller validates
 a private channel and publishes using their own storage credentials.
+For apply, the caller prepares selected verified archives and root executes
+against disposable sources with trusted journals below /var/lib/lyfy/apply.
+Root never publishes into caller repositories. User-only apply stays
+unprivileged when ownership, groups and metadata permit.
+Before writes all scopes must pass planning and destination metadata checks.
+The write preflight uses private empty temporary objects on the destination FS.
+Identity mappings resolve numeric ownership and named ACL entries to existing
+target users/groups. Missing identities block writes.
 .TP
 .B \-\-dry_run
 Preview save without repository/state/remote/export writes.

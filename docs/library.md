@@ -100,6 +100,14 @@ The graph does not grant execution permission or add a fifth operation.
 `ResourceGraph::select(&[ResourceId])` returns requested references, additional
 dependencies and their execution order separately. Config.selected_paths and
 selected_resources select apply work without changing capture include/exclude.
+
+For a privileged input coordinator, Context::export_apply prepares per-scope
+verified archives; with_restore_sources consumes them for apply only. Source
+generation identities survive the handoff. read_receipts/with_restore_receipts
+carry caller home history, while record_receipts publishes confirmed receipts
+only if expected caller history still matches. Caller history never overrides
+trusted system preimages. These capabilities do not authenticate or elevate;
+the launch input owns that boundary and root-owned state selection.
 Plans report required dependencies; an unsatisfied boundary blocks writing.
 Partial execution merges affected entries into receipts and retains other state.
 

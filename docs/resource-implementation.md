@@ -81,6 +81,15 @@ Tampered content, changed preimages and unsafe paths fail validation. The
 executor never changes user repository ownership or uses root's Git identity.
 Use temporary target roots and a controlled executor boundary in tests.
 
+Implemented: apply's input-owned one-shot executor consumes verified pinned
+archives, keeps root-owned system journals and returns confirmed receipts.
+All selected scopes pass metadata preflight before target writes; temporary
+objects check destination modes, ownership and attributes. Explicit identity
+mappings resolve target account names and named ACL entries. Tests cover archive
+tampering, immutable source generations, caller receipt compare-and-swap,
+system receipt trust and identity failures on temporary targets. Actual sudo
+authentication and restoration onto the work laptop remain deployment checks.
+
 ## Stage 4 Package baselines and file exceptions
 
 Compare selected files with libalpm ownership and expected content/metadata.

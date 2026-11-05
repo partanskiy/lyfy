@@ -71,6 +71,14 @@ observer channel. The caller validates that channel and publishes normally.
 Adding a fifth command requires
 a discussion; helper code must not become an extra command implicitly.
 
+Apply uses the same input-owned elevation modes. The caller prepares pinned,
+verified archives with its own storage access. A one-shot executor imports them
+into disposable sources, replans and preflights metadata, then executes only the
+explicit apply request. Trusted system journals/receipts are root-owned; caller
+history can supply home receipts but cannot authorize system replacements.
+The caller publishes confirmed receipts with a concurrent-history check.
+Private input messages are invocation details, not a library transport subsystem.
+
 ## Library layers
 
 ```mermaid
