@@ -71,9 +71,8 @@ fn elevation_is_an_input_policy_for_lint_and_save() {
     ));
     assert!(Cli::try_parse_from(["lyfy", "lint", "--elevate=invalid"]).is_err());
     assert!(Cli::try_parse_from(["lyfy", "save", "--elevate"]).is_ok());
-    for operation in ["fmt", "apply"] {
-        assert!(Cli::try_parse_from(["lyfy", operation, "--elevate"]).is_err());
-    }
+    assert!(Cli::try_parse_from(["lyfy", "apply", "--elevate"]).is_ok());
+    assert!(Cli::try_parse_from(["lyfy", "fmt", "--elevate"]).is_err());
     let command = Cli::command();
     let flag = command
         .find_subcommand("lint")

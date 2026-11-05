@@ -170,6 +170,11 @@ pub enum Command {
         /// Execute the displayed file plan, with backups. Never implied by ENV/config.
         #[arg(long)]
         write: bool,
+        /// Sudo policy for selected actions requiring system privileges.
+        #[arg(long, value_enum, default_value = "auto", default_missing_value = "required", num_args = 0..=1, require_equals = true)]
+        elevate: Elevation,
+        #[arg(long, hide = true)]
+        execution_source: Option<PathBuf>,
     },
     /// Plan deterministic fixes supported by the Arch policy.
     Fmt {
@@ -191,7 +196,7 @@ impl From<Command> for lyfy::Request {
                 capture_only,
             },
             Command::Fmt { write } => Self::Fmt { write },
-            Command::Apply { write } => Self::Apply { write },
+            Command::Apply { write, .. } => Self::Apply { write },
         }
     }
 }

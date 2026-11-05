@@ -1,3 +1,5 @@
+pub mod apply_privileges;
+pub mod apply_protocol;
 pub mod cli;
 pub mod configuration;
 pub mod credentials;

@@ -11,6 +11,18 @@ use std::process::ExitCode;
 
 fn run() -> Result<u8> {
     let cli = Cli::parse();
+    if let Command::Apply {
+        execution_source: Some(path),
+        write,
+        elevate,
+    } = &cli.command
+    {
+        return inputs::apply_privileges::worker(path, *write, *elevate);
+    }
+    let apply_elevation = match &cli.command {
+        Command::Apply { elevate, .. } => Some(*elevate),
+        _ => None,
+    };
     let capture_only = matches!(
         cli.command,
         Command::Save {
@@ -111,6 +123,11 @@ fn run() -> Result<u8> {
     let outcome = if matches!(request, lyfy::Request::Save { .. }) {
         let mut display = progress::Save::new(&launch.progress);
         lyfy::execute_observed(&context, request, &mut |event| display.observe(event))?
+    } else if let lyfy::Request::Apply { write } = request {
+        match inputs::apply_privileges::run(&context, apply_elevation.unwrap(), write)? {
+            Some(outcome) => outcome,
+            None => lyfy::execute(&context, request)?,
+        }
     } else {
         lyfy::execute(&context, request)?
     };
