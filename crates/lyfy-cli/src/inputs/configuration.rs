@@ -163,8 +163,10 @@ pub fn resolve(options: Options, command: &super::cli::Command) -> Result<Launch
     if value["base_host"] == "" {
         value["base_host"] = Value::Null;
     }
-    if value["disabled_rules"] == serde_json::json!([""]) {
-        value["disabled_rules"] = serde_json::json!([]);
+    for key in ["disabled_rules", "selected_paths"] {
+        if value[key] == serde_json::json!([""]) {
+            value[key] = serde_json::json!([]);
+        }
     }
     let identity_files = serde_json::from_value(
         value
