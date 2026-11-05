@@ -112,7 +112,7 @@ pub fn begin(context: &Context) -> Result<CaptureGuard> {
             .as_ref()
             .or(previous.as_ref().map(|m| &m.identity));
         ensure!(
-            expected.is_none_or(|e| e == &identity),
+            expected.is_none_or(|e| e.equivalent(&identity)),
             "external mount identity changed; explicitly review expected identity before adopting a replacement; observed={}",
             serde_json::to_string(&identity)?
         );
@@ -171,7 +171,8 @@ pub fn finish(context: &Context, guard: CaptureGuard, tree: &mut Tree) -> Result
                 &path,
                 current,
                 mount.identity_file.as_deref()
-            )? == mount.identity,
+            )?
+            .equivalent(&mount.identity),
             "source volume marker changed during capture"
         );
         tree.get_mut(&context.config.key(&path)?)
@@ -248,7 +249,7 @@ fn verify(context: &Context, boundaries: &BTreeMap<String, ExternalMount>) -> Re
                 current
                     .map(|c| identity(config, &path, c, mount.identity_file.as_deref()))
                     .transpose()?
-                    .is_some_and(|i| i == mount.identity),
+                    .is_some_and(|i| i.equivalent(&mount.identity)),
                 "required external mount is disconnected or replaced: {key}"
             );
         }
