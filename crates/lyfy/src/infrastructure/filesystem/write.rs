@@ -116,20 +116,23 @@ impl Root {
     }
 
     pub fn mkdir(&self, path: &Path, mode: u32, owner: Option<(u32, u32)>) -> Result<()> {
-        if path == Path::new("/") {
+        if path == Path::new("/") || self.boundaries.contains_key(path) {
+            let directory = self
+                .bound_directory(path)?
+                .unwrap_or(self.directory.try_clone()?);
             if let Some((uid, gid)) = owner {
                 // SAFETY: modify only the held target root directory.
                 ensure!(
-                    unsafe { libc::fchown(self.directory.as_raw_fd(), uid, gid) } == 0,
+                    unsafe { libc::fchown(directory.as_raw_fd(), uid, gid) } == 0,
                     "set root directory owner"
                 );
             }
             // SAFETY: the descriptor names the explicitly selected target root.
             ensure!(
-                unsafe { libc::fchmod(self.directory.as_raw_fd(), mode) } == 0,
+                unsafe { libc::fchmod(directory.as_raw_fd(), mode) } == 0,
                 "set root directory mode"
             );
-            self.directory.sync_all()?;
+            directory.sync_all()?;
             return Ok(());
         }
         let (dir, leaf) = self.parent(path, true)?;
@@ -147,6 +150,7 @@ impl Root {
                 libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
             )
         })?;
+        self.check_mount(&dir, &file)?;
         if let Some((uid, gid)) = owner {
             // SAFETY: valid descriptor.
             ensure!(

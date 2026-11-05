@@ -5,6 +5,7 @@ pub use content::hash_file;
 mod hash;
 mod identity;
 mod links;
+mod mounts;
 mod preflight;
 pub use identity::IdentityView;
 pub use identity::current_groups;
@@ -24,6 +25,8 @@ use std::{
 
 pub struct Root {
     directory: File,
+    boundaries: std::collections::BTreeMap<std::path::PathBuf, File>,
+    guarded: bool,
 }
 
 fn name(value: &std::ffi::OsStr) -> Result<CString> {
@@ -43,7 +46,11 @@ impl Root {
             .read(true)
             .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
             .open(path)?;
-        Ok(Self { directory })
+        Ok(Self {
+            directory,
+            boundaries: Default::default(),
+            guarded: false,
+        })
     }
 
     fn parent(&self, path: &Path, create: bool) -> Result<(File, CString)> {
@@ -57,7 +64,13 @@ impl Root {
             .collect();
         let leaf = name(parts.pop().context("refusing to operate on root")?)?;
         let mut dir = self.directory.try_clone()?;
+        let mut current = std::path::PathBuf::from("/");
         for part in parts {
+            current.push(part);
+            if let Some(bound) = self.bound_directory(&current)? {
+                dir = bound;
+                continue;
+            }
             let part = name(part)?;
             // SAFETY: both arguments are valid, owned for the entire call.
             let mut fd = unsafe {
@@ -87,18 +100,23 @@ impl Root {
                     )
                 };
             }
-            dir = checked(fd)
+            let next = checked(fd)
                 .with_context(|| format!("unsafe or inaccessible parent of {}", path.display()))?;
+            self.check_mount(&dir, &next)?;
+            dir = next;
         }
         Ok((dir, leaf))
     }
 
     pub fn metadata(&self, path: &Path) -> Result<Option<libc::stat>> {
-        if path == Path::new("/") {
+        if path == Path::new("/") || self.boundaries.contains_key(path) {
+            let directory = self
+                .bound_directory(path)?
+                .unwrap_or(self.directory.try_clone()?);
             let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
             // SAFETY: the held root descriptor is valid and stat is writable.
             ensure!(
-                unsafe { libc::fstat(self.directory.as_raw_fd(), stat.as_mut_ptr()) } == 0,
+                unsafe { libc::fstat(directory.as_raw_fd(), stat.as_mut_ptr()) } == 0,
                 "inspect root metadata"
             );
             // SAFETY: successful fstat initialized stat.
@@ -131,6 +149,17 @@ impl Root {
             }
             return Err(e.into());
         }
+        if self.guarded {
+            // SAFETY: O_PATH inspects the leaf itself, including symlinks.
+            let leaf_file = checked(unsafe {
+                libc::openat(
+                    dir.as_raw_fd(),
+                    leaf.as_ptr(),
+                    libc::O_PATH | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+                )
+            })?;
+            self.check_mount(&dir, &leaf_file)?;
+        }
         // SAFETY: fstatat succeeded.
         Ok(Some(unsafe { stat.assume_init() }))
     }
@@ -145,6 +174,7 @@ impl Root {
                 libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC,
             )
         })?;
+        self.check_mount(&dir, &file)?;
         ensure!(
             file.metadata()?.is_file(),
             "expected regular file: {}",
