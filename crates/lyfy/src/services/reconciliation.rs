@@ -25,6 +25,39 @@ pub fn receipt_path(config: &Config) -> PathBuf {
         .join(format!("{}.json", digest(context.as_bytes())))
 }
 
+/// Explicitly selected parent scopes may satisfy a child's creation boundary.
+pub fn connect(plans: &mut [&mut Plan]) {
+    let effects: std::collections::BTreeMap<_, _> = plans
+        .iter()
+        .flat_map(|plan| {
+            plan.changes
+                .iter()
+                .filter(|c| c.conflict.is_none())
+                .filter_map(|c| {
+                    c.after
+                        .as_ref()
+                        .filter(|node| node.directory())
+                        .map(|node| (c.key.clone(), node.clone()))
+                })
+        })
+        .collect();
+    for plan in plans {
+        for dependency in &mut plan.dependencies {
+            if let Some(expected) = effects.get(&dependency.key) {
+                dependency.satisfied = true;
+                if let Some(guard) = plan.guards.iter_mut().find(|g| g.key == dependency.key) {
+                    guard.expected = expected.clone();
+                } else {
+                    plan.guards.push(crate::domain::plan::Guard {
+                        key: dependency.key.clone(),
+                        expected: expected.clone(),
+                    });
+                }
+            }
+        }
+    }
+}
+
 pub fn build(context: &Context) -> Result<Plan> {
     let scoped = crate::services::packages::file_scope(&context.config)?;
     let config = &scoped;
