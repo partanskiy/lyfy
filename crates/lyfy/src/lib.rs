@@ -42,6 +42,7 @@ pub use domain::config::Config;
 pub use domain::diagnostics::{Diagnostic, DiagnosticCode, Finding, Report};
 pub use domain::identities::{IdentityKind, IdentityMapping};
 pub use domain::observation::Observation;
+pub use domain::package_files::PackageBaseline;
 pub use domain::package_files::{FileDifference, PackageEvidence};
 pub use domain::packages::{Package, PackagePlan};
 pub use domain::plan::{Change, Guard, Plan, Receipt, RequiredDependency};

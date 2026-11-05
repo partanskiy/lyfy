@@ -48,3 +48,25 @@ pub enum DatabaseIssue {
         owners: Vec<String>,
     },
 }
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageBaseline {
+    pub package: crate::domain::packages::Package,
+    pub sha256: String,
+    pub mode: u32,
+    pub owner: (u32, u32),
+    pub backup: bool,
+}
+
+impl PackageBaseline {
+    pub fn validate(&self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            crate::domain::packages::valid_name(&self.package.name)
+                && !self.package.version.is_empty()
+                && crate::domain::config::is_digest(&self.sha256)
+                && self.mode <= 0o7777,
+            "invalid package baseline"
+        );
+        Ok(())
+    }
+}
