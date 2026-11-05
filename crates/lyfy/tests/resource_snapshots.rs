@@ -398,3 +398,43 @@ fn protected_connection_paths_survive_execution_source_handoffs() {
         "synthetic connection material\n"
     );
 }
+
+#[test]
+fn execution_seals_reject_validly_encoded_metadata_tampering() {
+    let temp = tempfile::tempdir().unwrap();
+    let config = config(temp.path(), "directory");
+    let target = config.root.join("home/test/.config/app");
+    fs::create_dir_all(target.parent().unwrap()).unwrap();
+    fs::write(&target, "saved\n").unwrap();
+    let caller = Context::new(config.clone()).unwrap();
+    execute(
+        &caller,
+        Request::Save {
+            dry_run: false,
+            capture_only: false,
+        },
+    )
+    .unwrap();
+    let sources = caller.export_apply(&temp.path().join("sources")).unwrap();
+    let hashes = caller.seal_restore_sources(&sources).unwrap();
+    let archive = &sources["default"];
+    let bytes = fs::read(archive).unwrap();
+    let length = u64::from_le_bytes(bytes[8..16].try_into().unwrap()) as usize;
+    let mut manifest: serde_json::Value = serde_json::from_slice(&bytes[16..16 + length]).unwrap();
+    manifest["tree"]["home/.config/app"]["mode"] = json!(0o600);
+    let manifest = serde_json::to_vec(&manifest).unwrap();
+    let mut changed = bytes[..8].to_vec();
+    changed.extend((manifest.len() as u64).to_le_bytes());
+    changed.extend(manifest);
+    changed.extend(&bytes[16 + length..]);
+    fs::write(archive, changed).unwrap();
+    fs::write(&target, "keep local\n").unwrap();
+    let executor = Context::new(config)
+        .unwrap()
+        .with_restore_sources(sources)
+        .unwrap()
+        .with_restore_source_hashes(hashes)
+        .unwrap();
+    assert!(execute(&executor, Request::Apply { write: true }).is_err());
+    assert_eq!(fs::read_to_string(target).unwrap(), "keep local\n");
+}

@@ -18,7 +18,7 @@ use std::{
 };
 mod restoration;
 mod transport;
-pub use restoration::{export_apply, prepare_packages, requires_root};
+pub use restoration::{export_apply, prepare_packages, requires_root, seal_restore_sources};
 pub use transport::capture_channel;
 
 pub fn prepare(context: &Context, scope_count: usize) -> Result<()> {
@@ -59,6 +59,12 @@ fn input(context: &Context) -> Result<File> {
         .or(context.config.import_file.as_ref())
         .ok_or_else(|| anyhow::anyhow!("missing import_file"))?;
     let mut file = Root::open(Path::new("/"))?.open_content(path)?;
+    if let Some(hash) = &context.restore_hash {
+        ensure!(
+            crate::infrastructure::filesystem::hash_file(&mut file, 0)? == *hash,
+            "selected execution archive changed after preparation"
+        );
+    }
     let mut prefix = [0; 8];
     file.read_exact(&mut prefix)?;
     file.rewind()?;

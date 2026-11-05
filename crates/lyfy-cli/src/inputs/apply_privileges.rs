@@ -56,10 +56,13 @@ pub fn run(context: &lyfy::Context, mode: Elevation, write: bool) -> Result<Opti
     let expected = context.read_receipts()?;
     eprintln!("lyfy: preparing verified sources for privileged apply");
     let sources = tempfile::tempdir()?;
+    let archives = context.export_apply(sources.path())?;
+    let source_hashes = context.seal_restore_sources(&archives)?;
     let mut bundle = Bundle {
         schema: 1,
         config: context.config().clone(),
-        sources: context.export_apply(sources.path())?,
+        sources: archives,
+        source_hashes,
         receipts: expected.clone(),
         protected_paths: context.apply_protected_paths(),
         artifacts: Default::default(),
@@ -84,7 +87,8 @@ pub fn run(context: &lyfy::Context, mode: Elevation, write: bool) -> Result<Opti
                         protected_paths: bundle.protected_paths.clone(),
                         ..Default::default()
                     })?
-                    .with_restore_sources(bundle.sources.clone())?;
+                    .with_restore_sources(bundle.sources.clone())?
+                    .with_restore_source_hashes(bundle.source_hashes.clone())?;
                 bundle.artifacts =
                     frozen.prepare_packages(&sources.path().join("packages"), &requested)?;
             }

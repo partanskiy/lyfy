@@ -66,6 +66,8 @@ struct Journal<'a> {
     home_dir: &'a std::path::Path,
     host: &'a str,
     snapshot: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_archive: Option<&'a str>,
     changes: &'a [Change],
     completed: Vec<String>,
     status: &'a str,
@@ -103,6 +105,7 @@ fn execute(
         home_dir: &config.home_dir,
         host: &config.host,
         snapshot: &plan.snapshot,
+        source_archive: plan.source_archive.as_deref(),
         changes: &plan.changes,
         completed: vec![],
         status: "prepared",

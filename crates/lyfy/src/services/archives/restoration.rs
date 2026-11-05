@@ -117,6 +117,23 @@ pub fn export_apply(context: &Context, directory: &Path) -> Result<BTreeMap<Stri
     Ok(paths)
 }
 
+pub fn seal_restore_sources(
+    context: &Context,
+    sources: &BTreeMap<String, PathBuf>,
+) -> Result<BTreeMap<String, String>> {
+    let root = Root::open(Path::new("/"))?;
+    let mut hashes = BTreeMap::new();
+    for (name, path) in sources {
+        ensure!(
+            name == "default" || context.config.mounts.iter().any(|m| &m.name == name),
+            "unknown archive collection"
+        );
+        let hash = crate::infrastructure::filesystem::hash_file(&mut root.open_content(path)?, 0)?;
+        hashes.insert(name.clone(), hash);
+    }
+    Ok(hashes)
+}
+
 pub fn prepare_packages(
     context: &Context,
     directory: &Path,

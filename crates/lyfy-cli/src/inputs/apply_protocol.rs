@@ -14,6 +14,7 @@ pub(super) struct Bundle {
     pub schema: u32,
     pub config: lyfy::Config,
     pub sources: BTreeMap<String, PathBuf>,
+    pub source_hashes: BTreeMap<String, String>,
     pub receipts: BTreeMap<String, lyfy::Receipt>,
     #[serde(default)]
     pub protected_paths: Vec<PathBuf>,
@@ -104,6 +105,7 @@ pub(super) fn execute(mut bundle: Bundle, write: bool) -> Result<Report> {
             ..Default::default()
         })?
         .with_restore_sources(bundle.sources)?
+        .with_restore_source_hashes(bundle.source_hashes)?
         .with_package_artifacts(bundle.artifacts)?
         .with_restore_receipts(bundle.receipts)?;
     let outcome = lyfy::execute(&context, lyfy::Request::Apply { write })?;
