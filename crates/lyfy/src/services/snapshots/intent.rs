@@ -1,8 +1,8 @@
 use crate::Context;
 use crate::domain::{
     common_state::{
-        Observations, file_fingerprints, fingerprints, merge, merge_files, merge_observed_packages,
-        merge_system, package_fingerprints, system_fingerprints,
+        Observations, file_fingerprints, file_times, fingerprints, merge, merge_files,
+        merge_observed_packages, merge_system, package_fingerprints, system_fingerprints,
     },
     packages::{Package, PackageCapture},
     state::{Node, Reference, Tree},
@@ -54,6 +54,7 @@ pub fn prepare(
                     s.observed.clone().map(Ok).unwrap_or_else(|| {
                         Ok::<_, anyhow::Error>(Observations {
                             files: file_fingerprints(t)?,
+                            mtimes: file_times(t),
                             packages: package_fingerprints(&catalog(s.packages.as_deref()))?,
                             system: system_fingerprints(
                                 &s.system_state
@@ -67,6 +68,7 @@ pub fn prepare(
                 .transpose()?
                 .unwrap_or(Observations {
                     files: BTreeMap::new(),
+                    mtimes: BTreeMap::new(),
                     packages: BTreeMap::new(),
                     system: BTreeMap::new(),
                 }),
@@ -79,6 +81,7 @@ pub fn prepare(
         let current_packages = catalog(captured.packages.as_deref());
         observed = Some(Observations {
             files: file_fingerprints(&current)?,
+            mtimes: file_times(&current),
             packages: package_fingerprints(&current_packages)?,
             system: system_fingerprints(
                 &system_state
@@ -112,13 +115,18 @@ pub fn prepare(
             old_tree.retain(managed);
             let mut incoming = base.tree.clone();
             incoming.retain(managed);
-            let rebased = merge_files(&file_fingerprints(&old_tree)?, &host, &incoming, false)?;
+            let rebased = merge_files(&file_fingerprints(&old_tree)?, &host, &incoming, None)?;
             let old_observations = previous
                 .observed
                 .as_ref()
                 .map(|o| o.files.clone())
                 .unwrap_or(file_fingerprints(&host)?);
-            desired = merge_files(&old_observations, &rebased, &current, true)?;
+            let times = previous
+                .observed
+                .as_ref()
+                .map(|o| o.mtimes.clone())
+                .unwrap_or_else(|| file_times(&host));
+            desired = merge_files(&old_observations, &rebased, &current, Some(&times))?;
             if captured.inventory && captured.packages.is_some() {
                 let old = catalog(old_base.as_ref().and_then(|(s, _)| s.packages.as_deref()));
                 let host = catalog(previous.packages.as_deref());
@@ -167,6 +175,17 @@ pub fn prepare(
             let intent = merge_system(&old_observations, &rebased, &current)?;
             if !intent.is_empty() || system_state.is_some() {
                 system_state.get_or_insert_default().set_intent(intent);
+            }
+        }
+    }
+    if let Some(system) = &mut system_state {
+        for unit in &mut system.services {
+            for (key, node) in &mut unit.links {
+                if let Some(file) = desired.get(key)
+                    && file.without_timestamps() == node.without_timestamps()
+                {
+                    node.mtime = file.mtime;
+                }
             }
         }
     }

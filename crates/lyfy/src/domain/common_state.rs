@@ -10,6 +10,7 @@ pub struct Observations {
     pub packages: BTreeMap<String, String>,
     #[serde(default)]
     pub system: BTreeMap<String, String>,
+    pub mtimes: BTreeMap<String, crate::domain::state::FileTime>,
 }
 
 pub fn fingerprints<T: Serialize>(
@@ -78,15 +79,33 @@ pub fn merge_files(
     old: &BTreeMap<String, String>,
     desired: &crate::domain::state::Tree,
     incoming: &crate::domain::state::Tree,
-    observations: bool,
+    observations: Option<&BTreeMap<String, crate::domain::state::FileTime>>,
 ) -> Result<crate::domain::state::Tree> {
     let mut result = merge_using(old, desired, incoming, file_fingerprints)?;
-    if observations {
+    if let Some(times) = observations {
+        let actual_hashes = file_fingerprints(incoming)?;
         for (key, node) in &mut result {
-            if let Some(live) = incoming.get(key)
-                && file_semantic(live) == file_semantic(node)
+            let Some(live) = incoming.get(key) else {
+                continue;
+            };
+            if node.mtime.is_none()
+                || node.mtime == live.mtime
+                || file_semantic(live) != file_semantic(node)
+            {
+                continue;
+            }
+            let old_time = times.get(key).copied();
+            if old_time == live.mtime || old_time.is_none() {
+                continue;
+            }
+            if old_time == node.mtime
+                || old
+                    .get(key)
+                    .is_some_and(|old| Some(old) != actual_hashes.get(key))
             {
                 node.mtime = live.mtime;
+            } else {
+                anyhow::bail!("common/host reconciliation conflicts: {key} (mtime)");
             }
         }
     }
@@ -159,4 +178,12 @@ fn file_semantic(node: &crate::domain::state::Node) -> crate::domain::state::Nod
         package.origin = None;
     }
     result
+}
+
+pub fn file_times(
+    tree: &crate::domain::state::Tree,
+) -> BTreeMap<String, crate::domain::state::FileTime> {
+    tree.iter()
+        .filter_map(|(key, node)| node.mtime.map(|time| (key.clone(), time)))
+        .collect()
 }
