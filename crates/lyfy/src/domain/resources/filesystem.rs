@@ -30,7 +30,7 @@ pub(crate) fn validate(graph: &ResourceGraph) -> Result<()> {
             RecoveryDescription::Deletion {} => {
                 files.deleted.insert(key);
             }
-            RecoveryDescription::Package { .. } => unreachable!("validated resource subject"),
+            _ => unreachable!("validated resource subject"),
         }
     }
     for files in hosts.values() {

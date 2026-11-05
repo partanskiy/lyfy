@@ -125,7 +125,12 @@ pub fn build(context: &Context) -> Result<Plan> {
     )?;
     let mut keys: BTreeSet<String> = available.keys().chain(previous.keys()).cloned().collect();
     keys.extend(deleted);
-    selection::validate_request(config, &keys, snapshot.packages.as_deref())?;
+    selection::validate_request(
+        config,
+        &keys,
+        snapshot.packages.as_deref(),
+        snapshot.system_state.as_ref(),
+    )?;
     keys.retain(|key| {
         crate::services::system::unit_path_selected(
             config,

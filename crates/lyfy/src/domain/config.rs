@@ -219,6 +219,21 @@ impl Config {
                         "package inventory belongs to another collection"
                     );
                 }
+                _ => {
+                    ensure!(
+                        self.check_system,
+                        "system resource selection requires check_system"
+                    );
+                    let owner = self
+                        .mounts
+                        .iter()
+                        .find(|m| m.system)
+                        .map_or("default", |m| &m.name);
+                    ensure!(
+                        owner == resource.collection,
+                        "system inventory belongs to another collection"
+                    );
+                }
             }
         }
         for selected in &self.selected_paths {

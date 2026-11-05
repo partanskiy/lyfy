@@ -38,8 +38,28 @@ impl SnapshotReference {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ResourceSubject {
-    Path { key: String },
-    Package { name: String },
+    Path {
+        key: String,
+    },
+    Package {
+        name: String,
+    },
+    Identity {
+        identity_kind: crate::domain::identities::IdentityKind,
+        source: u32,
+    },
+    Service {
+        name: String,
+    },
+    UnitDefinition {
+        name: String,
+    },
+    Mount {
+        key: String,
+    },
+    Requirement {
+        name: String,
+    },
 }
 
 impl ResourceSubject {
@@ -58,6 +78,17 @@ impl ResourceSubject {
                 );
             }
             Self::Package { name } => ensure!(valid_name(name), "invalid resource package name"),
+            Self::Identity { source, .. } => {
+                ensure!(*source != u32::MAX, "invalid identity resource")
+            }
+            Self::Service { name } | Self::UnitDefinition { name } => {
+                crate::domain::system_state::unit_name(name)?
+            }
+            Self::Mount { key } => Self::Path { key: key.clone() }.validate()?,
+            Self::Requirement { name } => ensure!(
+                !name.is_empty() && name.len() <= 4096 && !name.chars().any(char::is_control),
+                "invalid recovery requirement"
+            ),
         }
         Ok(())
     }
@@ -139,6 +170,21 @@ pub enum RecoveryDescription {
     ExternalMount {
         node: Node,
     },
+    Identity {
+        observed: crate::domain::system_state::IdentityRecord,
+    },
+    Service {
+        observed: crate::domain::system_state::ServiceRecord,
+    },
+    UnitDefinition {
+        observed: crate::domain::system_state::UnitDefinition,
+    },
+    MountRequirement {
+        observed: crate::domain::mounts::ExternalMount,
+    },
+    Requirement {
+        observed: crate::domain::system_state::SystemRequirement,
+    },
     Deletion {},
     Package {
         observed: Package,
@@ -187,6 +233,77 @@ impl Resource {
                 ensure!(
                     self.guarantee == RecoveryGuarantee::Recorded,
                     "unresolved package origin cannot guarantee recovery"
+                );
+            }
+            (
+                ResourceSubject::Identity {
+                    identity_kind,
+                    source,
+                },
+                RecoveryDescription::Identity { observed },
+            ) => {
+                observed.validate()?;
+                ensure!(
+                    identity_kind == &observed.kind && source == &observed.id,
+                    "identity resource mismatch"
+                );
+                ensure!(
+                    self.guarantee == RecoveryGuarantee::Recorded,
+                    "account creation requires target validation"
+                );
+            }
+            (ResourceSubject::Service { name }, RecoveryDescription::Service { observed }) => {
+                ensure!(name == &observed.name, "service resource mismatch");
+                crate::domain::system_state::SystemState {
+                    services: vec![observed.clone()],
+                    ..Default::default()
+                }
+                .validate()?;
+                ensure!(
+                    self.guarantee == RecoveryGuarantee::Recorded,
+                    "service recovery requires its target environment"
+                );
+            }
+            (
+                ResourceSubject::UnitDefinition { .. },
+                RecoveryDescription::UnitDefinition { observed },
+            ) => {
+                ResourceSubject::Path {
+                    key: observed.key.clone(),
+                }
+                .validate()?;
+                ensure!(
+                    crate::domain::config::is_digest(&observed.sha256),
+                    "invalid unit definition hash"
+                );
+                ensure!(
+                    self.guarantee == RecoveryGuarantee::Recorded,
+                    "unit definition availability is unproven"
+                );
+            }
+            (ResourceSubject::Mount { .. }, RecoveryDescription::MountRequirement { observed }) => {
+                observed.identity.validate()?;
+                if let Some(marker) = &observed.identity_file {
+                    crate::domain::acquisition::relative(marker)?;
+                }
+                ensure!(
+                    self.guarantee == RecoveryGuarantee::Recorded,
+                    "mount attachment is an external requirement"
+                );
+            }
+            (
+                ResourceSubject::Requirement { name },
+                RecoveryDescription::Requirement { observed },
+            ) => {
+                ensure!(name == &observed.key(), "system requirement mismatch");
+                crate::domain::system_state::SystemState {
+                    requirements: vec![observed.clone()],
+                    ..Default::default()
+                }
+                .validate()?;
+                ensure!(
+                    self.guarantee == RecoveryGuarantee::Recorded,
+                    "manual preparation cannot guarantee recovery"
                 );
             }
             _ => anyhow::bail!("resource subject and recovery description disagree"),
