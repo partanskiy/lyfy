@@ -45,6 +45,7 @@ pub fn scan(
         deletions: Default::default(),
     };
     observer(Observation::SaveStage("capturing files"));
+    let project = crate::services::projects::boundary(config);
     for value in &config.include {
         let logical = config.logical(value)?;
         if config.excluded(&logical) {
@@ -59,12 +60,22 @@ pub fn scan(
             Ok(Some(_)) => {}
         }
         let physical = config.physical(&logical);
+        let mut unknown_projects = Vec::new();
         let walker = WalkDir::new(&physical)
             .follow_links(false)
             .follow_root_links(false)
             .sort_by_file_name()
             .into_iter()
             .filter_entry(|entry| {
+                if entry.file_name() == ".git" {
+                    if project
+                        .as_ref()
+                        .is_none_or(|p| entry.path() != config.physical(p).join(".git"))
+                    {
+                        unknown_projects.push(entry.path().parent().unwrap().to_path_buf());
+                    }
+                    return false;
+                }
                 entry
                     .path()
                     .strip_prefix(&config.root)
@@ -120,6 +131,12 @@ pub fn scan(
             observer(Observation::SaveProgress {
                 entries: captured.tree.len(),
             });
+        }
+        for path in unknown_projects {
+            captured.issue(
+                &Path::new("/").join(path.strip_prefix(&config.root)?),
+                "unclassified Git project; configure a nested git_project mount",
+            );
         }
     }
     observer(Observation::SaveStage("verifying capture"));
@@ -233,6 +250,7 @@ pub fn scan(
             captured.deletions.insert(config.key(path)?);
         }
     }
+    crate::services::projects::capture(context, &mut captured, persist)?;
     retain_previous(context, &mut captured)?;
     captured
         .diagnostics

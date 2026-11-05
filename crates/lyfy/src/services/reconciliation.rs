@@ -159,6 +159,9 @@ pub fn build(context: &Context) -> Result<Plan> {
     }
     crate::services::files::link_tree(config, &root, &mut live)?;
     dependencies.extend(package_files::requirements(config, &desired, &live)?);
+    dependencies.extend(crate::services::projects::dependencies(
+        config, &available, &keys,
+    )?);
     for key in keys {
         let path = config.path_for_key(&key)?;
         ensure!(config.key(&path)? == key, "noncanonical target namespace");

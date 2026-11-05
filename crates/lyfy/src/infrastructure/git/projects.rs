@@ -135,13 +135,14 @@ pub fn prepare(path: &Path) -> Result<Prepared> {
         command(directory.path(), &["index-pack", "--stdin"]),
         Some(pack),
     )?;
-    let refs: BTreeMap<_, _> = text(path, &["for-each-ref", "--format=%(refname) %(objectname)"])?
-        .lines()
-        .map(|line| {
-            let (name, hash) = line.split_once(' ').context("invalid project refs")?;
-            Ok((name.into(), hash.into()))
-        })
-        .collect::<Result<_>>()?;
+    let refs: BTreeMap<String, String> =
+        text(path, &["for-each-ref", "--format=%(refname) %(objectname)"])?
+            .lines()
+            .map(|line| {
+                let (name, hash) = line.split_once(' ').context("invalid project refs")?;
+                Ok((name.into(), hash.into()))
+            })
+            .collect::<Result<_>>()?;
     let head = String::from_utf8(root.read(&path.join(".git/HEAD"), 4096)?)?;
     for (name, hash) in &refs {
         crate::domain::acquisition::relative(name)?;

@@ -22,7 +22,7 @@ pub(crate) fn validate(graph: &ResourceGraph) -> Result<()> {
         let files = hosts.entry(&resource.reference.source.host).or_default();
         files.resources.insert(key, resource);
         match &resource.recovery {
-            RecoveryDescription::File { node } => {
+            RecoveryDescription::File { node } | RecoveryDescription::GitProject { node } => {
                 files.tree.insert(key.clone(), node.clone());
             }
             RecoveryDescription::Deletion {} => {
