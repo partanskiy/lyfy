@@ -63,7 +63,14 @@ pub fn link_tree(
     tree: &mut crate::domain::state::Tree,
 ) -> Result<()> {
     let mut inodes = std::collections::BTreeMap::new();
-    for (key, node) in tree {
+    struct Ownership {
+        symbolic: bool,
+        numeric: bool,
+        owner: (u32, u32),
+        keys: Vec<String>,
+    }
+    let mut groups = std::collections::BTreeMap::<String, Ownership>::new();
+    for (key, node) in &mut *tree {
         if matches!(node.content, Content::File { .. }) {
             let stat = root
                 .metadata(&config.path_for_key(key)?)?
@@ -73,6 +80,26 @@ pub fn link_tree(
                 .map(|previous: String| previous);
             if let Some(primary) = &node.hardlink {
                 inodes.insert((stat.st_dev, stat.st_ino), primary.clone());
+            }
+            if stat.st_nlink > 1 {
+                let group = groups
+                    .entry(node.hardlink.as_ref().unwrap_or(key).clone())
+                    .or_insert(Ownership {
+                        symbolic: false,
+                        numeric: false,
+                        owner: (stat.st_uid, stat.st_gid),
+                        keys: vec![],
+                    });
+                group.symbolic |= node.owner.is_none();
+                group.numeric |= node.owner.is_some();
+                group.keys.push(key.clone());
+            }
+        }
+    }
+    for group in groups.into_values() {
+        if group.symbolic && group.numeric {
+            for key in group.keys {
+                tree.get_mut(&key).unwrap().owner = Some(group.owner);
             }
         }
     }
@@ -88,6 +115,14 @@ pub fn observe_like(
     let Some((mut node, file)) = observe(config, root, path)? else {
         return Ok(None);
     };
+    if node.owner.is_none()
+        && let Some(owner) = expected.and_then(|n| n.owner)
+        && root
+            .metadata(path)?
+            .is_some_and(|m| (m.st_uid, m.st_gid) == owner)
+    {
+        node.owner = Some(owner);
+    }
     if let Some(target) = expected.and_then(|n| n.hardlink.as_ref()) {
         let left = root.metadata(path)?;
         let right = root.metadata(&config.path_for_key(target)?)?;

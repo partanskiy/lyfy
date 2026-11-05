@@ -6,7 +6,7 @@ use crate::domain::{
     state::Tree,
 };
 use crate::infrastructure::filesystem::Root;
-use crate::services::files::observe;
+use crate::services::files::{observe, observe_like};
 use anyhow::{Result, ensure};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -96,7 +96,8 @@ pub fn dependencies(
                 let expected = available
                     .get(target)
                     .ok_or_else(|| anyhow::anyhow!("missing hardlink target"))?;
-                let observed = observe(config, root, &config.path_for_key(target)?)?;
+                let observed =
+                    observe_like(config, root, &config.path_for_key(target)?, Some(expected))?;
                 let satisfied = observed
                     .as_ref()
                     .is_some_and(|(n, _)| *n == expected.materialized());
@@ -124,7 +125,7 @@ pub fn dependencies(
             .iter()
             .any(|(peer, n)| n.hardlink.as_ref() == Some(key) && !selected.contains(peer))
         {
-            let current = observe(config, root, &path)?;
+            let current = observe_like(config, root, &path, Some(&node))?;
             if current.as_ref().map(|(n, _)| n) != Some(&node) {
                 for (peer, _) in available.iter().filter(|(peer, n)| {
                     n.hardlink.as_ref() == Some(key) && !selected.contains(*peer)
