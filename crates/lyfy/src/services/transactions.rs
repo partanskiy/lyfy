@@ -172,7 +172,7 @@ fn execute(
                             observe(config, &root, &target_path)?
                                 .map(|(n, _)| n)
                                 .as_ref()
-                                == Some(expected),
+                                == Some(&expected.materialized()),
                             "hardlink target changed after planning"
                         );
                         root.hardlink(&path, &target_path)?;

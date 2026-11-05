@@ -132,7 +132,8 @@ pub fn commit(
             k == "home/"
                 || k == "system/"
                 || n.as_ref().is_some_and(|n| {
-                    matches!(n.content, crate::domain::state::Content::PackageFile { .. })
+                    n.package_baseline.is_some()
+                        || matches!(n.content, crate::domain::state::Content::PackageFile { .. })
                 })
         }) {
             3

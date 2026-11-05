@@ -161,6 +161,7 @@ pub fn scan(
     }
     for (key, node) in &mut captured.tree {
         let path = config.path_for_key(key)?;
+        node.package_baseline = package_files::description(&package_files, &path, node);
         if let Some(package) = package_files::candidate(
             &package_files,
             &root,
@@ -183,6 +184,11 @@ pub fn scan(
         }
     }
     if let Some(index) = package_files {
+        anyhow::ensure!(
+            crate::infrastructure::pacman::inventory(config)? == index.packages,
+            "package inventory changed during capture"
+        );
+        captured.inventory = Some(config.check_packages.then_some(index.packages));
         for path in index.absent {
             let path = Path::new(&path);
             anyhow::ensure!(
