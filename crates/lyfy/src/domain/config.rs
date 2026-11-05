@@ -19,6 +19,16 @@ pub struct Config {
     pub ownership_roots: Vec<String>,
     pub require_uki: bool,
     pub check_packages: bool,
+    #[serde(default = "system_checks")]
+    pub check_system: bool,
+    #[serde(default)]
+    pub system_resources: Vec<crate::domain::system_state::SystemResourceRequest>,
+    #[serde(default)]
+    pub install_identities: bool,
+    #[serde(default)]
+    pub restore_services: bool,
+    #[serde(default)]
+    pub regenerate: bool,
     #[serde(default = "capture_package_files")]
     pub package_file_policy: String,
     #[serde(default)]
@@ -57,6 +67,53 @@ pub struct Config {
 
 impl Config {
     pub fn validate(&self) -> Result<()> {
+        let mut resources = std::collections::BTreeSet::new();
+        for request in &self.system_resources {
+            use crate::domain::system_state::SystemResourceRequest;
+            let key = match request {
+                SystemResourceRequest::User { name } | SystemResourceRequest::Group { name } => {
+                    crate::domain::identities::IdentityMapping {
+                        kind: crate::domain::identities::IdentityKind::User,
+                        source: 0,
+                        target: name.clone(),
+                    }
+                    .validate()?;
+                    format!(
+                        "{}:{name}",
+                        if matches!(request, SystemResourceRequest::User { .. }) {
+                            "user"
+                        } else {
+                            "group"
+                        }
+                    )
+                }
+                SystemResourceRequest::Service { name } => {
+                    crate::domain::system_state::unit_name(name)?;
+                    format!("service:{name}")
+                }
+                SystemResourceRequest::Generated { path, .. } => {
+                    ensure!(
+                        self.logical(path)? == Path::new("/etc/ld.so.cache"),
+                        "ldconfig generation supports only /etc/ld.so.cache"
+                    );
+                    format!("path:{}", self.logical(path)?.display())
+                }
+                SystemResourceRequest::Application { path, .. } => {
+                    format!("path:{}", self.logical(path)?.display())
+                }
+                SystemResourceRequest::Excluded { path, reason } => {
+                    ensure!(
+                        !reason.trim().is_empty(),
+                        "excluded resources require a reason"
+                    );
+                    format!("exclude:{}", self.logical(path)?.display())
+                }
+            };
+            ensure!(
+                resources.insert(key),
+                "duplicate system resource declaration"
+            );
+        }
         crate::domain::storage::validate(self)?;
         let mut package_sources = std::collections::BTreeSet::new();
         for source in &self.package_sources {
@@ -286,6 +343,10 @@ impl Config {
 
 fn strict_capture() -> String {
     "strict".into()
+}
+
+fn system_checks() -> bool {
+    true
 }
 
 fn capture_package_files() -> String {

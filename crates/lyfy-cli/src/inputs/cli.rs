@@ -52,6 +52,16 @@ pub struct Options {
     pub require_uki: Option<bool>,
     #[arg(long, env = "LYFY_CHECK_PACKAGES", global = true, action = clap::ArgAction::Set)]
     pub check_packages: Option<bool>,
+    #[arg(long, env = "LYFY_CHECK_SYSTEM", global = true, action = clap::ArgAction::Set)]
+    pub check_system: Option<bool>,
+    #[arg(long, env = "LYFY_SYSTEM_RESOURCES", global = true, value_parser = parse_system_resources)]
+    pub system_resources: Option<serde_json::Value>,
+    #[arg(long, env = "LYFY_INSTALL_IDENTITIES", global = true, action = clap::ArgAction::Set)]
+    pub install_identities: Option<bool>,
+    #[arg(long, env = "LYFY_RESTORE_SERVICES", global = true, action = clap::ArgAction::Set)]
+    pub restore_services: Option<bool>,
+    #[arg(long, env = "LYFY_REGENERATE", global = true, action = clap::ArgAction::Set)]
+    pub regenerate: Option<bool>,
     #[arg(long, global = true, env = "LYFY_PACKAGE_FILE_POLICY")]
     pub package_file_policy: Option<String>,
     #[arg(long, global = true, env = "LYFY_PACKAGE_SOURCES", value_parser = parse_package_sources)]
@@ -149,6 +159,12 @@ fn parse_mounts(value: &str) -> Result<serde_json::Value, String> {
     let mounts: Vec<lyfy::Mount> =
         serde_json::from_str(value).map_err(|e| format!("invalid mounts JSON: {e}"))?;
     serde_json::to_value(mounts).map_err(|e| e.to_string())
+}
+
+fn parse_system_resources(value: &str) -> Result<serde_json::Value, String> {
+    let resources: Vec<lyfy::SystemResourceRequest> =
+        serde_json::from_str(value).map_err(|e| format!("invalid system_resources JSON: {e}"))?;
+    serde_json::to_value(resources).map_err(|e| e.to_string())
 }
 
 fn parse_backends(value: &str) -> Result<serde_json::Value, String> {

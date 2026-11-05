@@ -82,6 +82,8 @@ pub struct Mount {
     #[serde(default)]
     pub packages: bool,
     #[serde(default)]
+    pub system: bool,
+    #[serde(default)]
     pub exclude: Vec<String>,
     #[serde(default)]
     pub max_file_bytes: Option<u64>,
@@ -96,6 +98,10 @@ fn required_replicas() -> bool {
 }
 
 pub fn validate(config: &Config) -> Result<()> {
+    ensure!(
+        config.mounts.iter().filter(|m| m.system).count() <= 1,
+        "system inventory can belong to only one explicit mount"
+    );
     ensure!(
         config.mounts.iter().filter(|m| m.packages).count() <= 1,
         "package inventory can belong to only one explicit mount"
