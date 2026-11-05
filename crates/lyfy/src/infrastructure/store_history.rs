@@ -65,6 +65,15 @@ impl Store {
             if let Some(base) = &snapshot.base {
                 pending.push(base.clone());
             }
+            let tree = snapshot
+                .changes
+                .iter()
+                .filter_map(|(k, n)| n.clone().map(|n| (k.clone(), n)))
+                .collect();
+            objects.extend(
+                crate::domain::acquisition::content::retained(&tree, snapshot.packages.as_deref())?
+                    .into_keys(),
+            );
             for node in snapshot.changes.values().flatten() {
                 if let Content::File { sha256 } = &node.content {
                     objects.insert(sha256.clone());

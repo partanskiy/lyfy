@@ -158,7 +158,15 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         .into_iter()
         .filter(|(key, _)| keys.contains(key))
         .collect();
-    let mut sizes = BTreeMap::new();
+    let packages: Option<Vec<_>> = snapshot
+        .packages
+        .filter(|_| config.check_packages && config.packages_selected())
+        .map(|p| {
+            p.into_iter()
+                .filter(|p| config.package_selected(&p.name))
+                .collect()
+        });
+    let mut sizes = crate::domain::acquisition::content::retained(&tree, packages.as_deref())?;
     for node in tree.values() {
         if let Content::File { sha256 } = &node.content
             && !sizes.contains_key(sha256)
@@ -180,25 +188,14 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         })
         .collect();
     Ok(SnapshotState {
-        schema: if crate::domain::state::extended_state(&tree) {
-            2
-        } else {
-            1
-        },
+        schema: crate::domain::acquisition::content::portable_schema(&tree, packages.as_deref()),
         system: snapshot.system,
         host: config.host.clone(),
         source_snapshot: id,
         created_ns: snapshot.created_ns,
         tree,
         deletions,
-        packages: snapshot
-            .packages
-            .filter(|_| config.check_packages && config.packages_selected())
-            .map(|p| {
-                p.into_iter()
-                    .filter(|p| config.package_selected(&p.name))
-                    .collect()
-            }),
+        packages,
         diagnostics: vec![],
         sizes,
     })
