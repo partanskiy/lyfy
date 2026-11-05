@@ -253,7 +253,15 @@ that many recent snapshots per host, every current host state and every pinned
 base reachable from them. current_only requires retain=0 and keeps current
 states plus pinned dependencies. Git preserves its native history; current_only
 and retention pruning are rejected for Git destinations, including replicas.
-base_host must be configured or passed on each save that should use that base.
+An existing host retains its accepted base when base_host is omitted. An explicit
+base_host selects that host's latest generation for three-way reconciliation:
+old common, incoming common and saved host exceptions. Save then merges changed
+live observations separately. Unchanged live files cannot cancel an unapplied
+common update. Overlapping edits block publication and keep the previous pin;
+review and resolve the conflicting desired state before saving again. There is
+no automatic text merge. File deletions and package inventory use the same rule.
+Git generations are scoped to changes under the particular host, so saving one
+host cannot advance another host's base accidentally.
 
 Replicas copy the exact committed source generation and record its identity.
 They materialize pinned bases, so restoration does not depend on the source
@@ -350,7 +358,8 @@ retention or required replica after publication reports the committed ID and
 the follow-up failure, rather than claiming rollback.
 
 File-only snapshots use schema 2; package baselines and namespace root metadata
-use schema 3. Schemas 1/2 remain readable. A first save after upgrade
+use schema 3, acquisition catalogs schema 4, and based hosts with separate
+observation fingerprints schema 5. Prior schemas remain readable. A first save after upgrade
 may create a schema migration snapshot with zero file changes. Older binaries
 cannot read the new metadata. The Rust API uses Save { dry_run, capture_only };
 ordinary callers set capture_only=false. SnapshotView exposes resolved metadata

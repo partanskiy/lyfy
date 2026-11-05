@@ -16,7 +16,7 @@ See [the library boundary](library.md).
 | state_dir | XDG_STATE_HOME/lyfy | Physical private receipts, locks and journals |
 | storage_format | git | Git worktree with plain files/JSON, or directory JSON/object store |
 | host | /etc/hostname | Validated host identifier |
-| base_host | unset | Host whose latest snapshot becomes the pinned save base |
+| base_host | unset | Reconcile with this host's latest base; omission retains an existing accepted pin |
 | snapshot | latest | Input snapshot ID for apply; save always creates a new ID |
 | include | See below | Managed file/directory scopes |
 | exclude | See below | Prefix exclusions from capture and apply |

@@ -145,6 +145,14 @@ Saving observations before/after synchronization cannot discard unapplied shared
 intent. Protected keys/credentials stay outside snapshots and reports. Encrypted
 exports and selected restores work with explicitly supplied test identities.
 
+Implemented: three-way file/package intent with separate last-observed hashes,
+accepted-base preservation, per-host Git generation pins, strict overlap errors
+and unchanged-live protection before/after apply. Two temporary hosts retain
+machine differences across repeated saves. Encrypted selected archive restoration
+works after deleting original storage and the active identity, using a separately
+supplied test key backup; missing keys fail before target writes. Native age with
+directory/S3 is the supported encrypted route; Git payload encryption is unchanged.
+
 ## Stage 7 Git projects
 
 Capture project refs, required objects, HEAD, index, working tree and additional
