@@ -38,7 +38,9 @@ pub fn acl_ids(value: &[u8]) -> Result<Vec<(IdentityKind, u32)>> {
         "unsupported POSIX ACL encoding"
     );
     Ok(value[4..]
-        .chunks_exact(8)
+        .as_chunks::<8>()
+        .0
+        .iter()
         .filter_map(|entry| {
             let kind = match u16::from_le_bytes(entry[..2].try_into().unwrap()) {
                 2 => IdentityKind::User,
@@ -56,7 +58,7 @@ pub fn remap_acl(
     groups: &BTreeMap<u32, u32>,
 ) -> Result<()> {
     acl_ids(value)?;
-    for entry in value[4..].chunks_exact_mut(8) {
+    for entry in value[4..].as_chunks_mut::<8>().0 {
         let mapping = match u16::from_le_bytes(entry[..2].try_into().unwrap()) {
             2 => users,
             8 => groups,

@@ -143,3 +143,60 @@ fn hardlinks_outside_a_capture_scope_are_diagnosed_instead_of_flattened() {
     );
     assert!(!f.data.join("hosts/laptop/HEAD").exists());
 }
+
+#[test]
+fn unsupported_destination_metadata_blocks_all_target_writes() {
+    let f = Fixture::new();
+    let archive = f.temp.path().join("export.lyfy");
+    f.ok(&["save", "--export_file", archive.to_str().unwrap()]);
+    let bytes = fs::read(&archive).unwrap();
+    let length = u64::from_le_bytes(bytes[8..16].try_into().unwrap()) as usize;
+    let mut manifest: serde_json::Value = serde_json::from_slice(&bytes[16..16 + length]).unwrap();
+    manifest["tree"]["home/.config/app.conf"]["attributes"] =
+        serde_json::json!({"unsupported.example":[65,66,67]});
+    let modified = serde_json::to_vec(&manifest).unwrap();
+    let mut output = bytes[..8].to_vec();
+    output.extend((modified.len() as u64).to_le_bytes());
+    output.extend(modified);
+    output.extend(&bytes[16 + length..]);
+    fs::write(&archive, output).unwrap();
+    f.write("etc/example.conf", "keep system\n");
+    f.write("home/test/.config/app.conf", "keep home\n");
+    let plan = f.ok(&[
+        "apply",
+        "--import_file",
+        archive.to_str().unwrap(),
+        "--overwrite",
+        "true",
+    ]);
+    let change = plan["changes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["key"] == "home/.config/app.conf")
+        .unwrap();
+    assert_eq!(
+        change["after"]["attributes"]["unsupported.example"],
+        serde_json::json!({"bytes":3,"value":"omitted"})
+    );
+    let result = f.run(&[
+        "apply",
+        "--import_file",
+        archive.to_str().unwrap(),
+        "--overwrite",
+        "true",
+        "--write",
+    ]);
+    assert_eq!(result.status.code(), Some(2));
+    assert_eq!(f.read("etc/example.conf"), "keep system\n");
+    assert_eq!(f.read("home/test/.config/app.conf"), "keep home\n");
+    for parent in ["etc", "home/test/.config"] {
+        assert!(fs::read_dir(f.root.join(parent)).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .as_encoded_bytes()
+                .starts_with(b".lyfy-check-")
+        }));
+    }
+}
