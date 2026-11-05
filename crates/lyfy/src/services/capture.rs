@@ -35,6 +35,7 @@ pub fn scan(
     let scoped = crate::services::packages::file_scope(&context.config)?;
     let config = &scoped;
     let store = &context.repository;
+    crate::services::applications::begin(context)?;
     let topology = crate::services::external::begin(context)?;
     let root = crate::services::external::source(context, &topology)?;
     let package_files = package_files::index(context, config)?;
@@ -114,6 +115,7 @@ pub fn scan(
                 if captured.tree.contains_key(&key) {
                     return Ok(None);
                 }
+                crate::services::applications::check_unclassified(config, &root, &path)?;
                 let (node, file) =
                     observe(config, &root, &path)?.context("file disappeared during save")?;
                 let provided = package_files::candidate(

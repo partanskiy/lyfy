@@ -6,7 +6,7 @@ use anyhow::{Result, ensure};
 use std::{
     fs::File,
     io::{Seek, Write},
-    os::{fd::AsRawFd, unix::process::CommandExt},
+    os::unix::process::CommandExt,
     path::Path,
     process::Command,
 };
@@ -46,21 +46,20 @@ fn command(root: &Root, path: &Path, private: &Path, readonly: bool) -> Result<(
         Root::open(Path::new("/"))?.mkdir(private, 0o700, Some((stat.st_uid, stat.st_gid)))?;
         command.gid(stat.st_gid).uid(stat.st_uid);
     }
-    let fd = parent.as_raw_fd();
-    // SAFETY: only async-signal-safe fcntl runs between fork and exec. The owned
-    // parent descriptor remains alive until the command has completed.
-    unsafe {
-        command.pre_exec(move || {
-            if libc::fcntl(fd, libc::F_SETFD, 0) < 0 {
-                return Err(std::io::Error::last_os_error());
-            }
-            Ok(())
-        });
-    }
     if readonly {
         command.arg("-readonly");
     }
-    command.arg(anchored);
+    command
+        .current_dir(
+            anchored
+                .parent()
+                .ok_or_else(|| anyhow::anyhow!("missing SQLite parent"))?,
+        )
+        .arg("--")
+        .arg(
+            path.file_name()
+                .ok_or_else(|| anyhow::anyhow!("missing SQLite name"))?,
+        );
     Ok((command, parent))
 }
 
@@ -74,6 +73,25 @@ fn image(path: &Path, limit: u64) -> Result<File> {
         "invalid SQLite export header"
     );
     hash_file(&mut file, limit)?;
+    let mut check = Command::new("/usr/bin/sqlite3");
+    check
+        .env_clear()
+        .args([
+            "-safe",
+            "-init",
+            "/dev/null",
+            "-batch",
+            "-bail",
+            "-nofollow",
+            "-readonly",
+        ])
+        .arg(path)
+        .arg("PRAGMA trusted_schema=OFF; PRAGMA quick_check;");
+    let check = process::capture(check)?;
+    ensure!(
+        check.code == 0 && check.stdout == b"ok\n",
+        "SQLite image integrity check failed"
+    );
     Ok(file)
 }
 

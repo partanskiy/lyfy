@@ -1,7 +1,7 @@
 use crate::domain::config::Config;
 use crate::domain::state::{Content, Node};
 use crate::infrastructure::filesystem::{Root, hash_file};
-use anyhow::{Result, bail};
+use anyhow::{Result, bail, ensure};
 use std::path::Path;
 
 pub fn observe(
@@ -21,6 +21,10 @@ fn observe_application(
     let Some(stat) = root.metadata(path)? else {
         return Ok(None);
     };
+    ensure!(
+        application.is_none() || stat.st_mode & libc::S_IFMT == libc::S_IFREG,
+        "application export requires a regular database"
+    );
     let mode = stat.st_mode & 0o7777;
     let home_owner = if path.starts_with(&config.home_dir) {
         root.metadata(&config.home_dir)?

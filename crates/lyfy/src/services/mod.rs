@@ -1,3 +1,4 @@
+pub(crate) mod applications;
 pub(crate) mod archives;
 pub(crate) mod capture;
 pub(crate) mod external;
