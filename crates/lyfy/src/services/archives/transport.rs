@@ -7,7 +7,7 @@ use crate::domain::{
 use crate::infrastructure::{archive, store::Store};
 use crate::services::{capture, packages, routing};
 use anyhow::{Result, ensure};
-use std::{collections::BTreeMap, io::Read};
+use std::io::Read;
 
 pub fn capture_channel(
     context: &Context,
@@ -32,6 +32,12 @@ pub fn capture_channel(
         }
         scope.context.repository = Store::ephemeral()?;
         let captured = capture::scan(&scope.context, true, observer)?;
+        for (hash, _) in crate::domain::acquisition::content::retained(
+            &captured.tree,
+            captured.inventory.as_ref().and_then(|p| p.as_deref()),
+        )? {
+            store.put_file(&hash, &mut scope.context.repository.object_file(&hash)?)?;
+        }
         for (key, node) in captured.tree {
             if let Content::File { sha256 } = &node.content {
                 store.put_file(sha256, &mut scope.context.repository.object_file(sha256)?)?;
@@ -57,7 +63,7 @@ pub fn capture_channel(
     if !result.complete && context.config.capture_errors == "strict" {
         return Ok(result);
     }
-    let mut sizes = BTreeMap::new();
+    let mut sizes = crate::domain::acquisition::content::retained(&tree, inventory.as_deref())?;
     for node in tree.values() {
         if let Content::File { sha256 } = &node.content
             && !sizes.contains_key(sha256)
@@ -66,11 +72,7 @@ pub fn capture_channel(
         }
     }
     let state = SnapshotState {
-        schema: if crate::domain::state::extended_state(&tree) {
-            2
-        } else {
-            1
-        },
+        schema: crate::domain::acquisition::content::portable_schema(&tree, inventory.as_deref()),
         system: "arch".into(),
         host: context.config.host.clone(),
         source_snapshot: "capture".into(),

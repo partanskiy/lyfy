@@ -41,15 +41,32 @@ impl Repository {
         let host = self.path.join("hosts").join(&snapshot.host);
         let files = host.join("files");
         // Only the declared host's payload tree is replaced. Old versions remain in Git.
-        if root.metadata(&files)?.is_some() {
-            for entry in WalkDir::new(&files)
-                .follow_links(false)
-                .follow_root_links(false)
-                .contents_first(true)
-            {
-                let entry = entry?;
-                root.remove(entry.path(), entry.file_type().is_dir())?;
+        for tree in [&files, &host.join("assets")] {
+            if root.metadata(tree)?.is_some() {
+                for entry in WalkDir::new(tree)
+                    .follow_links(false)
+                    .follow_root_links(false)
+                    .contents_first(true)
+                {
+                    let entry = entry?;
+                    root.remove(entry.path(), entry.file_type().is_dir())?;
+                }
             }
+        }
+        let tree = snapshot
+            .changes
+            .iter()
+            .filter_map(|(k, n)| n.clone().map(|n| (k.clone(), n)))
+            .collect();
+        for (hash, size) in
+            crate::domain::acquisition::content::retained(&tree, snapshot.packages.as_deref())?
+        {
+            let mut file = self.object_file(&hash)?;
+            ensure!(
+                file.metadata()?.len() == size,
+                "retained input size mismatch"
+            );
+            root.put_file(&host.join("assets").join(hash), &mut file, 0o600, None)?;
         }
         for (key, node) in &snapshot.changes {
             validate_key(key)?;

@@ -17,7 +17,7 @@ impl Repository {
         let mut snapshot: Snapshot =
             serde_json::from_slice(&bytes).context("invalid Git state manifest")?;
         ensure!(
-            [1, 2, 3].contains(&snapshot.schema)
+            [1, 2, 3, 4].contains(&snapshot.schema)
                 && snapshot.system == "arch"
                 && snapshot.host == host,
             "unsupported or mismatched Git state manifest"
@@ -43,6 +43,30 @@ impl Repository {
                 node.validate()?;
             }
         }
+        let tree = snapshot
+            .changes
+            .iter()
+            .filter_map(|(k, n)| n.clone().map(|n| (k.clone(), n)))
+            .collect();
+        snapshot.validate_encoding()?;
+        for (hash, size) in
+            crate::domain::acquisition::content::retained(&tree, snapshot.packages.as_deref())?
+        {
+            let path = format!("hosts/{host}/assets/{hash}");
+            let mut file = process::stream(self.command(&["show", &format!("{id}:{path}")]), None)?;
+            ensure!(
+                file.metadata()?.len() == size && hash_file(&mut file, self.limit)? == hash,
+                "retained package input differs from its description"
+            );
+            self.objects.borrow_mut().insert(
+                hash,
+                Source::Committed {
+                    revision: id.into(),
+                    path: path.clone(),
+                },
+            );
+            expected.insert(path);
+        }
         let listing = self.checked(&[
             "ls-tree",
             "-r",
@@ -50,6 +74,7 @@ impl Repository {
             id,
             "--",
             &format!("hosts/{host}/files"),
+            &format!("hosts/{host}/assets"),
         ])?;
         let mut actual = BTreeSet::new();
         for entry in listing.split(|b| *b == 0).filter(|e| !e.is_empty()) {
