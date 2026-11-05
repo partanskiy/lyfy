@@ -11,6 +11,7 @@ mod filesystem;
 mod graph;
 mod legacy;
 mod selection;
+mod system;
 
 /// An immutable generation in one logical collection and storage destination.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
