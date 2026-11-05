@@ -57,6 +57,49 @@ from Config and saved state; `Context::with_access` validates absolute paths.
 resolved SnapshotState and verified content streams. See the complete API test
 for capture/publication separation without CLI or sudo.
 
+## Resource descriptions
+
+`SnapshotView::resources()` returns a validated `ResourceGraph` on explicit
+request. `state()` and `open_content()` keep their existing behavior, and stored
+snapshot schemas 1/2 and the portable archive encoding remain unchanged.
+The graph's schema 1 versions resource descriptions independently of storage.
+
+`ResourceId` identifies a subject in a collection and host. `ResourceReference`
+adds its backend and immutable snapshot generation through `SnapshotReference`.
+Logical identity survives replication and generation changes. Subjects currently
+cover canonical home/system path keys and installed package names.
+
+`RecoveryDescription` represents a concrete file node, an explicit deletion or
+an observed package with `PackageOrigin::Unknown {}`. Legacy adaptation retains
+file metadata, hardlinks, tombstones, inventory and diagnostics. It assigns
+`RecoveryGuarantee::Recorded`, without treating native/foreign classification
+as an acquisition recipe or claiming independent package recovery.
+
+```rust
+use lyfy::SnapshotView;
+
+fn inspect_resources(view: &SnapshotView) -> anyhow::Result<()> {
+    let graph = view.resources()?;
+    for reference in graph.dependency_order()? {
+        let logical = reference.identity();
+        // Use the typed identity for selection without changing stored state.
+        logical.validate()?;
+    }
+    Ok(())
+}
+```
+
+`ResourceGraph::from_snapshot` also adapts a caller's resolved SnapshotState and
+an explicitly matching source reference. Graph validation rejects unknown
+schemas/kinds, duplicate identities, missing/cyclic dependencies, incompatible
+guarantees and inconsistent filesystem relationships. Directory and hardlink
+dependencies precede their consumers in deterministic order. Validation is
+structural; source availability and target execution require provider checks.
+The graph does not grant execution permission or add a fifth operation.
+
+Package acquisition, project/mount providers and path-selective execution follow
+the remaining stages in [the implementation plan](resource-implementation.md).
+
 The Config/Context API remains available through explicit root exports. Internal
 layer paths, including the old lyfy::domain namespace, are private. See
 [application/API layout](application.md) for the execution contract and import
