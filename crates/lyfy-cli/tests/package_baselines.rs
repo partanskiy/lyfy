@@ -340,3 +340,67 @@ fn shared_literal_config_updates_preserve_the_hosts_package_baseline() {
         false
     );
 }
+
+#[test]
+fn service_definition_dependencies_include_the_owning_package() {
+    use std::io::Write;
+    let f = Fixture::new();
+    package(&f);
+    fs::create_dir_all(f.root.join("usr/lib/systemd/system")).unwrap();
+    fs::create_dir_all(f.root.join("etc/systemd/system/multi-user.target.wants")).unwrap();
+    f.write(
+        "usr/lib/systemd/system/fixture.service",
+        "[Service]\nExecStart=/usr/bin/demo\n",
+    );
+    std::os::unix::fs::symlink(
+        "/usr/lib/systemd/system/fixture.service",
+        f.root
+            .join("etc/systemd/system/multi-user.target.wants/fixture.service"),
+    )
+    .unwrap();
+    let files = f.root.join("var/lib/pacman/local/demo-1-1/files");
+    let list = fs::read_to_string(&files).unwrap().replace(
+        "%FILES%\n",
+        "%FILES%\nusr/lib/systemd/system/fixture.service\n",
+    );
+    fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(&files)
+        .unwrap()
+        .write_all(list.as_bytes())
+        .unwrap();
+    let resources = serde_json::json!([{"kind":"service","name":"fixture.service"}]).to_string();
+    f.ok(&[
+        "save",
+        "--check_packages",
+        "true",
+        "--system_resources",
+        &resources,
+    ]);
+    let state = f.snapshot("laptop");
+    assert_eq!(
+        state["system_state"]["services"][0]["definition"]["package"]["name"],
+        "demo"
+    );
+    fs::remove_file(f.root.join("usr/lib/systemd/system/fixture.service")).unwrap();
+    let output = f.run(&[
+        "apply",
+        "--check_packages",
+        "true",
+        "--restore_services",
+        "true",
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    let plan: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(
+        plan["dependencies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(
+                |d| d["key"] == "system/usr/lib/systemd/system/fixture.service"
+                    && d["package"]["name"] == "demo"
+            )
+    );
+}
