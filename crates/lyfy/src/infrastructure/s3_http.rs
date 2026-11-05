@@ -66,7 +66,7 @@ impl S3 {
                 .join("&");
             url.set_query(Some(&query));
         }
-        let mut settings = tempfile::NamedTempFile::new()?;
+        let mut settings = tempfile::NamedTempFile::new_in("/tmp")?;
         writeln!(
             settings,
             "aws-sigv4 = {}\nuser = {}",
@@ -83,8 +83,8 @@ impl S3 {
                 quote(&format!("x-amz-security-token: {token}"))?
             )?;
         }
-        let headers = tempfile::NamedTempFile::new()?;
-        let output = tempfile::NamedTempFile::new()?;
+        let headers = tempfile::NamedTempFile::new_in("/tmp")?;
+        let output = tempfile::NamedTempFile::new_in("/tmp")?;
         let mut command = Command::new("/usr/bin/curl");
         command
             .args([
@@ -124,7 +124,7 @@ impl S3 {
                 "single S3 payload exceeds 5 GiB; select a local backend"
             );
             let hash = hash_file(input, 0)?;
-            let mut file = tempfile::NamedTempFile::new()?;
+            let mut file = tempfile::NamedTempFile::new_in("/tmp")?;
             std::io::copy(input, &mut file)?;
             file.flush()?;
             command

@@ -72,7 +72,7 @@ impl Disk {
                 && (!authenticated || same),
             "untrusted Yandex response URL"
         );
-        let mut settings = tempfile::NamedTempFile::new()?;
+        let mut settings = tempfile::NamedTempFile::new_in("/tmp")?;
         writeln!(settings, "url = {}", quote(url.as_str())?)?;
         if authenticated {
             writeln!(
@@ -84,8 +84,8 @@ impl Disk {
             )?;
         }
         settings.flush()?;
-        let output = tempfile::NamedTempFile::new()?;
-        let headers = tempfile::NamedTempFile::new()?;
+        let output = tempfile::NamedTempFile::new_in("/tmp")?;
+        let headers = tempfile::NamedTempFile::new_in("/tmp")?;
         let mut command = Command::new("/usr/bin/curl");
         command
             .env_clear()
@@ -115,7 +115,7 @@ impl Disk {
         let mut upload = None;
         if let Some(file) = input {
             file.rewind()?;
-            let mut stage = tempfile::NamedTempFile::new()?;
+            let mut stage = tempfile::NamedTempFile::new_in("/tmp")?;
             std::io::copy(file, &mut stage)?;
             stage.flush()?;
             command.arg("--upload-file").arg(stage.path());
