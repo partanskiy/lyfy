@@ -117,7 +117,10 @@ fn pinned_recipe_builds_without_installing_and_root_is_rejected() {
         (reference(recipe.as_bytes()).sha256, recipe.into_bytes()),
     ]);
     let context = context(temp.path(), package.clone(), objects);
-    let result = context.prepare_packages(&temp.path().join("prepared"), &[package.clone()]);
+    let result = context.prepare_packages(
+        &temp.path().join("prepared"),
+        std::slice::from_ref(&package),
+    );
     // SAFETY: geteuid has no preconditions or side effects.
     if unsafe { libc::geteuid() } == 0 {
         assert!(result.err().unwrap().to_string().contains("unprivileged"));

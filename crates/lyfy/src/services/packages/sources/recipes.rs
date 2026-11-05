@@ -21,7 +21,7 @@ pub fn capture(
     let root = Root::open(Path::new("/"))?;
     let pkgbase = source.pkgbase.as_deref().unwrap_or(&expected.name);
     let aur = source.kind == PackageSourceKind::AurRecipe;
-    let entries = if let Some(revision) = &source.revision {
+    let mut entries = if let Some(revision) = &source.revision {
         crate::infrastructure::git::recipes::recipe(&source.path, revision, aur.then_some(pkgbase))?
     } else {
         ensure!(
@@ -59,6 +59,63 @@ pub fn capture(
         }
         entries
     };
+    let mut requirements = source.build_requirements.clone();
+    if let Some(entry) = entries.iter_mut().find(|e| e.path == ".SRCINFO") {
+        use std::io::{Read, Seek};
+        let before =
+            crate::infrastructure::filesystem::hash_file(&mut entry.file, 4 * 1024 * 1024)?;
+        let mut text = String::new();
+        entry.file.read_to_string(&mut text)?;
+        entry.file.rewind()?;
+        let mut fields = BTreeMap::<String, Vec<String>>::new();
+        for line in text
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.starts_with('#'))
+        {
+            if let Some((key, value)) = line.split_once('=') {
+                fields
+                    .entry(key.trim().into())
+                    .or_default()
+                    .push(value.trim().into());
+            }
+        }
+        if let Some(names) = fields.get("pkgname") {
+            ensure!(
+                names.contains(&expected.name),
+                "recipe .SRCINFO does not describe the installed package"
+            );
+        }
+        if let (Some(version), Some(release)) = (fields.get("pkgver"), fields.get("pkgrel")) {
+            let epoch = fields
+                .get("epoch")
+                .and_then(|v| v.first())
+                .filter(|v| v.as_str() != "0")
+                .map(|v| format!("{v}:"))
+                .unwrap_or_default();
+            ensure!(
+                format!("{epoch}{}-{}", version[0], release[0]) == expected.version,
+                "recipe .SRCINFO version differs from the installed package"
+            );
+        }
+        for key in [
+            "depends",
+            "makedepends",
+            "checkdepends",
+            "depends_x86_64",
+            "makedepends_x86_64",
+            "checkdepends_x86_64",
+        ] {
+            requirements.extend(fields.get(key).into_iter().flatten().cloned());
+        }
+        ensure!(
+            crate::infrastructure::filesystem::hash_file(&mut entry.file, 4 * 1024 * 1024)?
+                == before,
+            "recipe .SRCINFO changed during observation"
+        );
+    }
+    requirements.sort();
+    requirements.dedup();
     let mut files = BTreeMap::new();
     for mut entry in entries {
         crate::services::packages::sources::allowed(context, &source.path.join(&entry.path))?;
@@ -106,7 +163,7 @@ pub fn capture(
             architecture: "x86_64".into(),
             files,
             sources,
-            build_requirements: source.build_requirements.clone(),
+            build_requirements: requirements,
         },
     };
     origin.validate()?;
