@@ -78,6 +78,7 @@ fn capture_and_publish(
     } else {
         capture::scan(context, !dry_run, observer)?
     };
+    crate::services::applications::publication(context, &captured.tree)?;
     crate::services::external::publication(
         context,
         &captured.tree,

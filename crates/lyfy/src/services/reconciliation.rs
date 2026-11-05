@@ -5,7 +5,7 @@ use crate::domain::state::{Content, Node, Tree, digest};
 use crate::infrastructure::filesystem::Root;
 use crate::infrastructure::pacman;
 use crate::infrastructure::store::read_json;
-use crate::services::files::observe;
+use crate::services::files::observe_like;
 use anyhow::{Result, ensure};
 use std::{collections::BTreeSet, path::PathBuf};
 
@@ -189,7 +189,12 @@ pub fn build(context: &Context) -> Result<Plan> {
     for key in &keys {
         let path = config.path_for_key(key)?;
         if config.managed(&path)
-            && let Some((node, _)) = observe(config, &root, &path)?
+            && let Some((node, _)) = observe_like(
+                config,
+                &root,
+                &path,
+                available.get(key).or_else(|| previous.get(key)),
+            )?
         {
             live.insert(key.clone(), node);
         }
