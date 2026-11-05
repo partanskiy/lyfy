@@ -38,6 +38,17 @@ pub fn scan(
     crate::services::applications::begin(context)?;
     let topology = crate::services::external::begin(context)?;
     let root = crate::services::external::source(context, &topology)?;
+    for mount in config
+        .mounts
+        .iter()
+        .filter(|m| m.properties_only && config.include == vec![m.path.clone()])
+    {
+        anyhow::ensure!(
+            root.metadata(&config.logical(&mount.path)?)?
+                .is_some_and(|s| s.st_mode & libc::S_IFMT == libc::S_IFDIR),
+            "properties_only requires an existing directory"
+        );
+    }
     let package_files = package_files::index(context, config)?;
     let mut omitted = std::collections::BTreeSet::new();
     let mut captured = Captured {

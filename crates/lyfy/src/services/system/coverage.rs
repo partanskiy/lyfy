@@ -9,15 +9,6 @@ use std::path::Path;
 
 pub fn observe(context: &Context, root: &Root, tree: &Tree, state: &mut SystemState) -> Result<()> {
     let config = &context.config;
-    if !config.check_system {
-        return Ok(());
-    }
-    let evidence = !state.identities.is_empty()
-        || !config.system_resources.is_empty()
-        || root.metadata(Path::new("/etc/fstab"))?.is_some();
-    if !evidence {
-        return Ok(());
-    }
     let mut record = |key: String, status, reason: &str| {
         state.coverage.push(CoverageItem {
             key,
@@ -25,6 +16,44 @@ pub fn observe(context: &Context, root: &Root, tree: &Tree, state: &mut SystemSt
             reason: reason.into(),
         })
     };
+    for mount in config
+        .mounts
+        .iter()
+        .filter(|m| m.properties_only && config.include == vec![m.path.clone()])
+    {
+        record(
+            format!(
+                "scope_policy:{}",
+                config.key(&config.logical(&mount.path)?)?
+            ),
+            CoverageStatus::Excluded,
+            "properties_only retains the VFS point's own metadata; descendants need separate collections or an explicit exclusion",
+        );
+    }
+    for mount in config
+        .mounts
+        .iter()
+        .filter(|m| !m.include.is_empty() && config.include == vec![m.path.clone()])
+    {
+        record(
+            format!(
+                "scope_policy:{}",
+                config.key(&config.logical(&mount.path)?)?
+            ),
+            CoverageStatus::Excluded,
+            "paths outside this collection's explicit include list are not captured or applied",
+        );
+    }
+    if !config.check_system {
+        return Ok(());
+    }
+    let evidence = !state.identities.is_empty()
+        || !config.system_resources.is_empty()
+        || root.metadata(Path::new("/etc/fstab"))?.is_some()
+        || root.metadata(Path::new("/etc/passwd"))?.is_some();
+    if !evidence {
+        return Ok(());
+    }
     for path in &config.include {
         let key = config.key(&config.logical(path)?)?;
         let captured = tree.keys().any(|k| within(k, &key));
@@ -103,6 +132,40 @@ pub fn observe(context: &Context, root: &Root, tree: &Tree, state: &mut SystemSt
                 "unit definition is pinned but outside retained VFS; target availability must be verified"
             },
         );
+    }
+    let mut needed = std::collections::BTreeSet::new();
+    for node in tree.values() {
+        if let Some((uid, gid)) = node.owner {
+            needed.insert((crate::domain::identities::IdentityKind::User, uid));
+            needed.insert((crate::domain::identities::IdentityKind::Group, gid));
+        }
+        for (name, value) in &node.attributes {
+            if name.starts_with("system.posix_acl_") {
+                needed.extend(crate::domain::identities::acl_ids(value)?);
+            }
+        }
+    }
+    for account in &state.identities {
+        needed.extend(
+            account
+                .primary_group
+                .iter()
+                .chain(&account.groups)
+                .map(|id| (crate::domain::identities::IdentityKind::Group, *id)),
+        );
+    }
+    for (kind, id) in needed {
+        if !state
+            .identities
+            .iter()
+            .any(|r| r.kind == kind && r.id == id && r.name.is_some())
+        {
+            record(
+                format!("identity:{kind:?}:{id}"),
+                CoverageStatus::Unresolved,
+                "numeric ownership is retained without a verified local account name; review identity_mappings before cross-host recovery",
+            );
+        }
     }
     let table = Table::read(&config.root)?;
     let roots: Vec<_> = config

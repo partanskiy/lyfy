@@ -345,6 +345,25 @@ impl Config {
     }
 
     pub fn excluded(&self, logical: &Path) -> bool {
+        if let Some(mount) = self
+            .mounts
+            .iter()
+            .find(|m| self.include == vec![m.path.clone()])
+            && let Ok(point) = self.logical(&mount.path)
+            && logical.starts_with(&point)
+        {
+            if mount.properties_only && logical != point {
+                return true;
+            }
+            if !mount.include.is_empty()
+                && !mount.include.iter().any(|p| {
+                    self.logical(p)
+                        .is_ok_and(|p| logical.starts_with(&p) || p.starts_with(logical))
+                })
+            {
+                return true;
+            }
+        }
         if logical
             .extension()
             .is_some_and(|e| e == "pacnew" || e == "pacsave")
