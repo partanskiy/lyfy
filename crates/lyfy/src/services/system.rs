@@ -71,6 +71,9 @@ pub fn capture(
     }
     needed.sort_by_key(|r| (r.kind, r.id));
     system.identities = needed;
+    if config.check_system {
+        system.services = units::capture_units(context, &root, tree)?;
+    }
     system.validate()?;
     ensure!(
         system.identities.iter().all(|r| r.id != u32::MAX),
@@ -138,3 +141,6 @@ pub fn connect(plans: &mut [&mut crate::domain::plan::Plan]) {
         });
     }
 }
+
+mod units;
+pub use units::{plan_units, unit_path_selected};
