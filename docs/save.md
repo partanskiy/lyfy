@@ -246,6 +246,39 @@ blocks writing until the selection is explicitly expanded. Partial receipts
 retain all unaffected entries, including tracked deletions. overwrite and prune
 remain explicit. SnapshotView selection does not restrict the underlying snapshot.
 
+## External filesystems
+
+Mount topology is checked before walking and before publication. Unknown mounted
+subtrees require classification or exclusion. An external declaration pins its
+volume identity, including a block filesystem UUID where available. A FUSE/cloud
+connection can use a small, pre-existing unique identity_file relative to its root.
+Save reads this marker and does not create it. Source names are hashed, so connection
+strings do not enter manifests. Without a UUID/marker, the pin identifies one mount
+instance within the current boot; reattachment needs explicit identity review.
+A reused device or connection name is insufficient.
+
+```toml
+[[mounts]]
+name = "photos"
+path = "~/CloudPhotos"
+backend = "backup"
+external = { recovery = "independent_copy", identity_file = ".lyfy-volume-id" }
+```
+
+connection records the connection/volume requirement and root metadata without
+copying remote files. Apply requires that connection already be attached; lyfy
+does not obtain its credentials or invoke arbitrary mount commands. independent_copy
+retains contents and requires the matching mount for an ordinary restore.
+An explicit target policy recovery="materialize" restores retained data locally
+only into an unmounted target. Connection-only state has no contents to materialize.
+Use a new ordinary collection when reclassifying the materialized local tree.
+
+Disconnected or replaced mounts cannot publish deletions. Source and destination
+descriptors hold verified boundaries open. Apply rechecks topology and markers
+between actions and rejects new crossings. A detach cannot redirect writes into
+the newly exposed underlying directory. Nested selection rules remain in force.
+Linux metadata is checked against the destination filesystem before writes.
+
 ## Git projects
 
 Set git_project=true on a named mount whose path is the repository root. Choose
@@ -298,11 +331,11 @@ reports its own outcome; there is no transaction across backends.
 
 ## Encryption and connection material
 
-Directory and S3 backends support native age recipients. Install age using
+Directory, S3 and Yandex Disk backends support native age recipients. Install age using
 pacman, create an identity file and obtain its public recipient with age-keygen.
 Set the backend's recipients list to the public recipient, and configure the
 absolute identity_files paths for reading existing encrypted state. Git keeps
-readable payloads and rejects encryption; use directory/S3 for that policy.
+readable payloads and rejects encryption; use directory/S3/Yandex Disk for that policy.
 
 ```sh
 install -d -m 700 ~/.config/lyfy/keys
@@ -342,6 +375,41 @@ Single uploaded payloads are limited to 5 GiB, including encryption overhead;
 multipart upload is not implemented. Bucket versioning/lifecycle is independent
 of lyfy retention. Failed attempts can leave unreferenced content until retention
 cleanup. Local Git never implicitly fetches, pushes or merges.
+
+## Yandex Disk
+
+Yandex Disk is a distinct REST backend:
+
+```toml
+[[backends]]
+name = "disk"
+kind = "yandex_disk"
+[backends.yandex]
+prefix = "app:/lyfy"
+token_file = "/home/example/.config/lyfy/keys/disk-token"
+```
+
+The default endpoint is https://cloud-api.yandex.net/v1/disk. OAuth comes from
+LYFY_YANDEX_TOKEN, an explicit token_env name, or a private caller-owned token_file.
+It is never a saved resource. Token files are protected from capture. HTTP settings
+and transfer URLs stay in private runtime files. Tokens go only to the API origin.
+Signed downloads follow validated Yandex URLs without forwarding OAuth.
+See the [official REST API](https://yandex.com/dev/disk/rest/).
+
+The adapter verifies immutable uploaded bytes, pagination and asynchronous operations.
+A cooperative exclusive directory lock serializes writers; a repeated create must
+fail before publication. There is no provider compare-and-swap claim. Never break a
+live lock. Interrupted locks require explicit provider recovery after verifying the
+writer stopped. A changed owner blocks later writes.
+
+Generation pointer bytes are verified before a ready-marker directory publishes them.
+Unready transfers are ignored. Lost responses are resolved by reading the exact
+generation. Current-only retention preserves pinned bases; the small immutable pointer
+journal remains. Partial failed payload transfers may require removal of unconfirmed
+orphan data before retrying. Metadata, archives, encryption and replicas use the shared
+state model. Loopback fixtures cover publication faults, history, partial restoration,
+token exclusion and encrypted offline archives. Live account compatibility remains
+unverified; tests use no real credentials or account.
 
 ## Complete exports and imports
 
