@@ -131,6 +131,7 @@ fn run() -> Result<u8> {
     } else {
         lyfy::execute(&context, request)?
     };
+    let public = inputs::presentation::data(&outcome.data)?;
     let text = match launch.format.as_str() {
         "text" if matches!(outcome.data, lyfy::Data::Save(_)) => {
             let lyfy::Data::Save(result) = &outcome.data else {
@@ -138,10 +139,9 @@ fn run() -> Result<u8> {
             };
             inputs::presentation::save(result)
         }
-        "json" => serde_json::to_string_pretty(&outcome.data)?,
-        "yaml" => serde_yaml_ng::to_string(&outcome.data)?,
-        _ => toml::to_string_pretty(&outcome.data)
-            .unwrap_or(serde_json::to_string_pretty(&outcome.data)?),
+        "json" => serde_json::to_string_pretty(&public)?,
+        "yaml" => serde_yaml_ng::to_string(&public)?,
+        _ => toml::to_string_pretty(&public).unwrap_or(serde_json::to_string_pretty(&public)?),
     };
     println!("{text}");
     Ok(outcome.exit_code)

@@ -7,6 +7,7 @@ mod identity;
 mod links;
 mod preflight;
 pub use identity::IdentityView;
+pub use identity::current_groups;
 pub use identity::current_uid;
 mod write;
 use anyhow::{Context, Result, ensure};
