@@ -39,6 +39,14 @@ archives. Unknown kinds, cycles, dangling references and incompatible guarantees
 fail explicitly. File-only snapshots preserve existing apply behavior. A new
 schema is introduced only with complete validation and reader compatibility.
 
+Implemented on 2026-11-05: typed resource identities, pinned references, concrete
+file/deletion descriptions, unresolved package observations and graph validation
+are available through the [library API](library.md#resource-descriptions).
+Legacy adapters preserve existing snapshot/archive formats and assign recorded
+guarantees. Tests cover schema 1/2 Git and directory stores, archive migration,
+metadata/hardlink/deletion preservation and invalid graph rejection. Execution
+of new provider kinds and path-selective apply remain later stages.
+
 ## Stage 2 Selective planning and receipts
 
 Resolve collection, path and resource selections through routing and a typed
