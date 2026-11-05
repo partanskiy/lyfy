@@ -63,6 +63,12 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
                 let mut fallback = Context::new(fallback)?.with_access(context.access.clone())?;
                 fallback.capture_source = context.capture_source.clone();
                 fallback.restore_sources = context.restore_sources.clone();
+                fallback.restore_receipts = context
+                    .restore_receipts
+                    .iter()
+                    .filter(|(name, _)| name.as_str() == "default")
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
                 fallback
             },
             error: None,
@@ -169,6 +175,12 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
         }
         scoped_context.capture_source = context.capture_source.clone();
         scoped_context.restore_sources = context.restore_sources.clone();
+        scoped_context.restore_receipts = context
+            .restore_receipts
+            .iter()
+            .filter(|(name, _)| *name == &mount.name)
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
         result.push(Scope {
             name: mount.name.clone(),
             path: root.to_string_lossy().into(),

@@ -114,6 +114,12 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         })
         .cloned()
         .collect();
+    let mut peers = BTreeMap::<_, Vec<_>>::new();
+    for (key, node) in &tree {
+        if let Some(target) = &node.hardlink {
+            peers.entry(target).or_default().push(key);
+        }
+    }
     for key in keys.clone() {
         let mut parent = key.rsplit_once('/').map(|(p, _)| p);
         while let Some(path) = parent {
@@ -125,10 +131,8 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         if let Some(target) = &tree[&key].hardlink {
             keys.insert(target.clone());
         }
-        for (peer, node) in &tree {
-            if node.hardlink.as_ref() == Some(&key) {
-                keys.insert(peer.clone());
-            }
+        if let Some(peers) = peers.get(&key) {
+            keys.extend(peers.iter().map(|p| (*p).clone()));
         }
     }
     let tree: BTreeMap<_, _> = tree

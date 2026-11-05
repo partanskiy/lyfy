@@ -10,6 +10,7 @@ pub struct Context {
     pub(crate) access: crate::domain::access::Access,
     pub(crate) capture_source: Option<std::path::PathBuf>,
     pub(crate) restore_sources: std::collections::BTreeMap<String, std::path::PathBuf>,
+    pub(crate) restore_receipts: std::collections::BTreeMap<String, crate::domain::plan::Receipt>,
     pub(crate) source_snapshot: Option<String>,
     pub(crate) config: Config,
     pub(crate) repository: crate::infrastructure::store::Store,
@@ -48,6 +49,7 @@ impl Context {
             access: Default::default(),
             capture_source: None,
             restore_sources: Default::default(),
+            restore_receipts: Default::default(),
             source_snapshot: None,
             repository: crate::infrastructure::store::Store::configured(&config),
             config,
@@ -96,6 +98,31 @@ impl Context {
 
     pub fn apply_requires_root(&self) -> Result<bool> {
         crate::services::archives::requires_root(self)
+    }
+
+    pub fn read_receipts(
+        &self,
+    ) -> Result<std::collections::BTreeMap<String, crate::domain::plan::Receipt>> {
+        crate::services::reconciliation::read_receipts(self)
+    }
+
+    pub fn with_restore_receipts(
+        mut self,
+        receipts: std::collections::BTreeMap<String, crate::domain::plan::Receipt>,
+    ) -> Result<Self> {
+        for receipt in receipts.values() {
+            crate::services::reconciliation::validate_receipt(&self.config, receipt)?;
+        }
+        self.restore_receipts = receipts;
+        Ok(self)
+    }
+
+    pub fn record_receipts(
+        &self,
+        receipts: &std::collections::BTreeMap<String, crate::domain::plan::Receipt>,
+        expected: &std::collections::BTreeMap<String, crate::domain::plan::Receipt>,
+    ) -> Result<()> {
+        crate::services::reconciliation::record_receipts(self, receipts, expected)
     }
 
     pub fn snapshot(&self, mount: &str) -> Result<SnapshotView> {
