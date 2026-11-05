@@ -62,7 +62,9 @@ pub use domain::results::{
 };
 pub use domain::results::{ReplicaState, ReplicaStatus};
 pub use domain::rules::{Category, FixAction, FixKind, RuleId, RuleSpec, Severity, SubjectKind};
-pub use domain::state::{Content, FileTime, Node, ReplicaSource, SnapshotState, Tree};
+pub use domain::state::{
+    ARCHIVE_SCHEMA, Content, FileTime, Node, ReplicaSource, SNAPSHOT_SCHEMA, SnapshotState, Tree,
+};
 pub use domain::storage::{Backend, BackendKind, History, Mount, S3Connection, YandexConnection};
 pub use domain::system_state::{
     ApplicationExport, ApplicationKind, CoverageItem, CoverageStatus, GeneratedKind,

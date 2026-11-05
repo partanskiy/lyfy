@@ -57,7 +57,7 @@ pub fn read(
     let mut state: SnapshotState = serde_json::from_slice(&manifest)
         .map_err(|_| anyhow::anyhow!("invalid archive manifest"))?;
     ensure!(
-        [1, 2, 3, 4, 5, 6, 7].contains(&state.schema) && state.system == "arch",
+        state.schema == crate::domain::state::ARCHIVE_SCHEMA && state.system == "arch",
         "unsupported archive state"
     );
     identifier(&state.host)?;
@@ -67,10 +67,6 @@ pub fn read(
     );
     validate_tree(&state.tree)?;
     if let Some(system) = &state.system_state {
-        ensure!(
-            state.schema >= 6,
-            "system resources require portable schema 6"
-        );
         system.validate()?;
     }
     crate::domain::acquisition::content::validate(
@@ -79,14 +75,6 @@ pub fn read(
         &state.tree,
         state.packages.as_deref(),
     )?;
-    ensure!(
-        state.package_inventory || state.schema >= 3,
-        "provider catalog requires portable schema 3"
-    );
-    ensure!(
-        state.schema >= 2 || !crate::domain::state::extended_state(&state.tree),
-        "extended archive state requires schema 2"
-    );
     for key in state.tree.keys().chain(state.deletions.iter()) {
         let path = config.path_for_key(key)?;
         ensure!(
