@@ -36,6 +36,7 @@ pub fn scan(
     let config = &scoped;
     let store = &context.repository;
     let root = Root::open(&config.root)?;
+    let topology = crate::services::external::begin(context)?;
     let package_files = package_files::index(context, config)?;
     let mut omitted = std::collections::BTreeSet::new();
     let mut captured = Captured {
@@ -67,6 +68,11 @@ pub fn scan(
             .sort_by_file_name()
             .into_iter()
             .filter_entry(|entry| {
+                if entry.path().strip_prefix(&config.root).is_ok_and(|p| {
+                    crate::services::external::connection_only(config, &Path::new("/").join(p))
+                }) {
+                    return false;
+                }
                 if entry
                     .path()
                     .strip_prefix(&config.root)
@@ -258,6 +264,7 @@ pub fn scan(
         }
     }
     crate::services::projects::capture(context, &mut captured.tree, persist)?;
+    crate::services::external::finish(context, topology, &mut captured.tree)?;
     retain_previous(context, &mut captured)?;
     captured
         .diagnostics

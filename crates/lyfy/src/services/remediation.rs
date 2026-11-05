@@ -54,6 +54,7 @@ pub fn plan(config: &Config, report: &Report) -> Result<Plan> {
         changes,
         guards,
         dependencies: vec![],
+        external_mounts: Default::default(),
         packages: None,
         desired: Default::default(),
         receipt: Default::default(),

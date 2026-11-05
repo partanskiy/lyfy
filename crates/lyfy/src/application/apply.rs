@@ -15,6 +15,7 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
             changes: vec![],
             guards: vec![],
             dependencies: vec![],
+            external_mounts: Default::default(),
             packages: None,
             desired: Default::default(),
             receipt: Default::default(),

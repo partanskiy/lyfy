@@ -1,7 +1,6 @@
 use crate::Context as AppContext;
 use crate::domain::plan::{Change, Plan, Receipt};
 use crate::domain::state::Content;
-use crate::infrastructure::filesystem::Root;
 use crate::infrastructure::store::{Store, timestamp, write_json};
 use crate::services::files::observe_like;
 use crate::services::reconciliation::receipt_path;
@@ -13,7 +12,7 @@ pub use preimages::before_packages;
 pub fn preflight(context: &AppContext, plan: &Plan) -> Result<()> {
     crate::services::projects::preflight(context, plan)?;
     let config = &context.config;
-    let root = Root::open(&config.root)?;
+    let (root, _topology) = crate::services::external::target(context, plan)?;
     let home = root
         .metadata(&config.home_dir)?
         .context("destination home_dir must exist")?;
@@ -98,7 +97,7 @@ fn execute(
     let config = &context.config;
     let store = &context.repository;
     ensure!(plan.ready(), "plan contains conflicts; nothing was written");
-    let root = Root::open(&config.root)?;
+    let (root, topology) = crate::services::external::target(context, plan)?;
     let backup_store = Store::new(transaction.to_path_buf());
     let mut journal = Journal {
         schema: 1,
@@ -113,6 +112,7 @@ fn execute(
     };
     // Back up every preimage before the first target write.
     for change in &plan.changes {
+        crate::services::external::recheck(context, &topology)?;
         let path = config.path_for_key(&change.key)?;
         let observed = observe_like(config, &root, &path, change.before.as_ref())?;
         ensure!(
@@ -134,6 +134,7 @@ fn execute(
         .metadata(&config.home_dir)?
         .context("destination home_dir must exist")?;
     for change in &plan.changes {
+        crate::services::external::recheck(context, &topology)?;
         for guard in &plan.guards {
             ensure!(
                 observe_like(
@@ -216,6 +217,7 @@ fn execute(
     }
     // Final directory permissions run bottom-up, after their contents are written.
     for change in plan.changes.iter().rev() {
+        crate::services::external::recheck(context, &topology)?;
         if let Some(node) = change.after.as_ref().filter(|n| n.directory()) {
             root.mkdir(
                 &config.path_for_key(&change.key)?,
@@ -232,6 +234,7 @@ fn execute(
         tree: plan.receipt.clone(),
     };
     crate::services::projects::verify_applied(context, plan)?;
+    crate::services::external::recheck(context, &topology)?;
     if record_receipt {
         write_json(&receipt_path(config), &receipt)?;
     }
