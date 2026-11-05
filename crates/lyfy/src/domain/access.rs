@@ -5,6 +5,7 @@ use std::{collections::BTreeMap, path::PathBuf};
 pub struct Access {
     pub identity_files: Vec<PathBuf>,
     pub s3: BTreeMap<String, S3Credentials>,
+    pub yandex: BTreeMap<String, YandexCredentials>,
     pub protected_paths: Vec<PathBuf>,
     pub connection_errors: BTreeMap<String, String>,
 }
@@ -14,6 +15,17 @@ pub struct S3Credentials {
     pub access_key: String,
     pub secret_key: String,
     pub session_token: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct YandexCredentials {
+    pub token: String,
+}
+
+impl std::fmt::Debug for YandexCredentials {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("YandexCredentials { redacted }")
+    }
 }
 
 impl std::fmt::Debug for Access {

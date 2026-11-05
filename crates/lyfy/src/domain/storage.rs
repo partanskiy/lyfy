@@ -13,6 +13,8 @@ pub struct Backend {
     #[serde(default)]
     pub s3: Option<S3Connection>,
     #[serde(default)]
+    pub yandex: Option<YandexConnection>,
+    #[serde(default)]
     pub recipients: Vec<String>,
 }
 
@@ -22,6 +24,23 @@ pub enum BackendKind {
     Git,
     Directory,
     S3,
+    YandexDisk,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct YandexConnection {
+    #[serde(default = "yandex_endpoint")]
+    pub endpoint: String,
+    pub prefix: String,
+    #[serde(default)]
+    pub token_env: Option<String>,
+    #[serde(default)]
+    pub token_file: Option<PathBuf>,
+}
+
+fn yandex_endpoint() -> String {
+    "https://cloud-api.yandex.net/v1/disk".into()
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -98,11 +117,15 @@ pub fn validate(config: &Config) -> Result<()> {
                     "duplicate local backend destination"
                 );
                 ensure!(
-                    backend.s3.is_none(),
+                    backend.s3.is_none() && backend.yandex.is_none(),
                     "local backend cannot contain an S3 connection"
                 );
             }
             BackendKind::S3 => {
+                ensure!(
+                    backend.yandex.is_none(),
+                    "S3 backend cannot contain Yandex settings"
+                );
                 ensure!(
                     backend.path.is_none(),
                     "S3 backend cannot have a local authoritative path"
@@ -115,6 +138,29 @@ pub fn validate(config: &Config) -> Result<()> {
                     !s3.bucket.is_empty() && !s3.region.is_empty() && !s3.endpoint.is_empty(),
                     "incomplete S3 connection"
                 );
+            }
+            BackendKind::YandexDisk => {
+                ensure!(
+                    backend.path.is_none() && backend.s3.is_none(),
+                    "Yandex Disk requires its own connection"
+                );
+                let disk = backend.yandex.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!("Yandex Disk backend requires connection settings")
+                })?;
+                ensure!(
+                    disk.prefix.starts_with("app:/") || disk.prefix.starts_with("disk:/"),
+                    "Yandex prefix must use app:/ or disk:/"
+                );
+                if let Some(path) = &disk.token_file {
+                    absolute(path)?;
+                }
+                if let Some(name) = &disk.token_env {
+                    ensure!(
+                        !name.is_empty()
+                            && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'),
+                        "invalid token environment name"
+                    );
+                }
             }
         }
         ensure!(
