@@ -266,3 +266,77 @@ fn package_hardlinks_keep_concrete_objects_and_restore_their_topology() {
         fs::metadata(f.root.join("usr/bin/copy")).unwrap().ino()
     );
 }
+
+#[test]
+fn shared_literal_config_updates_preserve_the_hosts_package_baseline() {
+    let f = Fixture::new();
+    package(&f);
+    f.ok(&["save", "--host", "common"]);
+    f.ok(&[
+        "save",
+        "--check_packages",
+        "true",
+        "--base_host",
+        "common",
+        "--include",
+        "/etc,/usr/bin",
+    ]);
+    f.write("etc/example.conf", "shared config update\n");
+    f.ok(&["save", "--host", "common"]);
+    f.write("etc/example.conf", "common\n");
+    f.ok(&[
+        "save",
+        "--check_packages",
+        "true",
+        "--base_host",
+        "common",
+        "--include",
+        "/etc,/usr/bin",
+    ]);
+    let state = f.snapshot("laptop");
+    assert_eq!(
+        state["changes"]["system/etc/example.conf"]["content"]["kind"],
+        "file"
+    );
+    assert_eq!(
+        state["changes"]["system/etc/example.conf"]["package_baseline"]["package"]["name"],
+        "demo"
+    );
+    assert_eq!(f.read("etc/example.conf"), "common\n");
+    assert_eq!(
+        f.ok(&[
+            "save",
+            "--check_packages",
+            "true",
+            "--include",
+            "/etc,/usr/bin"
+        ])["created"],
+        false
+    );
+    f.ok(&[
+        "apply",
+        "--check_packages",
+        "true",
+        "--include",
+        "/etc,/usr/bin",
+        "--write",
+    ]);
+    assert_eq!(f.read("etc/example.conf"), "shared config update\n");
+    f.ok(&[
+        "save",
+        "--check_packages",
+        "true",
+        "--include",
+        "/etc,/usr/bin",
+    ]);
+    assert_eq!(
+        f.ok(&[
+            "save",
+            "--check_packages",
+            "true",
+            "--include",
+            "/etc,/usr/bin"
+        ])["created"],
+        false
+    );
+}
