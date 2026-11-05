@@ -168,3 +168,84 @@ fn existing_writer_locks_and_unsupported_exclusivity_prevent_publication() {
         }
     }
 }
+
+#[test]
+fn encrypted_disk_archives_restore_without_cloud_access_or_connection_material() {
+    if !std::path::Path::new("/usr/bin/age-keygen").exists() {
+        return;
+    }
+    let Some(disk) = support::Disk::start() else {
+        return;
+    };
+    let f = setup(&disk);
+    let identity = f.temp.path().join("separate-recovery-identity");
+    let generated = std::process::Command::new("/usr/bin/age-keygen")
+        .arg("--output")
+        .arg(&identity)
+        .output()
+        .unwrap();
+    assert!(generated.status.success());
+    let public = std::process::Command::new("/usr/bin/age-keygen")
+        .arg("--y")
+        .arg(&identity)
+        .output()
+        .unwrap();
+    assert!(public.status.success());
+    let recipient = String::from_utf8(public.stdout).unwrap();
+    let backends = serde_json::json!([{"name":"disk","kind":"yandex_disk","recipients":[recipient.trim()],"yandex":{"endpoint":format!("{}/v1/disk",disk.server.endpoint),"prefix":"app:/encrypted","token_file":f.root.join("etc/disk-token")}}]).to_string();
+    let archive = f.temp.path().join("encrypted.lyfy.age");
+    f.ok(&[
+        "save",
+        "--selected_mounts",
+        "config",
+        "--backends",
+        &backends,
+        "--identity_files",
+        identity.to_str().unwrap(),
+        "--export_file",
+        archive.to_str().unwrap(),
+    ]);
+    assert!(
+        fs::read(&archive)
+            .unwrap()
+            .starts_with(b"age-encryption.org/v1")
+    );
+    for (path, bytes) in &disk.state.lock().unwrap().nodes {
+        if (path.contains("/objects/")
+            || path.contains("/snapshots/")
+            || path.contains("/.pending/"))
+            && let Some(bytes) = bytes
+        {
+            assert!(bytes.starts_with(b"age-encryption.org/v1"));
+        }
+    }
+    drop(disk);
+    fs::remove_file(f.root.join("etc/disk-token")).unwrap();
+    let target = f.temp.path().join("second-laptop");
+    fs::create_dir_all(target.join("home/test")).unwrap();
+    fs::create_dir_all(target.join("etc")).unwrap();
+    fs::write(target.join("etc/untouched"), "local machine").unwrap();
+    f.ok(&[
+        "apply",
+        "--root",
+        target.to_str().unwrap(),
+        "--selected_paths",
+        "/etc/example.conf",
+        "--backends",
+        &backends,
+        "--identity_files",
+        identity.to_str().unwrap(),
+        "--import_file",
+        archive.to_str().unwrap(),
+        "--write",
+    ]);
+    assert_eq!(
+        fs::read_to_string(target.join("etc/example.conf")).unwrap(),
+        "common\n"
+    );
+    assert_eq!(
+        fs::read_to_string(target.join("etc/untouched")).unwrap(),
+        "local machine"
+    );
+    assert!(!target.join("etc/disk-token").exists());
+}
