@@ -66,6 +66,6 @@ pub use domain::state::{Content, FileTime, Node, ReplicaSource, SnapshotState, T
 pub use domain::storage::{Backend, BackendKind, History, Mount, S3Connection, YandexConnection};
 pub use domain::system_state::{
     ApplicationExport, ApplicationKind, CoverageItem, CoverageStatus, GeneratedKind,
-    IdentityAction, IdentityRecord, ServiceEnablement, ServiceRecord, SystemRequirement,
-    SystemResourceRequest, SystemState, UnitDefinition,
+    IdentityAction, IdentityRecord, ServiceEnablement, ServiceRecord, SystemIntent,
+    SystemRequirement, SystemResourceRequest, SystemState, UnitDefinition,
 };

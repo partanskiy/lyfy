@@ -10,6 +10,7 @@ mod intent;
 pub use intent::prepare;
 
 pub struct Baseline {
+    pub system_state: Option<crate::domain::system_state::SystemState>,
     pub reference: Option<Reference>,
     pub tree: Tree,
     pub packages: Option<Vec<crate::domain::packages::Package>>,
@@ -130,8 +131,11 @@ pub fn baseline(context: &Context) -> Result<Baseline> {
         .as_ref()
         .map(|r| store.effective(&r.host, &r.id))
         .transpose()?;
-    let (tree, packages) = state.map(|(s, t)| (t, s.packages)).unwrap_or_default();
+    let (tree, packages, system_state) = state
+        .map(|(s, t)| (t, s.packages, s.system_state))
+        .unwrap_or_default();
     Ok(Baseline {
+        system_state,
         reference,
         tree,
         packages,

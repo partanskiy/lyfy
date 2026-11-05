@@ -1,6 +1,9 @@
 use crate::Context;
 use crate::domain::{
-    common_state::{Observations, file_fingerprints, fingerprints, merge, merge_files},
+    common_state::{
+        Observations, file_fingerprints, fingerprints, merge, merge_files, merge_observed_packages,
+        merge_system, package_fingerprints, system_fingerprints,
+    },
     packages::{Package, PackageCapture},
     state::{Node, Reference, Tree},
 };
@@ -30,7 +33,7 @@ pub fn prepare(
     current: Tree,
     mut deleted: BTreeSet<String>,
     mut captured: PackageCapture,
-    system_state: Option<crate::domain::system_state::SystemState>,
+    mut system_state: Option<crate::domain::system_state::SystemState>,
 ) -> Result<Publication> {
     let store = &context.repository;
     let config = &context.config;
@@ -38,14 +41,56 @@ pub fn prepare(
     let mut observed = None;
     let mut candidates = base.packages.clone().unwrap_or_default();
     candidates.extend(captured.packages.clone().unwrap_or_default());
-    if base.reference.is_some() {
+    let previous_state = store
+        .has_head(&config.host)?
+        .then(|| store.effective(&config.host, &store.head(&config.host)?))
+        .transpose()?;
+    let importing = config.import_file.is_some() && context.capture_source.is_none();
+    if importing {
+        observed = Some(
+            previous_state
+                .as_ref()
+                .map(|(s, t)| {
+                    s.observed.clone().map(Ok).unwrap_or_else(|| {
+                        Ok::<_, anyhow::Error>(Observations {
+                            files: file_fingerprints(t)?,
+                            packages: package_fingerprints(&catalog(s.packages.as_deref()))?,
+                            system: system_fingerprints(
+                                &s.system_state
+                                    .as_ref()
+                                    .map(|s| s.intent())
+                                    .unwrap_or_default(),
+                            )?,
+                        })
+                    })
+                })
+                .transpose()?
+                .unwrap_or(Observations {
+                    files: BTreeMap::new(),
+                    packages: BTreeMap::new(),
+                    system: BTreeMap::new(),
+                }),
+        );
+    } else if base.reference.is_some()
+        || previous_state
+            .as_ref()
+            .is_some_and(|(s, _)| s.observed.is_some())
+    {
         let current_packages = catalog(captured.packages.as_deref());
         observed = Some(Observations {
             files: file_fingerprints(&current)?,
-            packages: fingerprints(&current_packages)?,
+            packages: package_fingerprints(&current_packages)?,
+            system: system_fingerprints(
+                &system_state
+                    .as_ref()
+                    .map(|s| s.intent())
+                    .unwrap_or_default(),
+            )?,
         });
         if store.has_head(&config.host)? {
-            let (previous, mut host) = store.effective(&config.host, &store.head(&config.host)?)?;
+            let (previous, mut host) = previous_state
+                .clone()
+                .ok_or_else(|| anyhow::anyhow!("missing accepted host state"))?;
             candidates.extend(previous.packages.clone().unwrap_or_default());
             ensure!(
                 previous.base.as_ref().map(|r| &r.host) == base.reference.as_ref().map(|r| &r.host),
@@ -83,12 +128,45 @@ pub fn prepare(
                     .observed
                     .as_ref()
                     .map(|o| o.packages.clone())
-                    .unwrap_or(fingerprints(&host)?);
+                    .unwrap_or(package_fingerprints(&host)?);
                 captured.packages = Some(
-                    merge(&old_observations, &rebased, &current_packages)?
+                    merge_observed_packages(&old_observations, &rebased, &current_packages)?
                         .into_values()
                         .collect(),
                 );
+            }
+            let incoming_system = base
+                .system_state
+                .as_ref()
+                .map(|s| s.intent())
+                .unwrap_or_default();
+            let old_system = old_base
+                .as_ref()
+                .and_then(|(s, _)| s.system_state.as_ref())
+                .map(|s| s.intent())
+                .unwrap_or_default();
+            let host_system = previous
+                .system_state
+                .as_ref()
+                .map(|s| s.intent())
+                .unwrap_or_default();
+            let rebased = merge_system(
+                &system_fingerprints(&old_system)?,
+                &host_system,
+                &incoming_system,
+            )?;
+            let old_observations = previous
+                .observed
+                .as_ref()
+                .map(|o| o.system.clone())
+                .unwrap_or(system_fingerprints(&host_system)?);
+            let current = system_state
+                .as_ref()
+                .map(|s| s.intent())
+                .unwrap_or_default();
+            let intent = merge_system(&old_observations, &rebased, &current)?;
+            if !intent.is_empty() || system_state.is_some() {
+                system_state.get_or_insert_default().set_intent(intent);
             }
         }
     }

@@ -465,3 +465,50 @@ pub struct ApplicationExport {
     #[serde(default = "sensitive_application")]
     pub sensitive: bool,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SystemIntent {
+    Identity { observed: IdentityRecord },
+    Service { observed: ServiceRecord },
+}
+
+impl SystemState {
+    pub fn intent(&self) -> BTreeMap<String, SystemIntent> {
+        self.identities
+            .iter()
+            .map(|i| {
+                (
+                    format!(
+                        "{:?}:{}",
+                        i.kind,
+                        i.name.clone().unwrap_or_else(|| i.id.to_string())
+                    ),
+                    SystemIntent::Identity {
+                        observed: i.clone(),
+                    },
+                )
+            })
+            .chain(self.services.iter().map(|u| {
+                (
+                    format!("service:{}", u.name),
+                    SystemIntent::Service {
+                        observed: u.clone(),
+                    },
+                )
+            }))
+            .collect()
+    }
+    pub fn set_intent(&mut self, intent: BTreeMap<String, SystemIntent>) {
+        self.identities.clear();
+        self.services.clear();
+        for value in intent.into_values() {
+            match value {
+                SystemIntent::Identity { observed } => self.identities.push(observed),
+                SystemIntent::Service { observed } => self.services.push(observed),
+            }
+        }
+        self.identities.sort_by_key(|r| (r.kind, r.id));
+        self.services.sort_by(|a, b| a.name.cmp(&b.name));
+    }
+}

@@ -8,6 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 pub struct Observations {
     pub files: BTreeMap<String, String>,
     pub packages: BTreeMap<String, String>,
+    #[serde(default)]
+    pub system: BTreeMap<String, String>,
 }
 
 pub fn fingerprints<T: Serialize>(
@@ -67,7 +69,7 @@ pub fn file_fingerprints(tree: &crate::domain::state::Tree) -> Result<BTreeMap<S
     fingerprints(
         &tree
             .iter()
-            .map(|(k, n)| (k.clone(), n.without_timestamps()))
+            .map(|(k, n)| (k.clone(), file_semantic(n)))
             .collect(),
     )
 }
@@ -82,11 +84,79 @@ pub fn merge_files(
     if observations {
         for (key, node) in &mut result {
             if let Some(live) = incoming.get(key)
-                && live.without_timestamps() == node.without_timestamps()
+                && file_semantic(live) == file_semantic(node)
             {
                 node.mtime = live.mtime;
             }
         }
     }
     Ok(result)
+}
+
+pub fn package_fingerprints(
+    packages: &BTreeMap<String, crate::domain::packages::Package>,
+) -> Result<BTreeMap<String, String>> {
+    fingerprints(
+        &packages
+            .iter()
+            .map(|(key, p)| {
+                let mut observed = p.clone();
+                observed.origin = None;
+                observed.source = "unknown".into();
+                (key.clone(), observed)
+            })
+            .collect(),
+    )
+}
+
+pub fn merge_observed_packages(
+    old: &BTreeMap<String, String>,
+    desired: &BTreeMap<String, crate::domain::packages::Package>,
+    incoming: &BTreeMap<String, crate::domain::packages::Package>,
+) -> Result<BTreeMap<String, crate::domain::packages::Package>> {
+    let mut result = merge_using(old, desired, incoming, package_fingerprints)?;
+    for (name, package) in &mut result {
+        if package.origin.is_none()
+            && let Some(wanted) = desired.get(name)
+            && package.version == wanted.version
+        {
+            package.origin = wanted.origin.clone();
+        }
+    }
+    Ok(result)
+}
+
+pub fn system_fingerprints(
+    system: &BTreeMap<String, crate::domain::system_state::SystemIntent>,
+) -> Result<BTreeMap<String, String>> {
+    let mut semantic = system.clone();
+    for value in semantic.values_mut() {
+        if let crate::domain::system_state::SystemIntent::Service { observed } = value {
+            for node in observed.links.values_mut() {
+                node.mtime = None;
+            }
+        }
+    }
+    fingerprints(&semantic)
+}
+
+pub fn merge_system(
+    old: &BTreeMap<String, String>,
+    desired: &BTreeMap<String, crate::domain::system_state::SystemIntent>,
+    incoming: &BTreeMap<String, crate::domain::system_state::SystemIntent>,
+) -> Result<BTreeMap<String, crate::domain::system_state::SystemIntent>> {
+    merge_using(old, desired, incoming, system_fingerprints)
+}
+
+fn file_semantic(node: &crate::domain::state::Node) -> crate::domain::state::Node {
+    let mut result = node.without_timestamps();
+    if let Some(baseline) = &mut result.package_baseline {
+        baseline.package.source = "unknown".into();
+        baseline.package.origin = None;
+    }
+    if let crate::domain::state::Content::PackageFile { package, .. } = &mut result.content {
+        package.source = "unknown".into();
+        package.origin = None;
+    }
+    result
 }
