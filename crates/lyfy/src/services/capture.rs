@@ -9,6 +9,7 @@ use crate::services::files::observe;
 use anyhow::{Context as _, Result};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+mod package_files;
 
 pub struct Captured {
     pub tree: Tree,
@@ -35,6 +36,8 @@ pub fn scan(
     let config = &scoped;
     let store = &context.repository;
     let root = Root::open(&config.root)?;
+    let package_files = package_files::index(context, config)?;
+    let mut omitted = std::collections::BTreeSet::new();
     let mut captured = Captured {
         tree: Tree::new(),
         diagnostics: vec![],
@@ -91,7 +94,18 @@ pub fn scan(
                 }
                 let (node, file) =
                     observe(config, &root, &path)?.context("file disappeared during save")?;
-                if let Some(mut file) = file.filter(|_| persist) {
+                let provided = package_files::candidate(
+                    &package_files,
+                    &root,
+                    &path,
+                    &node,
+                    &config.package_file_policy,
+                )?
+                .is_some();
+                if provided {
+                    omitted.insert(key.clone());
+                }
+                if let Some(mut file) = file.filter(|_| persist && !provided) {
                     let Content::File { sha256 } = &node.content else {
                         unreachable!()
                     };
@@ -146,6 +160,39 @@ pub fn scan(
                 captured.tree.remove(key);
                 captured.issue(&config.path_for_key(key)?, "hardlink group extends outside this VFS scope; include the complete group in one scope");
             }
+        }
+    }
+    for (key, node) in &mut captured.tree {
+        let path = config.path_for_key(key)?;
+        if let Some(package) = package_files::candidate(
+            &package_files,
+            &root,
+            &path,
+            node,
+            &config.package_file_policy,
+        )? {
+            let Content::File { sha256 } = &node.content else {
+                unreachable!()
+            };
+            node.content = Content::PackageFile {
+                package: package.clone(),
+                sha256: sha256.clone(),
+            };
+        } else if persist && omitted.contains(key) {
+            let Content::File { sha256 } = &node.content else {
+                unreachable!()
+            };
+            store.put_file(sha256, &mut root.open_content(&path)?)?;
+        }
+    }
+    if let Some(index) = package_files {
+        for path in index.absent {
+            let path = Path::new(&path);
+            anyhow::ensure!(
+                root.metadata(path)?.is_none(),
+                "package path appeared during capture"
+            );
+            captured.deletions.insert(config.key(path)?);
         }
     }
     retain_previous(context, &mut captured)?;

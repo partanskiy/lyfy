@@ -21,6 +21,7 @@ pub fn capture_channel(
     let mut tree = Tree::new();
     let mut diagnostics = vec![];
     let mut inventory = None;
+    let mut deletions = std::collections::BTreeSet::new();
     for mut scope in routing::capture_scopes(context)? {
         if let Some(detail) = scope.error {
             diagnostics.push(crate::domain::results::CaptureDiagnostic {
@@ -41,6 +42,7 @@ pub fn capture_channel(
             );
         }
         diagnostics.extend(captured.diagnostics);
+        deletions.extend(captured.deletions);
         if scope.context.config.check_packages {
             inventory = packages::capture(&scope.context.config)?;
         }
@@ -71,7 +73,7 @@ pub fn capture_channel(
         source_snapshot: "capture".into(),
         created_ns: crate::infrastructure::store::timestamp(),
         tree,
-        deletions: Default::default(),
+        deletions,
         packages: inventory,
         diagnostics,
         sizes,
