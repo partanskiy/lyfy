@@ -93,7 +93,7 @@ pub fn resources(
 pub fn baseline(context: &Context) -> Result<Baseline> {
     let config = &context.config;
     let store = &context.repository;
-    let reference = config
+    let selected = config
         .base_host
         .as_ref()
         .map(|host| {
@@ -103,6 +103,13 @@ pub fn baseline(context: &Context) -> Result<Baseline> {
             })
         })
         .transpose()?;
+    let reference = if selected.is_some() {
+        selected
+    } else if store.has_head(&config.host)? {
+        store.load(&config.host, &store.head(&config.host)?)?.base
+    } else {
+        None
+    };
     let state = reference
         .as_ref()
         .map(|r| store.effective(&r.host, &r.id))
