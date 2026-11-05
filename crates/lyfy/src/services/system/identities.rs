@@ -153,6 +153,11 @@ pub fn plan_identities(
                 })
                 .and_then(|r| r.name.clone())
                 .ok_or_else(|| anyhow::anyhow!("unresolved supplementary group"))?;
+            let group = config
+                .identity_mappings
+                .iter()
+                .find(|m| m.kind == IdentityKind::Group && m.source == *gid)
+                .map_or(group, |m| m.target.clone());
             groups.push(group);
         }
         if !groups.is_empty() && inventory {

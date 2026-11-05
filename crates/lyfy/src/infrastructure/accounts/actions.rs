@@ -20,6 +20,46 @@ pub fn preflight(root: &Path, actions: &[IdentityAction]) -> Result<()> {
     );
     let target = Root::open(root)?;
     let existing = catalog(&target)?;
+    let proposed_groups: Vec<_> = actions
+        .iter()
+        .filter_map(|a| match a {
+            IdentityAction::CreateGroup { name, id } => Some((name, id)),
+            _ => None,
+        })
+        .collect();
+    let group_exists = |name: &str| {
+        existing
+            .iter()
+            .any(|r| r.kind == IdentityKind::Group && r.name.as_deref() == Some(name))
+            || proposed_groups.iter().any(|(n, _)| n.as_str() == name)
+    };
+    for action in actions {
+        match action {
+            IdentityAction::CreateUser { group, .. } => ensure!(
+                existing
+                    .iter()
+                    .any(|r| r.kind == IdentityKind::Group && r.id == *group)
+                    || proposed_groups.iter().any(|(_, id)| **id == *group),
+                "user creation requires a resolved primary group"
+            ),
+            IdentityAction::AddGroups { name, groups } => {
+                ensure!(
+                    groups.iter().all(|n| group_exists(n)),
+                    "supplementary group is missing"
+                );
+                ensure!(
+                    existing
+                        .iter()
+                        .any(|r| r.kind == IdentityKind::User && r.name.as_ref() == Some(name))
+                        || actions.iter().any(
+                            |a| matches!(a, IdentityAction::CreateUser { name: n, .. } if n == name)
+                        ),
+                    "membership action requires an existing or planned user"
+                );
+            }
+            _ => {}
+        }
+    }
     for action in actions {
         let (kind, name, id) = match action {
             IdentityAction::CreateGroup { name, id } => (IdentityKind::Group, name, Some(*id)),
@@ -96,6 +136,13 @@ fn arguments(action: &IdentityAction) -> (&'static str, Vec<String>) {
                 home.clone(),
                 "--shell".into(),
                 shell.clone(),
+                "--no-log-init".into(),
+                "-K".into(),
+                "CREATE_MAIL_SPOOL=no".into(),
+                "-K".into(),
+                "SUB_UID_COUNT=0".into(),
+                "-K".into(),
+                "SUB_GID_COUNT=0".into(),
                 "--no-create-home".into(),
                 "--no-user-group".into(),
                 "--password".into(),
