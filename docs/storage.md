@@ -158,5 +158,18 @@ directory boundaries. Normalized Git metadata, object packs and working files
 are ordinary verified payloads, so archives, encryption, replicas and retention
 use their existing mechanisms. Earlier stored/portable descriptions remain readable.
 
+Stored schema 7 and portable schema 5 add external-mount identity/recovery
+descriptions. Source names are hashes; stable UUIDs/marker hashes or boot/mount
+instance pins identify the source. Captures and file transactions hold verified
+descriptors and recheck topology. Connection-only state retains no remote children;
+local materialization is an explicit target policy.
+
+Yandex Disk stores immutable payloads through REST. Cooperative exclusive directory
+creation provides its writer lock; this is not conditional HTTP CAS. Verified pointer
+bytes in .pending are published by ready directories in .pointers. Only ready
+generations are read. The small pointer journal remains after retention; unready
+transfer data is outside the committed generation. Linux metadata stays in the
+common manifest and age encryption applies before remote transfer.
+
 An archive carries all concrete and retained source objects. External package
 references remain declared dependencies; export does not acquire missing inputs.

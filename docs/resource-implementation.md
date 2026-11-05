@@ -186,6 +186,16 @@ cloud tree stays outside parent capture until classified. Provider fixtures cove
 publication, concurrency, interruption, history and metadata restoration according
 to advertised guarantees. Live-provider compatibility is reported separately.
 
+Implemented: discovered kernel mount boundaries, pinned UUID/marker/instance
+identities, disconnect/replacement guards, held descriptors and explicit
+connection/copy/local-materialization policies. Unclassified nested mounts fail
+before capture. A distinct OAuth Yandex Disk adapter verifies immutable content,
+paginated history, cooperative writer exclusion, ready-marker publication and
+async operations. Tests cover source loss, same-name replacements, remounts,
+materialization, publication failures/lost responses, credential exclusion,
+permissions and selected encrypted archive recovery without cloud access.
+Live Yandex account compatibility and real mount attachment remain unverified.
+
 ## Stage 9 Remaining system resources and migration gates
 
 Extend typed coverage for required users/groups, service state, storage/boot

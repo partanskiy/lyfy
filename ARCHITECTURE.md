@@ -302,6 +302,11 @@ fingerprints use stored schema 5. Git-project descriptions use stored schema 6
 and portable schema 4. Projects retain verified object closure and staging/local
 work through normal concrete payloads. The projects service owns classification,
 selection boundaries and verification; Git mechanisms remain in infrastructure.
+External mount descriptions use stored schema 7/portable schema 5. The external
+service owns source identity, topology and connection/copy/materialization policy;
+infrastructure owns mountinfo observation and held filesystem descriptors.
+Yandex Disk is a separate concrete REST storage adapter, with input-owned OAuth,
+cooperative exclusive writers and immutable ready-generation publication.
 
 ## Enforcement
 
