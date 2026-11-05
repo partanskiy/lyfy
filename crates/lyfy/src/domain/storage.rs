@@ -51,6 +51,8 @@ pub struct Mount {
     pub path: String,
     pub backend: String,
     #[serde(default)]
+    pub git_project: bool,
+    #[serde(default)]
     pub history: History,
     #[serde(default)]
     pub retain: usize,

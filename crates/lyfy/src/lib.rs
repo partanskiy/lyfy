@@ -50,6 +50,7 @@ pub use domain::package_files::PackageBaseline;
 pub use domain::package_files::{FileDifference, PackageEvidence};
 pub use domain::packages::{Package, PackageAction, PackageActionKind, PackagePlan};
 pub use domain::plan::{Change, Guard, PackageRequirement, Plan, Receipt, RequiredDependency};
+pub use domain::projects::GitProject;
 pub use domain::resources::{
     PackageOrigin, RecoveryDescription, RecoveryGuarantee, Resource, ResourceGraph, ResourceId,
     ResourceReference, ResourceSubject, SelectedResources, SnapshotReference,

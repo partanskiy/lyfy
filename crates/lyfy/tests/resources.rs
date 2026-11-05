@@ -25,6 +25,7 @@ fn file(key: &str) -> Resource {
         reference: reference(key),
         recovery: RecoveryDescription::File {
             node: Node {
+                project: None,
                 package_baseline: None,
                 content: Content::File {
                     sha256: "a".repeat(64),
