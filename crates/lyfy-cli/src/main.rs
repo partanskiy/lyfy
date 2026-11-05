@@ -82,6 +82,7 @@ fn run() -> Result<u8> {
     ensure!(
         launch.format == "text"
             || !launch.config.install_packages
+            || !launch.config.packages_selected()
             || !matches!(request, lyfy::Request::Apply { write: true }),
         "interactive package transactions require format = text"
     );
