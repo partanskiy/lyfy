@@ -99,6 +99,7 @@ fn package_observation_does_not_claim_provenance_or_recovery() {
     };
     resource.recovery = RecoveryDescription::Package {
         observed: Package {
+            origin: None,
             name: "demo".into(),
             version: "1.0-1".into(),
             explicit: true,

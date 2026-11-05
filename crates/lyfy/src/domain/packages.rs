@@ -9,6 +9,8 @@ pub struct Package {
     pub version: String,
     pub explicit: bool,
     pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<Box<crate::domain::resources::PackageOrigin>>,
 }
 
 pub fn valid_name(name: &str) -> bool {
@@ -71,6 +73,7 @@ mod tests {
     #[test]
     fn package_plan_preserves_native_foreign_versions_and_reasons() {
         let package = |name: &str, source: &str, explicit| Package {
+            origin: None,
             name: name.into(),
             version: "1".into(),
             source: source.into(),

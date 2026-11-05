@@ -37,6 +37,10 @@ mod services;
 
 pub use api::{Context, Data, Outcome, Request, SnapshotView, execute, execute_observed};
 pub use domain::access::{Access, S3Credentials};
+pub use domain::acquisition::{
+    ArchivePackage, ContentReference, PackageSource, PackageSourceKind, RecipeFile, RecipePackage,
+    RecipeSource, RepositoryPackage, SourceFileInput,
+};
 pub use domain::checks::{CheckId, CheckResult, CheckStatus};
 pub use domain::config::Config;
 pub use domain::diagnostics::{Diagnostic, DiagnosticCode, Finding, Report};

@@ -116,6 +116,15 @@ pub enum RecoveryGuarantee {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PackageOrigin {
     Unknown {},
+    Repository {
+        source: crate::domain::acquisition::RepositoryPackage,
+    },
+    Archive {
+        source: crate::domain::acquisition::ArchivePackage,
+    },
+    Recipe {
+        source: crate::domain::acquisition::RecipePackage,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]

@@ -90,6 +90,7 @@ impl Database {
                 "foreign"
             };
             packages.push(Package {
+                origin: None,
                 name: package.name().into(),
                 version: package.version().to_string(),
                 explicit: reason(package)?,
