@@ -136,6 +136,9 @@ pub enum RecoveryDescription {
     GitProject {
         node: Node,
     },
+    ExternalMount {
+        node: Node,
+    },
     Deletion {},
     Package {
         observed: Package,
@@ -161,6 +164,10 @@ impl Resource {
             }
             (ResourceSubject::Path { .. }, RecoveryDescription::GitProject { node }) => {
                 ensure!(node.project.is_some(), "missing Git recovery description");
+                node.validate()?;
+            }
+            (ResourceSubject::Path { .. }, RecoveryDescription::ExternalMount { node }) => {
+                ensure!(node.mount.is_some(), "missing external mount description");
                 node.validate()?;
             }
             (ResourceSubject::Path { key }, RecoveryDescription::Deletion {}) => {

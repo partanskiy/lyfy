@@ -60,6 +60,22 @@ pub fn begin(context: &Context) -> Result<CaptureGuard> {
     let config = &context.config;
     let table = Table::read(&config.root)?;
     unknown(config, &table, false)?;
+    if context.repository.has_head(&config.host)? {
+        let (_, previous) = context
+            .repository
+            .effective(&config.host, &context.repository.head(&config.host)?)?;
+        for (key, node) in &previous {
+            if node.mount.is_some() && config.path_for_key(key).is_ok_and(|p| config.managed(&p)) {
+                ensure!(
+                    config.mounts.iter().any(|m| m.external.is_some()
+                        && config
+                            .logical(&m.path)
+                            .is_ok_and(|p| config.key(&p).is_ok_and(|k| k == *key))),
+                    "saved external boundary requires an explicit policy; use a new collection for local reclassification"
+                );
+            }
+        }
+    }
     let mut boundary = None;
     if let Some((mount, policy)) = config.mounts.iter().find_map(|m| {
         m.external
