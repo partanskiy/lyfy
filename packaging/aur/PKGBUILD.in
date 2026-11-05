@@ -10,9 +10,12 @@ url="https://github.com/partanskiy/$pkgname"
 license=('@LICENSE@' '@BINARY_LICENSE@')
 depends=('glibc' 'libgcc' 'git' 'pacman' 'systemd' 'libalpm.so' 'libarchive.so')
 optdepends=('sudo: authenticate protected lint/save reads'
+            'sqlite: consistent SQLite capture and restoration'
+            'shadow: explicit user and group restoration'
             'age: encrypt directory/S3 state and portable archives'
             'curl: signed S3 object transfers')
 makedepends=('cargo' 'pkgconf')
+checkdepends=('sqlite')
 options=('!debug')
 source=("$pkgname-$pkgver.tar.gz::$url/releases/download/v$pkgver/$pkgname-v$pkgver-source.tar.gz")
 sha256sums=('@SOURCE_SHA256@')
