@@ -6,6 +6,7 @@ mod hash;
 mod identity;
 mod links;
 pub use identity::IdentityView;
+pub use identity::current_uid;
 mod write;
 use anyhow::{Context, Result, ensure};
 use std::{

@@ -16,7 +16,9 @@ use std::{
     io::{Read, Seek},
     path::Path,
 };
+mod restoration;
 mod transport;
+pub use restoration::{export_apply, requires_root};
 pub use transport::capture_channel;
 
 pub fn prepare(context: &Context, scope_count: usize) -> Result<()> {

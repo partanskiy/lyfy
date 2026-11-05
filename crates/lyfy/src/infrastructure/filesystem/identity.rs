@@ -1,5 +1,10 @@
 use anyhow::{Result, ensure};
 
+pub fn current_uid() -> u32 {
+    // SAFETY: geteuid has no preconditions or side effects.
+    unsafe { libc::geteuid() }
+}
+
 pub struct IdentityView {
     pub uid: bool,
     pub gid: bool,
