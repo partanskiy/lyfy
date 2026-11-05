@@ -89,6 +89,13 @@ fn two_hosts_preserve_unapplied_shared_intent_and_independent_exceptions() {
                 "one"
             );
             assert_eq!(save(host), id);
+            assert_eq!(
+                save(&Config {
+                    base_host: None,
+                    ..host.clone()
+                }),
+                id
+            );
             let result = execute(
                 &Context::new(host.clone()).unwrap(),
                 Request::Apply { write: true },
