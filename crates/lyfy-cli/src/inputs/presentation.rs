@@ -263,6 +263,13 @@ pub fn save(result: &lyfy::Saved) -> String {
             let _ = writeln!(out, "FAILED: {}", safe(error));
         }
     }
+    if let Some(path) = &result.manifest {
+        let _ = writeln!(
+            out,
+            "Confirmed generations: {}",
+            safe(&path.to_string_lossy())
+        );
+    }
     if let Some(path) = &result.exported {
         let _ = writeln!(out, "Export: {}", safe(&path.to_string_lossy()));
     }

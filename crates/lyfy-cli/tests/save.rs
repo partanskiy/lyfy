@@ -266,3 +266,52 @@ fn default_key_directory_is_excluded_before_an_identity_is_configured() {
             .is_none()
     );
 }
+
+#[test]
+fn confirmed_generation_records_are_private_and_previews_leave_no_records() {
+    use std::os::unix::fs::PermissionsExt;
+    let f = setup();
+    let preview = f.ok(&["save", "--dry_run"]);
+    assert!(preview["manifest"].is_null());
+    assert!(!f.state.exists());
+    let saved = f.ok(&["save"]);
+    let manifest = std::path::Path::new(saved["manifest"].as_str().unwrap());
+    let confirmation: serde_json::Value =
+        serde_json::from_slice(&fs::read(manifest).unwrap()).unwrap();
+    assert_eq!(confirmation["result"]["snapshot"], saved["snapshot"]);
+    assert_eq!(confirmation["result"]["complete"], true);
+    assert_eq!(
+        fs::metadata(manifest).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    let unchanged = f.ok(&["save"]);
+    assert_eq!(unchanged["snapshot"], saved["snapshot"]);
+    assert_ne!(unchanged["manifest"], saved["manifest"]);
+}
+
+#[test]
+fn partial_capture_confirmation_keeps_success_and_failure_distinct() {
+    let f = setup();
+    let backends = serde_json::json!([{"name":"local","kind":"directory","path":f.temp.path().join("collections")}]).to_string();
+    let mounts = serde_json::json!([
+        {"name":"config","path":"/etc","backend":"local"},
+        {"name":"runtime","path":"/run/private","backend":"local"}
+    ])
+    .to_string();
+    let output = f.run(&[
+        "save",
+        "--backends",
+        &backends,
+        "--mounts",
+        &mounts,
+        "--selected_mounts",
+        "config,runtime",
+    ]);
+    assert_eq!(output.status.code(), Some(2));
+    let saved: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let confirmation: serde_json::Value =
+        serde_json::from_slice(&fs::read(saved["manifest"].as_str().unwrap()).unwrap()).unwrap();
+    assert_eq!(confirmation["result"]["complete"], false);
+    assert!(confirmation["result"]["mounts"][0]["result"]["snapshot"].is_string());
+    assert!(confirmation["result"]["mounts"][1]["error"].is_string());
+}

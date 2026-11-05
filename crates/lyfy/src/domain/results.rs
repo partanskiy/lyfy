@@ -22,6 +22,7 @@ pub struct Saved {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub mounts: Vec<MountedSave>,
     pub exported: Option<std::path::PathBuf>,
+    pub manifest: Option<std::path::PathBuf>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub replicas: Vec<ReplicaState>,
 }
@@ -54,6 +55,7 @@ impl Saved {
             coverage: vec![],
             mounts: vec![],
             exported: None,
+            manifest: None,
             replicas: vec![],
         }
     }

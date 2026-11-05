@@ -33,6 +33,8 @@ pub struct Plan {
     pub identity_actions: Vec<crate::domain::system_state::IdentityAction>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub coverage: Vec<crate::domain::system_state::CoverageItem>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requirements: Vec<crate::domain::system_state::SystemRequirement>,
     #[serde(skip)]
     pub desired: Tree,
     #[serde(skip)]

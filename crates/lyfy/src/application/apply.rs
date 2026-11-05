@@ -19,6 +19,7 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
             packages: None,
             identity_actions: vec![],
             coverage: vec![],
+            requirements: vec![],
             desired: Default::default(),
             receipt: Default::default(),
             package_desired: None,

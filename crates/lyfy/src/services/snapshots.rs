@@ -254,6 +254,7 @@ pub fn commit(
         diagnostics,
         mounts: vec![],
         exported: None,
+        manifest: None,
         replicas: vec![],
     })
 }
