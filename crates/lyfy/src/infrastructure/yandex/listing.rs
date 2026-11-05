@@ -52,10 +52,17 @@ impl Disk {
                     directory,
                 });
             }
+            let total = value["_embedded"]["total"]
+                .as_u64()
+                .ok_or_else(|| anyhow::anyhow!("missing Yandex listing total"))?;
             offset += items.len();
-            if items.len() < 1000 {
+            if offset as u64 >= total {
                 break;
             }
+            ensure!(
+                !items.is_empty(),
+                "Yandex directory listing ended before its declared total"
+            );
             ensure!(offset <= 10_000_000, "excessive Yandex listing pagination");
         }
         output.sort_by(|a, b| a.name.cmp(&b.name));

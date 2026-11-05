@@ -5,13 +5,15 @@ use std::{fs::File, io::Seek};
 impl Disk {
     fn pointer(&self, key: &str) -> Result<Option<(String, File)>> {
         let prefix = self.path(&format!(".pointers/{key}"))?;
-        let paths = self.list_raw(&prefix)?;
+        let paths = self.children(&prefix)?;
+        ensure!(
+            paths.iter().all(|p| p.directory),
+            "unexpected file in Yandex generation markers"
+        );
         let Some(latest) = paths.last() else {
             return Ok(None);
         };
-        let name = latest
-            .strip_prefix(&format!("{prefix}/"))
-            .ok_or_else(|| anyhow::anyhow!("pointer outside its Yandex namespace"))?;
+        let name = latest.name.as_str();
         let (counter, hash) = name
             .split_once('-')
             .ok_or_else(|| anyhow::anyhow!("invalid Yandex generation pointer"))?;
@@ -22,7 +24,7 @@ impl Disk {
             "invalid Yandex generation pointer"
         );
         let mut file = self
-            .read_raw(latest)?
+            .read_raw(&self.path(&format!(".pending/{key}/{name}"))?)?
             .ok_or_else(|| anyhow::anyhow!("Yandex generation pointer disappeared"))?;
         ensure!(
             file.metadata()?.len() <= 1024 * 1024
@@ -82,8 +84,22 @@ impl Disk {
             .ok_or_else(|| anyhow::anyhow!("Yandex generation counter overflow"))?;
         let hash = crate::infrastructure::filesystem::hash_file(file, 0)?;
         let name = format!("{counter:020}-{hash}");
-        let path = self.path(&format!(".pointers/{key}/{name}"))?;
+        let path = self.path(&format!(".pending/{key}/{name}"))?;
         self.upload_raw(&path, file)?;
+        self.check_writer()?;
+        let marker = self.path(&format!(".pointers/{key}/{name}"))?;
+        self.parents(&marker)?;
+        // Directory creation is the publication step. A lost response is
+        // resolved below by reading the exact immutable committed generation.
+        let published = self.mkdir(&marker);
+        if published.is_err()
+            && self
+                .pointer(key)?
+                .as_ref()
+                .is_none_or(|(id, _)| id != &name)
+        {
+            return Err(published.err().unwrap());
+        }
         let confirmed = self
             .pointer(key)?
             .ok_or_else(|| anyhow::anyhow!("Yandex publication was not confirmed"))?;
@@ -116,12 +132,14 @@ impl Disk {
                     .ok_or_else(|| anyhow::anyhow!("Yandex listing escaped collection"))
             })
             .collect::<Result<_>>()?;
-        for pointer in self.list_raw(&self.path(&format!(".pointers/{prefix}"))?)? {
-            let relative = pointer
-                .strip_prefix(&format!("{}/.pointers/", self.prefix))
-                .ok_or_else(|| anyhow::anyhow!("Yandex pointer escaped collection"))?;
-            if let Some((key, _)) = relative.rsplit_once('/') {
-                paths.push(key.into());
+        if prefix == "hosts" {
+            for host in self.children(&self.path(".pointers/hosts")?)? {
+                ensure!(host.directory, "invalid Yandex host pointer namespace");
+                crate::domain::config::identifier(&host.name)?;
+                let key = format!("hosts/{}/HEAD", host.name);
+                if self.pointer(&key)?.is_some() {
+                    paths.push(key);
+                }
             }
         }
         paths.sort();
