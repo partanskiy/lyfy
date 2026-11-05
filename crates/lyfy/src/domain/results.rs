@@ -126,6 +126,12 @@ pub fn save_diff(before: &Tree, after: &Tree) -> Vec<SavedChange> {
                 if old.hardlink != new.hardlink {
                     fields.push("hardlink");
                 }
+                if old.application != new.application {
+                    fields.push("application");
+                }
+                if old.generated != new.generated {
+                    fields.push("generated");
+                }
                 if old.package_baseline != new.package_baseline {
                     fields.push("package_baseline");
                 }
