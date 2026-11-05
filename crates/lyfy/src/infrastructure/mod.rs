@@ -1,3 +1,4 @@
+pub(crate) mod accounts;
 pub(crate) mod archive;
 pub(crate) mod encryption;
 pub(crate) mod filesystem;

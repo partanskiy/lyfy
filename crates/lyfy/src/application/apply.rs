@@ -61,10 +61,13 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
             }
         }
     }
-    let ready = ready && prepared.iter().all(|(_, _, work)| work.is_ok());
+    let mut ready = ready && prepared.iter().all(|(_, _, work)| work.is_ok());
     for (name, path, work) in prepared {
         let outcome =
             work.and_then(|(source, plan, _locks)| reconcile(&source, plan, write && ready));
+        if outcome.is_err() {
+            ready = false;
+        }
         if name == "default" && context.config.mounts.is_empty() {
             return outcome;
         }

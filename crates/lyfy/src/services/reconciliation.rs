@@ -10,6 +10,7 @@ use crate::services::files::observe;
 use anyhow::{Result, ensure};
 use std::{collections::BTreeSet, path::PathBuf};
 
+mod identities;
 mod receipts;
 mod selection;
 pub use receipts::{read_receipts, record_receipts, validate_receipt};
@@ -110,7 +111,7 @@ pub fn build(context: &Context) -> Result<Plan> {
                 .map(|(k, n)| (k.clone(), n.clone())),
         );
     }
-    let available = tree;
+    let mut available = tree;
     let mut keys: BTreeSet<String> = available.keys().chain(previous.keys()).cloned().collect();
     keys.extend(store.tombstones(&config.host, &id)?);
     selection::validate_request(config, &keys, snapshot.packages.as_deref())?;
@@ -119,6 +120,7 @@ pub fn build(context: &Context) -> Result<Plan> {
             .path_for_key(key)
             .is_ok_and(|p| config.managed(&p) && config.path_selected(&p))
     });
+    identities::map(config, &root, &mut available, &keys)?;
     let mut desired = Tree::new();
     for (key, node) in &available {
         let path = config.path_for_key(key)?;
