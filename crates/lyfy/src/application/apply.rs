@@ -26,8 +26,11 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
     scopes.sort_by_key(|scope| scope.path.matches('/').count());
     archives::prepare(context, scopes.len())?;
     let mut prepared = Vec::new();
-    for scope in scopes {
-        let source = if context.config.import_file.is_some() {
+    for mut scope in scopes {
+        if let Some(path) = context.restore_sources.get(&scope.name) {
+            scope.context.config.import_file = Some(path.clone());
+        }
+        let source = if scope.context.config.import_file.is_some() {
             archives::apply_source(scope.context)
         } else if let Some(error) = &scope.error {
             Err(anyhow::anyhow!("{error}"))

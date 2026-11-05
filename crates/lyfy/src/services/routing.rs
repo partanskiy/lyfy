@@ -62,6 +62,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
                 restrict(&mut fallback, config, "default", apply);
                 let mut fallback = Context::new(fallback)?.with_access(context.access.clone())?;
                 fallback.capture_source = context.capture_source.clone();
+                fallback.restore_sources = context.restore_sources.clone();
                 fallback
             },
             error: None,
@@ -127,7 +128,11 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
         let mut error = root_excluded.then(|| {
             "VFS mount root is excluded by runtime, storage, connection or mount policy".into()
         });
-        if backend.kind == BackendKind::S3 && !capture_only && error.is_none() {
+        if backend.kind == BackendKind::S3
+            && !capture_only
+            && !context.restore_sources.contains_key(&mount.name)
+            && error.is_none()
+        {
             let connection = (|| {
                 let credentials =
                     context
@@ -163,6 +168,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
             });
         }
         scoped_context.capture_source = context.capture_source.clone();
+        scoped_context.restore_sources = context.restore_sources.clone();
         result.push(Scope {
             name: mount.name.clone(),
             path: root.to_string_lossy().into(),

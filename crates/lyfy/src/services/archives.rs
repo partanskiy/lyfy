@@ -125,6 +125,7 @@ pub fn apply_source(mut context: Context) -> Result<Context> {
     let store = Store::ephemeral()?;
     let state: SnapshotState =
         archive::read(&context.config, input(&context)?, Some(&store), false)?;
+    context.source_snapshot = Some(state.source_snapshot.clone());
     let mut changes = state
         .tree
         .into_iter()
