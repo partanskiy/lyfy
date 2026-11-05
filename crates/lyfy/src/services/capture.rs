@@ -4,7 +4,6 @@ use crate::domain::{
     results::CaptureDiagnostic,
     state::{Content, Tree},
 };
-use crate::infrastructure::filesystem::Root;
 use crate::services::files::observe;
 use anyhow::{Context as _, Result};
 use std::path::{Path, PathBuf};

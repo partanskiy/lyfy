@@ -37,6 +37,18 @@ fn disconnected_and_replaced_mounts_keep_the_confirmed_generation() {
     assert_eq!(fs::read(&head).unwrap(), accepted);
     fs::write(
         f.root.join("proc/self/mountinfo"),
+        "43 1 0:3 / /home/test/Pictures rw - fuse.rclone photos-source rw\n",
+    )
+    .unwrap();
+    assert_eq!(
+        f.run(&["save", "--selected_mounts", "pictures"])
+            .status
+            .code(),
+        Some(2)
+    );
+    assert_eq!(fs::read(&head).unwrap(), accepted);
+    fs::write(
+        f.root.join("proc/self/mountinfo"),
         "43 1 0:3 / /home/test/Pictures rw - fuse.rclone replacement-source rw\n",
     )
     .unwrap();
@@ -141,5 +153,29 @@ fn unknown_nested_mounts_block_parent_capture() {
             .path()
             .join("backup/mounts/pictures/hosts/laptop/HEAD")
             .exists()
+    );
+}
+
+#[test]
+fn explicit_volume_markers_allow_remounts_and_reject_replaced_cloud_roots() {
+    let f = fixture("independent_copy");
+    f.write("home/test/Pictures/.volume", "unique fixture volume\n");
+    let mounts = json!([{"name":"pictures","path":"~/Pictures","backend":"backup","external":{"recovery":"independent_copy","identity_file":".volume"}}]).to_string();
+    f.ok(&["save", "--selected_mounts", "pictures", "--mounts", &mounts]);
+    fs::write(
+        f.root.join("proc/self/mountinfo"),
+        "43 1 0:2 / /home/test/Pictures rw - fuse.rclone photos-source rw\n",
+    )
+    .unwrap();
+    assert_eq!(
+        f.ok(&["save", "--selected_mounts", "pictures", "--mounts", &mounts])["created"],
+        false
+    );
+    f.write("home/test/Pictures/.volume", "replacement fixture volume\n");
+    assert_eq!(
+        f.run(&["save", "--selected_mounts", "pictures", "--mounts", &mounts])
+            .status
+            .code(),
+        Some(2)
     );
 }
