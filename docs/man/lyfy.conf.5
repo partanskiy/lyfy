@@ -90,12 +90,19 @@ uses immutable JSON snapshots and SHA-256 content objects.
 Export/import provides explicit migration into a new destination.
 .TP
 .B mounts, backends, selected_mounts
-Named VFS mount policies and Git/directory/S3 destinations.
+Named VFS mount policies and Git/directory/S3/Yandex Disk destinations.
 Mounts have name, path, backend, history (retained/current_only), retain,
 apply, packages, exclude, max_file_bytes, replicas and replicas_required fields.
 Backends have name, kind, optional local path, optional S3 connection and public
 age recipients. S3 connection fields are bucket, prefix, endpoint, region and
 optional profile. Nested paths use longest component-prefix ownership.
+Yandex Disk uses kind=yandex_disk and yandex prefix, optional endpoint, token_env
+and token_file. OAuth stays in caller inputs; private token files are excluded.
+Cooperative exclusive directories serialize writers. Ready markers publish
+verified immutable generations; stale locks require explicit provider recovery.
+An external table selects connection, independent_copy or materialize recovery
+and an optional identity_file marker. Source identity and topology checks prevent
+disconnects from becoming deletions. Materialization requires an unmounted target.
 Mount/backend CLI and ENV overrides accept a complete JSON array.
 selected_mounts accepts comma-separated names including default.
 Data mounts participate in ordinary apply only when apply=true; explicit
