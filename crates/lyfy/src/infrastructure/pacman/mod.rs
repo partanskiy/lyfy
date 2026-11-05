@@ -4,6 +4,7 @@ pub mod baselines;
 mod configuration;
 mod mtree;
 mod native;
+mod provenance;
 pub use native::Database;
 pub mod restore;
 

@@ -18,6 +18,7 @@ pub struct Database {
     known_repositories: bool,
     pub(super) root: Root,
     pub(super) db_path: std::path::PathBuf,
+    pub(super) settings: configuration::Settings,
 }
 
 impl Database {
@@ -56,7 +57,8 @@ impl Database {
             errors,
             known_repositories: settings.known_repositories,
             root,
-            db_path: settings.db_path,
+            db_path: settings.db_path.clone(),
+            settings,
         })
     }
 

@@ -2,7 +2,7 @@ use crate::domain::config::Config;
 use crate::infrastructure::filesystem::Root;
 use anyhow::{Context, Result, ensure};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
 };
 
@@ -12,11 +12,25 @@ pub struct Settings {
     pub repositories: BTreeSet<String>,
     pub no_extract: Vec<String>,
     pub known_repositories: bool,
+    pub sources: BTreeMap<String, RepositorySettings>,
+    pub signature_policy: Vec<String>,
+    pub architecture: String,
+    pub cache_dirs: Vec<PathBuf>,
+    pub gpg_dir: PathBuf,
+}
+
+#[derive(Default)]
+pub struct RepositorySettings {
+    pub servers: Vec<String>,
+    pub signature_policy: Vec<String>,
 }
 
 pub fn read(config: &Config) -> Result<Settings> {
     let mut settings = Settings {
         db_path: "/var/lib/pacman".into(),
+        signature_policy: vec!["Required".into(), "TrustedOnly".into()],
+        architecture: "x86_64".into(),
+        gpg_dir: "/etc/pacman.d/gnupg".into(),
         ..Settings::default()
     };
     let root = Root::open(&config.root)?;
@@ -34,6 +48,9 @@ pub fn read(config: &Config) -> Result<Settings> {
         &mut BTreeSet::new(),
     )?;
     settings.known_repositories = true;
+    if settings.cache_dirs.is_empty() {
+        settings.cache_dirs.push("/var/cache/pacman/pkg".into());
+    }
     crate::domain::config::absolute(&settings.db_path)?;
     Ok(settings)
 }
@@ -55,8 +72,8 @@ fn parse(
     let text = std::str::from_utf8(&bytes).context("pacman.conf is not UTF-8")?;
     ensure!(!text.contains('\0'), "NUL in pacman.conf");
     for line in text.lines() {
-        let line = line.split('#').next().unwrap().trim();
-        if line.is_empty() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
             continue;
         }
         if line.starts_with('[') {
@@ -68,6 +85,7 @@ fn parse(
             );
             if section != "options" {
                 settings.repositories.insert(section.clone());
+                settings.sources.entry(section.clone()).or_default();
             }
             continue;
         }
@@ -99,6 +117,34 @@ fn parse(
                 "DBPath" => settings.db_path = value.into(),
                 "NoExtract" => settings
                     .no_extract
+                    .extend(value.split_whitespace().map(str::to_owned)),
+                "SigLevel" => settings
+                    .signature_policy
+                    .extend(value.split_whitespace().map(str::to_owned)),
+                "Architecture" => {
+                    settings.architecture = value
+                        .split_whitespace()
+                        .next()
+                        .unwrap_or("auto")
+                        .replace("auto", "x86_64")
+                }
+                "CacheDir" => {
+                    let path = PathBuf::from(value);
+                    crate::domain::config::absolute(&path)?;
+                    settings.cache_dirs.push(path);
+                }
+                "GPGDir" => {
+                    let path = PathBuf::from(value);
+                    crate::domain::config::absolute(&path)?;
+                    settings.gpg_dir = path;
+                }
+                _ => (),
+            }
+        } else if let Some(repository) = settings.sources.get_mut(section) {
+            match key {
+                "Server" | "CacheServer" => repository.servers.push(value.into()),
+                "SigLevel" => repository
+                    .signature_policy
                     .extend(value.split_whitespace().map(str::to_owned)),
                 _ => (),
             }
