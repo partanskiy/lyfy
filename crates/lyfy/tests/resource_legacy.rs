@@ -133,3 +133,49 @@ fn legacy_adapter_rejects_mismatched_sources_and_inconsistent_content() {
     let described = ResourceGraph::from_snapshot(&incomplete, source).unwrap();
     assert_eq!(described.diagnostics.len(), 1);
 }
+
+#[test]
+fn package_baselines_require_new_state_and_matching_resource_dependencies() {
+    let (source, mut state) = snapshot();
+    state.tree.remove("home/data/b");
+    let package = state.packages.as_ref().unwrap()[0].clone();
+    let node = state.tree.get_mut("home/data/a").unwrap();
+    node.package_baseline = Some(Box::new(lyfy::PackageBaseline {
+        package: package.clone(),
+        sha256: "a".repeat(64),
+        mode: 0o640,
+        owner: (1000, 100),
+        backup: true,
+    }));
+    node.content = Content::PackageFile {
+        package,
+        sha256: "a".repeat(64),
+    };
+    state.sizes.clear();
+    assert!(ResourceGraph::from_snapshot(&state, source.clone()).is_err());
+    state.schema = 2;
+    let mut graph = ResourceGraph::from_snapshot(&state, source.clone()).unwrap();
+    let resource = graph
+        .resources
+        .iter_mut()
+        .find(|r| {
+            matches!(&r.reference.subject,
+        ResourceSubject::Path { key } if key == "home/data/a")
+        })
+        .unwrap();
+    assert!(
+        resource
+            .dependencies
+            .iter()
+            .any(|r| matches!(r.subject, ResourceSubject::Package { .. }))
+    );
+    resource
+        .dependencies
+        .retain(|r| !matches!(r.subject, ResourceSubject::Package { .. }));
+    assert!(graph.validate().is_err());
+    state.packages = None;
+    ResourceGraph::from_snapshot(&state, source)
+        .unwrap()
+        .validate()
+        .unwrap();
+}

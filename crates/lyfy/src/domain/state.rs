@@ -80,7 +80,7 @@ pub struct Node {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hardlink: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub package_baseline: Option<crate::domain::package_files::PackageBaseline>,
+    pub package_baseline: Option<Box<crate::domain::package_files::PackageBaseline>>,
 }
 
 impl Node {
@@ -88,7 +88,7 @@ impl Node {
         self.package_baseline
             .as_ref()
             .map(|b| &b.package)
-            .or_else(|| match &self.content {
+            .or(match &self.content {
                 Content::PackageFile { package, .. } => Some(package),
                 _ => None,
             })

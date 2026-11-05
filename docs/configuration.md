@@ -23,6 +23,7 @@ See [the library boundary](library.md).
 | ownership_roots | /usr/bin, /usr/lib, /usr/share | Trees checked for files outside pacman ownership |
 | require_uki | true | Require Type #2 entries without Type #1 entries |
 | check_packages | true | Capture, compare and inspect package state |
+| package_file_policy | capture | Store changed package files; reject_executables instead blocks modified executables |
 | install_packages | false | Permit supported native package restoration with apply --write |
 | overwrite | false | Permit replacing live content that conflicts with the receipt |
 | prune | false | Permit deleting explicitly tracked paths absent from desired state |
@@ -61,8 +62,9 @@ and are not prefixed with root. There is no shell or general ENV interpolation.
 
 Defaults include the current XDG_CONFIG_HOME, ~/.bashrc, ~/.bash_profile,
 ~/.zshrc, ~/.profile, ~/.gitconfig, /etc and /usr/local/etc. Missing optional
-paths are skipped. The root and home directory nodes themselves are never
-restored as files, but their children can be managed using `/` or `~` scopes.
+paths are skipped. Explicit `/` or `~` scopes also capture their directory
+metadata, represented as `system/` and `home/`. Apply can restore those properties
+but never deletes or replaces a namespace root with another node type.
 
 Defaults exclude ~/Projects, ~/.cache, ~/.local/state, ~/.ssh, ~/.gnupg, ~/.aws,
 ~/.config/lyfy/keys and the corresponding current XDG_CONFIG_HOME/lyfy/keys,

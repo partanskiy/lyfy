@@ -61,7 +61,11 @@ for capture/publication separation without CLI or sudo.
 
 `SnapshotView::resources()` returns a validated `ResourceGraph` on explicit
 request. `state()` and `open_content()` keep their existing behavior, and stored
-snapshot schemas 1/2 and the portable archive encoding remain unchanged.
+snapshot schemas 1/2 remain readable. Package baselines/root properties use
+stored schema 3 and portable state schema 2; ordinary file state keeps its prior
+encoding. Content::PackageFile and Node::package_baseline distinguish omitted
+provider bytes from concrete overrides. SnapshotView::open_content opens only
+concrete objects present in state.sizes; package references remain dependencies.
 The graph's schema 1 versions resource descriptions independently of storage.
 
 `ResourceId` identifies a subject in a collection and host. `ResourceReference`

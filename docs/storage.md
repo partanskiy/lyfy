@@ -124,8 +124,21 @@ replicas, native age encryption and complete archives. Mount names scope host
 state independently; explicit selection controls data restoration. Remote
 publication uses expected ETags and a collection writer lock.
 
-New manifests use schema 2 with file/directory xattr/ACL, special modes,
-hardlink declarations and incomplete-capture/provenance metadata. Schema 1
-remains readable; older binaries cannot read schema 2. Current-only retention
+File-only manifests use schema 2 with file/directory xattr/ACL, special modes,
+hardlink declarations and incomplete-capture/provenance metadata. Package
+baselines and namespace root properties require schema 3. Schemas 1/2 remain
+readable; older binaries reject the new descriptions. Current-only retention
 keeps pinned bases and their content. Store encoding/recipient markers prevent
 accidentally interpreting encrypted content as plaintext or changing policy.
+
+Package-provided regular files use package_file content with an observed package,
+exact version and SHA-256. Their bytes are omitted from payload/object storage.
+Concrete overrides keep ordinary file payloads plus package_baseline metadata,
+including the expected hash, ownership, mode and backup-configuration status.
+Actual ACL/xattr remain in the node. Package hardlink groups retain concrete
+objects. Missing package files have explicit tombstones, including on first save.
+Absent mtree comparison evidence leaves ordinary concrete files.
+
+Portable archive state uses schema 2 for these additions and schema 1 otherwise.
+An archive carries all concrete objects and retains package references as declared
+external recovery dependencies. It does not acquire or embed missing packages.

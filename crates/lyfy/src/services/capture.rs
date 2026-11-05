@@ -161,7 +161,8 @@ pub fn scan(
     }
     for (key, node) in &mut captured.tree {
         let path = config.path_for_key(key)?;
-        node.package_baseline = package_files::description(&package_files, &path, node);
+        node.package_baseline =
+            package_files::description(&package_files, &path, node).map(Box::new);
         if let Some(package) = package_files::candidate(
             &package_files,
             &root,
