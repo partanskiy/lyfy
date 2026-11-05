@@ -78,6 +78,10 @@ pub fn read(
         );
     }
     ensure!(
+        !state.deletions.contains("system/") && !state.deletions.contains("home/"),
+        "namespace root cannot be deleted"
+    );
+    ensure!(
         state.tree.keys().all(|k| !state.deletions.contains(k)),
         "archive path is both present and deleted"
     );

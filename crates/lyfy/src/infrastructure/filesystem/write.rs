@@ -116,6 +116,22 @@ impl Root {
     }
 
     pub fn mkdir(&self, path: &Path, mode: u32, owner: Option<(u32, u32)>) -> Result<()> {
+        if path == Path::new("/") {
+            if let Some((uid, gid)) = owner {
+                // SAFETY: modify only the held target root directory.
+                ensure!(
+                    unsafe { libc::fchown(self.directory.as_raw_fd(), uid, gid) } == 0,
+                    "set root directory owner"
+                );
+            }
+            // SAFETY: the descriptor names the explicitly selected target root.
+            ensure!(
+                unsafe { libc::fchmod(self.directory.as_raw_fd(), mode) } == 0,
+                "set root directory mode"
+            );
+            self.directory.sync_all()?;
+            return Ok(());
+        }
         let (dir, leaf) = self.parent(path, true)?;
         // SAFETY: descriptor-relative directory creation.
         let rc = unsafe { libc::mkdirat(dir.as_raw_fd(), leaf.as_ptr(), 0o700) };

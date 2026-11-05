@@ -50,9 +50,10 @@ impl ResourceSubject {
                 ensure!(
                     ["home", "system"].contains(&namespace)
                         && !relative.contains('\0')
-                        && relative
-                            .split('/')
-                            .all(|p| !p.is_empty() && p != "." && p != ".."),
+                        && (relative.is_empty()
+                            || relative
+                                .split('/')
+                                .all(|p| !p.is_empty() && p != "." && p != "..")),
                     "invalid resource path key"
                 );
             }
@@ -146,7 +147,12 @@ impl Resource {
             (ResourceSubject::Path { .. }, RecoveryDescription::File { node }) => {
                 node.validate()?
             }
-            (ResourceSubject::Path { .. }, RecoveryDescription::Deletion {}) => {}
+            (ResourceSubject::Path { key }, RecoveryDescription::Deletion {}) => {
+                ensure!(
+                    key != "home/" && key != "system/",
+                    "namespace root cannot be deleted"
+                );
+            }
             (ResourceSubject::Package { name }, RecoveryDescription::Package { observed, .. }) => {
                 ensure!(name == &observed.name, "package resource identity mismatch");
                 ensure!(!observed.version.is_empty(), "package version is missing");
