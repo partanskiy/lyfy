@@ -1,3 +1,4 @@
+pub(crate) mod projects;
 mod read;
 pub(crate) mod recipes;
 mod write;
