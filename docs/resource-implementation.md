@@ -123,6 +123,14 @@ artifacts, and pacman retains dependency/signature/reason handling. Package
 removal and transaction side effects require explicit planning. System Python
 dependencies remain pacman-managed.
 
+Implemented: matching repository candidates and explicit pinned archives, AUR and
+local recipes; retained inputs in Git/directory/S3, archives and replicas; locked
+or current version policy; opt-in unprivileged builds; protected, signed package
+installation plans and explicit removals/reasons. Sources stay Recorded until
+their entire dependency/recovery closure is proven. Synthetic tests cover retained
+archives, source deduplication, custom repositories, recipe builds, signatures,
+tampering and private credential exclusion. Live host transactions are unverified.
+
 ## Stage 6 Common state and encrypted migration
 
 Implement three-way reconciliation of old common base, incoming common base

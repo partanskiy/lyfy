@@ -139,10 +139,13 @@ Untracked files are retained, and directory deletion is nonrecursive.
 Package restoration additionally requires
 .BR "\-\-install_packages true" ,
 root execution and text display.
-It uses a full pacman upgrade for missing native packages and restores
-affected installation reasons.
-Missing foreign packages require deliberate handling.
-Extra packages are not removed and recorded versions are not forced.
+The default package_version_policy=locked requires exact verified saved artifacts.
+Explicit current policy permits a full repository upgrade; archive and recipe
+pins remain exact. Installation reasons are restored. remove_packages is the
+explicit removal list; extra packages are otherwise retained.
+The caller prepares artifacts before privileged installation. Recipe builds
+require build_packages=true and run without root, without automatic dependency
+installation. Pacman retains signature and dependency checks.
 .TP
 .B fmt
 Plan supported deterministic policy fixes.

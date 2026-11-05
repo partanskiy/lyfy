@@ -139,6 +139,13 @@ Actual ACL/xattr remain in the node. Package hardlink groups retain concrete
 objects. Missing package files have explicit tombstones, including on first save.
 Absent mtree comparison evidence leaves ordinary concrete files.
 
-Portable archive state uses schema 2 for these additions and schema 1 otherwise.
-An archive carries all concrete objects and retains package references as declared
-external recovery dependencies. It does not acquire or embed missing packages.
+Acquisition sources use stored schema 4 and portable schema 3. Sources live once
+per collection in the package catalog; file provider references omit duplicate
+origin descriptions. package_inventory=false distinguishes a partial provider
+catalog from a full inventory. Git stores retained source objects under
+hosts/<host>/assets/<sha256>; directory/S3 use their normal content objects.
+History collection, replicas and complete archives preserve these verified assets.
+Readers retain stored schemas 1-3 and portable schemas 1-2.
+
+An archive carries all concrete and retained source objects. External package
+references remain declared dependencies; export does not acquire missing inputs.
