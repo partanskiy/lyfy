@@ -143,4 +143,4 @@ pub fn connect(plans: &mut [&mut crate::domain::plan::Plan]) {
 }
 
 mod units;
-pub use units::{plan_units, unit_path_selected};
+pub use units::{definition_guards, plan_units, unit_path_selected};

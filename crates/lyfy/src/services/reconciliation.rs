@@ -161,8 +161,14 @@ pub fn build(context: &Context) -> Result<Plan> {
     let mut receipt = previous.clone();
     receipt.retain(|key, _| !keys.contains(key));
     receipt.extend(desired.iter().map(|(k, n)| (k.clone(), n.materialized())));
-    let (mut dependencies, guards) =
+    let (mut dependencies, mut guards) =
         selection::dependencies(config, &root, &available, &keys, &mut desired)?;
+    guards.extend(crate::services::system::definition_guards(
+        config,
+        &root,
+        snapshot.system_state.as_ref(),
+        &desired,
+    )?);
     dependencies.extend(identity_plan.dependencies);
     dependencies.extend(unit_dependencies);
     let mut changes = vec![];

@@ -258,6 +258,10 @@ impl SystemState {
                 );
                 if let Some(package) = &definition.package {
                     package.validate()?;
+                    ensure!(
+                        package.origin.is_none(),
+                        "unit package pins must use the shared acquisition catalog"
+                    );
                 }
             }
             for (key, node) in &unit.links {
@@ -266,6 +270,14 @@ impl SystemState {
                     key.starts_with("system/etc/systemd/system/")
                         && matches!(node.content, Content::Symlink { .. }),
                     "service enablement can contain only system unit symlinks"
+                );
+                ensure!(
+                    std::path::Path::new(key)
+                        .file_name()
+                        .is_some_and(|n| n == unit.name.as_str())
+                        || matches!(&node.content, Content::Symlink { target } if std::path::Path::new(target)
+                        .file_name().is_some_and(|n| n == unit.name.as_str())),
+                    "unit link belongs to another service"
                 );
                 node.validate()?;
             }
@@ -276,6 +288,40 @@ impl SystemState {
             if let Some(marker) = &mount.identity_file {
                 crate::domain::acquisition::relative(marker)?;
             }
+        }
+        for requirement in &self.requirements {
+            match requirement {
+                SystemRequirement::Storage { key, identity } => {
+                    crate::domain::resources::ResourceSubject::Path { key: key.clone() }
+                        .validate()?;
+                    identity.validate()?;
+                }
+                SystemRequirement::Boot {
+                    firmware,
+                    tracked_paths,
+                    manual_steps,
+                } => {
+                    ensure!(
+                        ["efi", "bios", "unknown"].contains(&firmware.as_str()),
+                        "invalid boot firmware kind"
+                    );
+                    ensure!(
+                        !manual_steps.is_empty()
+                            && manual_steps.iter().all(|s| !s.trim().is_empty()),
+                        "boot requirements need explicit preparation steps"
+                    );
+                    for key in tracked_paths {
+                        crate::domain::resources::ResourceSubject::Path { key: key.clone() }
+                            .validate()?;
+                    }
+                }
+            }
+        }
+        for item in &self.coverage {
+            ensure!(
+                !item.key.trim().is_empty() && !item.reason.trim().is_empty(),
+                "coverage entries require an explanation"
+            );
         }
         Ok(())
     }
