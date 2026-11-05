@@ -17,6 +17,9 @@ impl Store {
                 .get(&self.payload_key(path)?)?
                 .ok_or_else(|| anyhow::anyhow!("S3 payload is missing"))?
                 .body
+        } else if let Some(disk) = &self.disk {
+            disk.get(&self.payload_key(path)?)?
+                .ok_or_else(|| anyhow::anyhow!("Yandex payload is missing"))?
         } else {
             Root::open(Path::new("/"))?.open_content(path)?
         };
@@ -38,6 +41,16 @@ impl Store {
                 file
             };
             return remote.put(&self.payload_key(path)?, payload);
+        }
+        if let Some(disk) = &self.disk {
+            let mut encrypted;
+            let payload = if let Some(age) = &self.age {
+                encrypted = age.encrypt(file.try_clone()?)?;
+                &mut encrypted
+            } else {
+                file
+            };
+            return disk.put(&self.payload_key(path)?, payload);
         }
         private_dir(
             path.parent()
@@ -67,6 +80,21 @@ impl Store {
             .age
             .as_ref()
             .map(|age| digest(age.recipients.join("\n").as_bytes()));
+        if let Some(disk) = &self.disk {
+            if let Some(file) = disk.get("encoding.json")? {
+                ensure!(
+                    file.metadata()?.len() <= 1024
+                        && serde_json::from_reader::<_, Option<String>>(file)? == policy,
+                    "Yandex encoding/recipients changed; use export/import into a new backend"
+                );
+            } else if write {
+                let mut file = tempfile::tempfile()?;
+                serde_json::to_writer(&mut file, &policy)?;
+                file.rewind()?;
+                disk.put("encoding.json", &mut file)?;
+            }
+            return Ok(());
+        }
         if let Some(remote) = &self.remote {
             if let Some(response) = remote.get("encoding.json")? {
                 ensure!(
@@ -118,6 +146,9 @@ impl Store {
     }
 
     pub fn payload_exists(&self, path: &Path) -> Result<bool> {
+        if let Some(disk) = &self.disk {
+            return disk.exists(&self.payload_key(path)?);
+        }
         if let Some(remote) = &self.remote {
             remote.exists(&self.payload_key(path)?)
         } else {
@@ -126,6 +157,9 @@ impl Store {
     }
 
     pub fn remove_payload(&self, path: &Path) -> Result<()> {
+        if let Some(disk) = &self.disk {
+            return disk.delete(&self.payload_key(path)?);
+        }
         if let Some(remote) = &self.remote {
             remote.delete(&self.payload_key(path)?)
         } else {
@@ -134,6 +168,9 @@ impl Store {
     }
 
     pub fn list_payloads(&self, prefix: &str) -> Result<Vec<String>> {
+        if let Some(disk) = &self.disk {
+            return disk.list(prefix);
+        }
         if let Some(remote) = &self.remote {
             return remote.list(prefix);
         }

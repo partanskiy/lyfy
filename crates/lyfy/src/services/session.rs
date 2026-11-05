@@ -6,7 +6,7 @@ use anyhow::Result;
 pub fn lock(context: &Context) -> Result<(RepositoryLock, Lock)> {
     let config = &context.config;
     Ok((
-        if context.repository.remote.is_some() {
+        if context.repository.remote.is_some() || context.repository.disk.is_some() {
             context.repository.capture_lock()?
         } else {
             context.repository.lock()?
@@ -25,6 +25,9 @@ pub fn capture_lock(context: &Context) -> Result<(RepositoryLock, Lock)> {
 pub fn release(locks: &mut (RepositoryLock, Lock)) -> Result<()> {
     if let Some(remote) = &mut locks.0.remote {
         remote.release()?;
+    }
+    if let Some(disk) = &mut locks.0.disk {
+        disk.release()?;
     }
     Ok(())
 }
