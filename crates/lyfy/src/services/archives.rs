@@ -150,7 +150,7 @@ pub fn apply_source(mut context: Context) -> Result<Context> {
     store.save(&Snapshot {
         observed: None,
         replica_source: None,
-        schema: state.schema + 1,
+        schema: crate::domain::acquisition::content::stored_from_portable(state.schema),
         system: "arch".into(),
         host: context.config.host.clone(),
         created_ns: timestamp(),
