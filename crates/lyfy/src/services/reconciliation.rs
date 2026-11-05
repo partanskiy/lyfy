@@ -1,6 +1,5 @@
 use crate::Context;
 use crate::domain::config::Config;
-use crate::domain::packages;
 use crate::domain::plan::{Change, Plan, Receipt};
 use crate::domain::state::{Content, Node, Tree, digest};
 use crate::infrastructure::filesystem::Root;
@@ -11,6 +10,7 @@ use anyhow::{Result, ensure};
 use std::{collections::BTreeSet, path::PathBuf};
 
 mod identities;
+mod package_actions;
 mod package_files;
 mod receipts;
 mod selection;
@@ -31,6 +31,7 @@ pub fn receipt_path(config: &Config) -> PathBuf {
 
 /// Explicitly selected parent scopes may satisfy a child's creation boundary.
 pub fn connect(plans: &mut [&mut Plan]) {
+    package_actions::connect(plans);
     let effects: std::collections::BTreeMap<_, _> = plans
         .iter()
         .flat_map(|plan| {
@@ -235,7 +236,10 @@ pub fn build(context: &Context) -> Result<Plan> {
     let mut package_plan = if config.check_packages && config.packages_selected() {
         package_desired
             .as_ref()
-            .map(|p| pacman::inventory(config).and_then(|current| packages::plan(p, &current)))
+            .map(|p| {
+                pacman::inventory(config)
+                    .and_then(|current| crate::services::packages::plan(config, p, &current))
+            })
             .transpose()?
     } else {
         None
