@@ -77,6 +77,14 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
         });
     if package_work {
         for (_, _, work) in &mut prepared {
+            if let Ok((source, plan, _)) = work
+                && let Err(error) = transactions::before_packages(source, plan)
+            {
+                *work = Err(error);
+                ready = false;
+            }
+        }
+        for (_, _, work) in &mut prepared {
             if !ready {
                 break;
             }

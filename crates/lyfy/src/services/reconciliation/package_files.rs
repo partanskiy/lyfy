@@ -7,6 +7,22 @@ use crate::infrastructure::pacman;
 use anyhow::Result;
 use std::collections::BTreeMap;
 
+pub fn baseline_matches(
+    before: Option<&crate::domain::state::Node>,
+    after: Option<&crate::domain::state::Node>,
+) -> bool {
+    let Some(baseline) = after.and_then(|node| node.package_baseline.as_ref()) else {
+        return false;
+    };
+    before.is_some_and(|node| {
+        matches!(&node.content, Content::File { sha256 } if sha256 == &baseline.sha256)
+            && node.mode == baseline.mode
+            && node.owner == Some(baseline.owner)
+            && node.attributes.is_empty()
+            && node.hardlink.is_none()
+    })
+}
+
 pub fn requirements(
     config: &Config,
     desired: &Tree,

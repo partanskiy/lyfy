@@ -13,7 +13,15 @@ pub fn observe(
         return Ok(None);
     };
     let mode = stat.st_mode & 0o7777;
-    let owner = (!path.starts_with(&config.home_dir)).then_some((stat.st_uid, stat.st_gid));
+    let home_owner = if path.starts_with(&config.home_dir) {
+        root.metadata(&config.home_dir)?
+            .map(|home| (home.st_uid, home.st_gid))
+    } else {
+        None
+    };
+    let symbolic =
+        path.starts_with(&config.home_dir) && home_owner == Some((stat.st_uid, stat.st_gid));
+    let owner = (!symbolic).then_some((stat.st_uid, stat.st_gid));
     let (content, bytes) = match stat.st_mode & libc::S_IFMT {
         libc::S_IFREG => {
             let mut file = root.open_content(path)?;

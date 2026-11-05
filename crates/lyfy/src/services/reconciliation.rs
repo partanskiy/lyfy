@@ -182,7 +182,10 @@ pub fn build(context: &Context) -> Result<Plan> {
         {
             conflict = Some("directory type changes require manual intervention".into());
         }
-        if !config.overwrite && before.as_ref() != previous.get(&key) {
+        if !config.overwrite
+            && before.as_ref() != previous.get(&key)
+            && !package_files::baseline_matches(before.as_ref(), after.as_ref())
+        {
             conflict = Some(
                 "local changes or an untracked existing target; review before overwrite = true"
                     .into(),

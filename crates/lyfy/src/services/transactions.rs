@@ -7,6 +7,8 @@ use crate::services::files::{observe, observe_like};
 use crate::services::reconciliation::receipt_path;
 use anyhow::{Context, Result, ensure};
 use serde::Serialize;
+mod preimages;
+pub use preimages::before_packages;
 
 pub fn preflight(context: &AppContext, plan: &Plan) -> Result<()> {
     let config = &context.config;
