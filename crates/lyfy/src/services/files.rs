@@ -52,6 +52,7 @@ pub fn observe(
             },
             hardlink: None,
             package_baseline: None,
+            project: None,
         },
         bytes,
     )))

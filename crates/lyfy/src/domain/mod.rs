@@ -9,6 +9,7 @@ pub mod observation;
 pub mod package_files;
 pub mod packages;
 pub mod plan;
+pub(crate) mod projects;
 pub mod resources;
 pub mod results;
 pub mod rules;

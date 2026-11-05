@@ -86,6 +86,8 @@ pub struct Node {
     pub hardlink: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub package_baseline: Option<Box<crate::domain::package_files::PackageBaseline>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<Box<crate::domain::projects::GitProject>>,
 }
 
 impl Node {
@@ -101,6 +103,7 @@ impl Node {
     pub fn materialized(&self) -> Self {
         let mut node = self.clone();
         node.package_baseline = None;
+        node.project = None;
         if let Content::PackageFile { sha256, .. } = &self.content {
             node.content = Content::File {
                 sha256: sha256.clone(),
@@ -112,6 +115,10 @@ impl Node {
         matches!(self.content, Content::Directory)
     }
     pub fn validate(&self) -> Result<()> {
+        if let Some(project) = &self.project {
+            ensure!(self.directory(), "Git project boundary must be a directory");
+            project.validate()?;
+        }
         if let Some(baseline) = &self.package_baseline {
             baseline.validate()?;
             ensure!(
@@ -175,7 +182,7 @@ pub fn extended_state(tree: &Tree) -> bool {
 
 pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
     ensure!(
-        [1, 2, 3, 4, 5].contains(&schema),
+        [1, 2, 3, 4, 5, 6].contains(&schema),
         "unsupported snapshot schema"
     );
     ensure!(
@@ -183,6 +190,10 @@ pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
         "extended state requires schema 3"
     );
     for (key, node) in tree {
+        ensure!(
+            node.project.is_none() || schema >= 6,
+            "Git projects require schema 6"
+        );
         node.validate()?;
         if key == "home/" || key == "system/" {
             ensure!(node.directory(), "namespace root must be a directory");
