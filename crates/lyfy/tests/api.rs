@@ -32,6 +32,7 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
         selected_mounts: vec![],
         selected_paths: vec![],
         selected_resources: vec![],
+        identity_mappings: vec![],
         export_file: None,
         import_file: None,
         disabled_rules: vec![],
