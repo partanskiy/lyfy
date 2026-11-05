@@ -95,7 +95,7 @@ pub fn plan_identities(
             result.actions.push(action);
         }
     }
-    // Legacy explicit mappings remain supported without a saved account catalog.
+    // Explicit mappings also cover numeric identities without a saved name hint.
     for mapping in &config.identity_mappings {
         let needed = selected.values().any(|n| {
             n.owner.is_some_and(|(u, g)| {

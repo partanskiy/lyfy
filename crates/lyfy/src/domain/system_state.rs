@@ -216,7 +216,13 @@ impl SystemState {
                 .retain(|i| needed.contains(&(i.kind, i.id)));
             result.services.clear();
             result.requirements.clear();
-            result.coverage.clear();
+            result.coverage.retain(|item| {
+                item.key.strip_prefix("scope_policy:").is_some_and(|point| {
+                    tree.keys()
+                        .chain(deleted.iter())
+                        .any(|key| within(key, point))
+                })
+            });
         }
         result.source_mounts.retain(|point, _| {
             tree.keys()
@@ -279,8 +285,15 @@ impl SystemState {
 
     pub fn validate(&self) -> Result<()> {
         let mut identities = BTreeSet::new();
+        let mut names = BTreeSet::new();
         for account in &self.identities {
             account.validate()?;
+            if let Some(name) = &account.name {
+                ensure!(
+                    names.insert((account.kind, name)),
+                    "ambiguous system identity name"
+                );
+            }
             ensure!(
                 identities.insert((account.kind, account.id)),
                 "duplicate system identity"
@@ -482,7 +495,10 @@ impl SystemState {
                     format!(
                         "{:?}:{}",
                         i.kind,
-                        i.name.clone().unwrap_or_else(|| i.id.to_string())
+                        i.name
+                            .as_ref()
+                            .map(|n| format!("name:{n}"))
+                            .unwrap_or_else(|| format!("id:{}", i.id))
                     ),
                     SystemIntent::Identity {
                         observed: i.clone(),

@@ -8,16 +8,36 @@ fn partial_apply_preserves_other_receipts_and_future_deletions() {
     let f = Fixture::new();
     f.ok(&["save"]);
     f.ok(&["apply", "--write"]);
+    let system_time = fs::metadata(f.root.join("etc/example.conf"))
+        .unwrap()
+        .modified()
+        .unwrap();
+    let home_time = fs::metadata(f.root.join("home/test/.config/app.conf"))
+        .unwrap()
+        .modified()
+        .unwrap();
     f.write("etc/example.conf", "new system\n");
     f.write("home/test/.config/app.conf", "new home\n");
     f.ok(&["save"]);
     f.write("etc/example.conf", "common\n");
     f.write("home/test/.config/app.conf", "user\n");
+    fs::File::open(f.root.join("etc/example.conf"))
+        .unwrap()
+        .set_times(fs::FileTimes::new().set_modified(system_time))
+        .unwrap();
+    fs::File::open(f.root.join("home/test/.config/app.conf"))
+        .unwrap()
+        .set_times(fs::FileTimes::new().set_modified(home_time))
+        .unwrap();
     f.ok(&["apply", "--selected_paths", "/etc/example.conf", "--write"]);
     assert_eq!(f.read("etc/example.conf"), "new system\n");
     assert_eq!(f.read("home/test/.config/app.conf"), "user\n");
     f.ok(&["apply", "--selected_paths", "~/.config/app.conf", "--write"]);
     assert_eq!(f.read("home/test/.config/app.conf"), "new home\n");
+    let applied_time = fs::metadata(f.root.join("etc/example.conf"))
+        .unwrap()
+        .modified()
+        .unwrap();
     fs::remove_file(f.root.join("etc/example.conf")).unwrap();
     f.ok(&["save"]);
     f.write("etc/example.conf", "new system\n");
@@ -26,6 +46,10 @@ fn partial_apply_preserves_other_receipts_and_future_deletions() {
         fs::Permissions::from_mode(0o640),
     )
     .unwrap();
+    fs::File::open(f.root.join("etc/example.conf"))
+        .unwrap()
+        .set_times(fs::FileTimes::new().set_modified(applied_time))
+        .unwrap();
     f.ok(&["apply", "--selected_paths", "~/.config", "--write"]);
     assert_eq!(f.read("etc/example.conf"), "new system\n");
     f.ok(&["apply", "--prune", "true", "--write"]);

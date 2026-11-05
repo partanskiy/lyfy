@@ -48,6 +48,18 @@ pub fn connect(plans: &mut [&mut Plan]) {
         })
         .collect();
     for plan in plans {
+        for guard in &mut plan.guards {
+            if let Some(expected) = effects.get(&guard.key) {
+                guard.expected = expected.materialized();
+                if crate::infrastructure::filesystem::current_uid() != 0
+                    && expected.mode & 0o200 == 0
+                {
+                    plan.dependencies.push(crate::domain::plan::RequiredDependency {
+                        key: format!("privilege:{}", guard.key), reason: "a selected parent becomes read-only before nested collection writes; root execution is required".into(),
+                        satisfied: false, package: None });
+                }
+            }
+        }
         for dependency in &mut plan.dependencies {
             if let Some(expected) = effects.get(&dependency.key) {
                 dependency.satisfied = true;
