@@ -81,3 +81,60 @@ pub fn capture(
 
 mod identities;
 pub use identities::{IdentityPlan, plan_identities};
+
+pub fn preflight(context: &Context, plan: &crate::domain::plan::Plan) -> Result<()> {
+    accounts::preflight(&context.config.root, &plan.identity_actions)
+}
+
+pub fn restore_identities(context: &Context, plan: &crate::domain::plan::Plan) -> Result<()> {
+    if plan.identity_actions.is_empty() {
+        return Ok(());
+    }
+    preflight(context, plan)?;
+    #[derive(serde::Serialize)]
+    struct Journal<'a> {
+        schema: u32,
+        snapshot: &'a str,
+        source_archive: Option<&'a str>,
+        actions: &'a [crate::domain::system_state::IdentityAction],
+        completed: usize,
+        status: &'a str,
+    }
+    let path = context
+        .config
+        .state_dir
+        .join("identity_transactions")
+        .join(crate::infrastructure::store::timestamp().to_string())
+        .join("journal.json");
+    let mut journal = Journal {
+        schema: 1,
+        snapshot: &plan.snapshot,
+        source_archive: plan.source_archive.as_deref(),
+        actions: &plan.identity_actions,
+        completed: 0,
+        status: "prepared",
+    };
+    crate::infrastructure::store::write_json(&path, &journal)?;
+    for action in &plan.identity_actions {
+        journal.status = "in_progress";
+        crate::infrastructure::store::write_json(&path, &journal)?;
+        accounts::execute(&context.config.root, action)?;
+        journal.completed += 1;
+    }
+    journal.status = "complete";
+    crate::infrastructure::store::write_json(&path, &journal)
+}
+
+pub fn connect(plans: &mut [&mut crate::domain::plan::Plan]) {
+    let mut seen = Vec::new();
+    for plan in plans {
+        plan.identity_actions.retain(|action| {
+            if seen.contains(action) {
+                false
+            } else {
+                seen.push(action.clone());
+                true
+            }
+        });
+    }
+}

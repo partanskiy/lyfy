@@ -3,7 +3,7 @@ use crate::domain::{
     plan::Plan,
     results::{Applied, MountedApply},
 };
-use crate::services::{archives, packages, reconciliation, routing, session, transactions};
+use crate::services::{archives, packages, reconciliation, routing, session, system, transactions};
 use anyhow::Result;
 
 pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
@@ -59,7 +59,8 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
     if write && ready {
         for (_, _, work) in &mut prepared {
             if let Ok((source, plan, _)) = work
-                && let Err(error) = packages::preflight(source, plan)
+                && let Err(error) = system::preflight(source, plan)
+                    .and_then(|_| packages::preflight(source, plan))
                     .and_then(|_| transactions::preflight(source, plan))
             {
                 *work = Err(error);
@@ -67,6 +68,33 @@ pub(crate) fn run(context: &Context, write: bool) -> Result<Applied> {
         }
     }
     let mut ready = ready && prepared.iter().all(|(_, _, work)| work.is_ok());
+    let identity_work = write
+        && ready
+        && prepared.iter().any(|(_, _, work)| {
+            work.as_ref()
+                .is_ok_and(|(_, plan, _)| !plan.identity_actions.is_empty())
+        });
+    if identity_work {
+        for (_, _, work) in &mut prepared {
+            if let Ok((source, plan, _)) = work
+                && let Err(error) = transactions::before_packages(source, plan)
+            {
+                *work = Err(error);
+                ready = false;
+            }
+        }
+        for (_, _, work) in &mut prepared {
+            if !ready {
+                break;
+            }
+            if let Ok((source, plan, _)) = work
+                && let Err(error) = system::restore_identities(source, plan)
+            {
+                *work = Err(error);
+                ready = false;
+            }
+        }
+    }
     let package_work = write
         && ready
         && prepared.iter().any(|(_, _, work)| {
