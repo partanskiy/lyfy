@@ -118,6 +118,10 @@ impl Node {
         matches!(self.content, Content::Directory)
     }
     pub fn validate(&self) -> Result<()> {
+        ensure!(
+            self.project.is_none() || self.mount.is_none(),
+            "one node cannot own two baseline providers"
+        );
         if let Some(mount) = &self.mount {
             ensure!(
                 self.directory(),
