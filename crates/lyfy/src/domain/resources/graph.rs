@@ -29,6 +29,7 @@ impl ResourceGraph {
                 "incomplete observations cannot guarantee recovery"
             );
         }
+        crate::domain::resources::filesystem::validate(self)?;
         let mut pending = BTreeMap::new();
         let mut dependents = BTreeMap::<_, Vec<_>>::new();
         let mut ready = BTreeSet::new();
