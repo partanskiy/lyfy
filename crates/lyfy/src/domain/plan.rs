@@ -29,6 +29,8 @@ pub struct Plan {
     #[serde(default)]
     pub external_mounts: std::collections::BTreeMap<String, crate::domain::mounts::ExternalMount>,
     pub packages: Option<PackagePlan>,
+    #[serde(default)]
+    pub identity_actions: Vec<crate::domain::system_state::IdentityAction>,
     #[serde(skip)]
     pub desired: Tree,
     #[serde(skip)]

@@ -122,7 +122,13 @@ pub fn build(context: &Context) -> Result<Plan> {
             .path_for_key(key)
             .is_ok_and(|p| config.managed(&p) && config.path_selected(&p))
     });
-    identities::map(config, &root, &mut available, &keys)?;
+    let identity_plan = identities::map(
+        config,
+        &root,
+        &mut available,
+        &keys,
+        snapshot.system_state.as_ref(),
+    )?;
     let mut desired = Tree::new();
     for (key, node) in &available {
         let path = config.path_for_key(key)?;
@@ -143,6 +149,7 @@ pub fn build(context: &Context) -> Result<Plan> {
     receipt.extend(desired.iter().map(|(k, n)| (k.clone(), n.materialized())));
     let (mut dependencies, guards) =
         selection::dependencies(config, &root, &available, &keys, &mut desired)?;
+    dependencies.extend(identity_plan.dependencies);
     let mut changes = vec![];
     crate::domain::state::validate_tree(&desired)?;
     let mut live = Tree::new();
@@ -271,6 +278,7 @@ pub fn build(context: &Context) -> Result<Plan> {
         dependencies,
         external_mounts,
         packages: package_plan,
+        identity_actions: identity_plan.actions,
         receipt,
         desired,
         package_desired,

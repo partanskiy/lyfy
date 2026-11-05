@@ -56,6 +56,7 @@ pub fn plan(config: &Config, report: &Report) -> Result<Plan> {
         dependencies: vec![],
         external_mounts: Default::default(),
         packages: None,
+        identity_actions: vec![],
         desired: Default::default(),
         receipt: Default::default(),
         package_desired: None,

@@ -333,3 +333,23 @@ pub enum SystemResourceRequest {
         reason: String,
     },
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum IdentityAction {
+    CreateGroup {
+        name: String,
+        id: u32,
+    },
+    CreateUser {
+        name: String,
+        id: u32,
+        group: u32,
+        home: String,
+        shell: String,
+    },
+    AddGroups {
+        name: String,
+        groups: Vec<String>,
+    },
+}
