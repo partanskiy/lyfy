@@ -32,7 +32,7 @@ fn context(
     let path = temp.join("source.lyfy");
     let state = SnapshotState {
         system_state: None,
-        schema: 3,
+        schema: lyfy::ARCHIVE_SCHEMA,
         system: "arch".into(),
         host: config.host.clone(),
         source_snapshot: "1".repeat(64),

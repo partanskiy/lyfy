@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 mod filesystem;
 mod graph;
-mod legacy;
 mod selection;
+mod snapshot;
 mod system;
 
 /// An immutable generation in one logical collection and storage destination.

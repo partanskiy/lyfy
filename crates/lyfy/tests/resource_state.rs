@@ -30,7 +30,7 @@ fn snapshot() -> (SnapshotReference, SnapshotState) {
     link.hardlink = Some("home/data/a".into());
     let state = SnapshotState {
         system_state: None,
-        schema: 1,
+        schema: lyfy::ARCHIVE_SCHEMA,
         system: "arch".into(),
         host: "laptop".into(),
         source_snapshot: source.snapshot.clone(),
@@ -63,7 +63,7 @@ fn snapshot() -> (SnapshotReference, SnapshotState) {
 }
 
 #[test]
-fn legacy_description_preserves_metadata_deletions_and_unresolved_packages() {
+fn snapshot_description_preserves_metadata_deletions_and_unresolved_packages() {
     let (source, state) = snapshot();
     let encoded = serde_json::to_value(&state).unwrap();
     let graph = ResourceGraph::from_snapshot(&state, source).unwrap();
@@ -86,7 +86,7 @@ fn legacy_description_preserves_metadata_deletions_and_unresolved_packages() {
                 assert_eq!(observed, &state.packages.as_ref().unwrap()[0]);
                 assert_eq!(*origin, PackageOrigin::Unknown {});
             }
-            _ => panic!("unexpected legacy resource"),
+            _ => panic!("unexpected snapshot resource"),
         }
     }
     let encoded = serde_json::to_value(&graph).unwrap();
@@ -112,7 +112,7 @@ fn legacy_description_preserves_metadata_deletions_and_unresolved_packages() {
 }
 
 #[test]
-fn legacy_adapter_rejects_mismatched_sources_and_inconsistent_content() {
+fn snapshot_adapter_rejects_mismatched_sources_and_inconsistent_content() {
     let (source, state) = snapshot();
     let mut invalid = source.clone();
     invalid.host = "other".into();
@@ -143,7 +143,7 @@ fn legacy_adapter_rejects_mismatched_sources_and_inconsistent_content() {
 }
 
 #[test]
-fn package_baselines_require_new_state_and_matching_resource_dependencies() {
+fn package_baselines_require_matching_resource_dependencies() {
     let (source, mut state) = snapshot();
     state.tree.remove("home/data/b");
     let package = state.packages.as_ref().unwrap()[0].clone();
@@ -160,8 +160,7 @@ fn package_baselines_require_new_state_and_matching_resource_dependencies() {
         sha256: "a".repeat(64),
     };
     state.sizes.clear();
-    assert!(ResourceGraph::from_snapshot(&state, source.clone()).is_err());
-    state.schema = 2;
+    state.schema = lyfy::ARCHIVE_SCHEMA;
     let mut graph = ResourceGraph::from_snapshot(&state, source.clone()).unwrap();
     let resource = graph
         .resources
