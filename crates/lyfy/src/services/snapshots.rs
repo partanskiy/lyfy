@@ -38,7 +38,11 @@ pub fn view_at(context: &Context, id: &str) -> Result<crate::domain::state::Snap
         }
     }
     Ok(crate::domain::state::SnapshotState {
-        schema: 1,
+        schema: if crate::domain::state::extended_state(&tree) {
+            2
+        } else {
+            1
+        },
         system: snapshot.system,
         host: config.host.clone(),
         source_snapshot: id.into(),
@@ -124,7 +128,17 @@ pub fn commit(
 ) -> Result<Saved> {
     let config = &context.config;
     let snapshot = Snapshot {
-        schema: 2,
+        schema: if changes.iter().any(|(k, n)| {
+            k == "home/"
+                || k == "system/"
+                || n.as_ref().is_some_and(|n| {
+                    matches!(n.content, crate::domain::state::Content::PackageFile { .. })
+                })
+        }) {
+            3
+        } else {
+            2
+        },
         system: "arch".into(),
         host: config.host.clone(),
         created_ns: timestamp(),

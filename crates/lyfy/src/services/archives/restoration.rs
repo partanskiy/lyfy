@@ -182,7 +182,11 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         })
         .collect();
     Ok(SnapshotState {
-        schema: 1,
+        schema: if crate::domain::state::extended_state(&tree) {
+            2
+        } else {
+            1
+        },
         system: snapshot.system,
         host: config.host.clone(),
         source_snapshot: id,

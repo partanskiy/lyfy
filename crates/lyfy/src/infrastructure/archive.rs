@@ -57,7 +57,7 @@ pub fn read(
     let mut state: SnapshotState = serde_json::from_slice(&manifest)
         .map_err(|_| anyhow::anyhow!("invalid archive manifest"))?;
     ensure!(
-        state.schema == 1 && state.system == "arch",
+        [1, 2].contains(&state.schema) && state.system == "arch",
         "unsupported archive state"
     );
     identifier(&state.host)?;
@@ -66,6 +66,10 @@ pub fn read(
         "archive source is not a pinned generation"
     );
     validate_tree(&state.tree)?;
+    ensure!(
+        state.schema >= 2 || !crate::domain::state::extended_state(&state.tree),
+        "extended archive state requires schema 2"
+    );
     for key in state.tree.keys().chain(state.deletions.iter()) {
         let path = config.path_for_key(key)?;
         ensure!(

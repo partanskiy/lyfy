@@ -138,7 +138,7 @@ pub fn apply_source(mut context: Context) -> Result<Context> {
     }
     store.save(&Snapshot {
         replica_source: None,
-        schema: 2,
+        schema: if state.schema >= 2 { 3 } else { 2 },
         system: "arch".into(),
         host: context.config.host.clone(),
         created_ns: timestamp(),

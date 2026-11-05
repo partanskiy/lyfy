@@ -29,6 +29,10 @@ pub enum Content {
         #[serde(default)]
         sha256: String,
     },
+    PackageFile {
+        package: crate::domain::packages::Package,
+        sha256: String,
+    },
     Directory,
     Symlink {
         target: String,
@@ -46,6 +50,10 @@ impl<'de> Deserialize<'de> for Content {
                 #[serde(default)]
                 sha256: String,
             },
+            PackageFile {
+                package: crate::domain::packages::Package,
+                sha256: String,
+            },
             Directory {},
             Symlink {
                 target: String,
@@ -53,6 +61,7 @@ impl<'de> Deserialize<'de> for Content {
         }
         Ok(match Description::deserialize(deserializer)? {
             Description::File { sha256 } => Self::File { sha256 },
+            Description::PackageFile { package, sha256 } => Self::PackageFile { package, sha256 },
             Description::Directory {} => Self::Directory,
             Description::Symlink { target } => Self::Symlink { target },
         })
@@ -73,6 +82,15 @@ pub struct Node {
 }
 
 impl Node {
+    pub fn materialized(&self) -> Self {
+        let mut node = self.clone();
+        if let Content::PackageFile { sha256, .. } = &self.content {
+            node.content = Content::File {
+                sha256: sha256.clone(),
+            };
+        }
+        node
+    }
     pub fn directory(&self) -> bool {
         matches!(self.content, Content::Directory)
     }
@@ -96,6 +114,15 @@ impl Node {
                 "invalid object hash"
             );
         }
+        if let Content::PackageFile { package, sha256 } = &self.content {
+            ensure!(
+                crate::domain::packages::valid_name(&package.name)
+                    && !package.version.is_empty()
+                    && crate::domain::config::is_digest(sha256)
+                    && self.hardlink.is_none(),
+                "invalid package file baseline"
+            );
+        }
         if let Content::Symlink { target } = &self.content {
             ensure!(!target.contains('\0'), "invalid link target");
         }
@@ -103,9 +130,27 @@ impl Node {
     }
 }
 
+pub fn extended_state(tree: &Tree) -> bool {
+    tree.iter().any(|(key, node)| {
+        key == "system/" || key == "home/" || matches!(node.content, Content::PackageFile { .. })
+    })
+}
+
+pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
+    ensure!([1, 2, 3].contains(&schema), "unsupported snapshot schema");
+    ensure!(
+        schema >= 3 || !extended_state(tree),
+        "extended state requires schema 3"
+    );
+    validate_tree(tree)
+}
+
 pub fn validate_tree(tree: &Tree) -> Result<()> {
     for (key, node) in tree {
         node.validate()?;
+        if key == "home/" || key == "system/" {
+            ensure!(node.directory(), "namespace root must be a directory");
+        }
         let mut parent = key.rsplit_once('/').map(|(parent, _)| parent);
         while let Some(path) = parent {
             ensure!(

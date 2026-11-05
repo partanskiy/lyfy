@@ -181,6 +181,18 @@ fn execute(
                         root.set_attributes(&path, &node.attributes)?;
                     }
                 }
+                Content::PackageFile { sha256, .. } => {
+                    let mut file = root.open_content(&path)?;
+                    ensure!(
+                        crate::infrastructure::filesystem::hash_file(
+                            &mut file,
+                            config.max_file_bytes
+                        )? == *sha256,
+                        "package baseline content changed after planning"
+                    );
+                    root.put_file(&path, &mut file, node.mode, owner)?;
+                    root.set_attributes(&path, &node.attributes)?;
+                }
                 Content::Symlink { target } => {
                     root.put(&path, None, Some(target), node.mode, owner)?
                 }
