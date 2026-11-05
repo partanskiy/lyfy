@@ -266,3 +266,69 @@ fn nested_writes_under_a_readonly_parent_are_planned_before_mutation() {
         assert_eq!(content, "local target change\n");
     }
 }
+
+#[test]
+fn properties_only_root_captures_metadata_without_visiting_descendants() {
+    use std::os::unix::fs::PermissionsExt;
+    let f = setup();
+    let socket = std::os::unix::net::UnixListener::bind(f.root.join("uncaptured.sock")).unwrap();
+    let mounts = serde_json::json!([{"name":"root-properties","path":"/","backend":"local","properties_only":true}]).to_string();
+    let saved = f.ok(&["save", "--mounts", &mounts]);
+    assert_eq!(saved["mounts"].as_array().unwrap().len(), 1);
+    let state = snapshot(
+        &f.temp
+            .path()
+            .join("backend/mounts/root-properties/hosts/laptop"),
+    );
+    assert_eq!(state["changes"].as_object().unwrap().len(), 1);
+    assert_eq!(state["changes"]["system/"]["content"]["kind"], "directory");
+    assert_eq!(state["system_state"]["coverage"][0]["status"], "excluded");
+    fs::set_permissions(&f.root, fs::Permissions::from_mode(0o700)).unwrap();
+    f.ok(&[
+        "apply",
+        "--mounts",
+        &mounts,
+        "--selected_mounts",
+        "root-properties",
+        "--overwrite",
+        "true",
+        "--write",
+    ]);
+    assert_eq!(
+        fs::metadata(&f.root).unwrap().permissions().mode() & 0o777,
+        0o755
+    );
+    assert_eq!(f.read("etc/tree/deep/child"), "child\n");
+    drop(socket);
+}
+
+#[test]
+fn mount_include_lists_preserve_ancestor_metadata_and_exclude_other_data() {
+    let f = setup();
+    let mounts = serde_json::json!([{"name":"curated","path":"/etc/tree","backend":"local","include":["/etc/tree/deep/child"]}]).to_string();
+    f.ok(&["save", "--mounts", &mounts, "--selected_mounts", "curated"]);
+    let state = snapshot(&f.temp.path().join("backend/mounts/curated/hosts/laptop"));
+    assert!(state["changes"].get("system/etc/tree").is_some());
+    assert!(state["changes"].get("system/etc/tree/deep").is_some());
+    assert!(state["changes"].get("system/etc/tree/deep/child").is_some());
+    assert!(state["changes"].get("system/etc/tree/parent").is_none());
+    f.write("etc/tree/parent", "unselected sibling\n");
+    f.write("etc/tree/deep/child", "changed selected child\n");
+    f.ok(&[
+        "apply",
+        "--mounts",
+        &mounts,
+        "--selected_mounts",
+        "curated",
+        "--overwrite",
+        "true",
+        "--write",
+    ]);
+    assert_eq!(f.read("etc/tree/parent"), "unselected sibling\n");
+    assert_eq!(f.read("etc/tree/deep/child"), "child\n");
+    let invalid = serde_json::json!([{"name":"curated","path":"/etc/tree","backend":"local","include":["/etc/outside"]}]).to_string();
+    assert_eq!(
+        f.run(&["save", "--mounts", &invalid]).status.code(),
+        Some(2)
+    );
+}

@@ -275,6 +275,16 @@ fn identity(
 pub struct TargetGuard {
     table: BTreeMap<PathBuf, Entry>,
     boundaries: BTreeMap<String, ExternalMount>,
+    paths: Vec<PathBuf>,
+}
+
+fn target_table(table: &Table, paths: &[PathBuf]) -> BTreeMap<PathBuf, Entry> {
+    table
+        .entries
+        .iter()
+        .filter(|(point, _)| paths.iter().any(|p| p.starts_with(point)))
+        .map(|(p, e)| (p.clone(), e.clone()))
+        .collect()
 }
 
 pub fn target(context: &Context, plan: &Plan) -> Result<(Root, TargetGuard)> {
@@ -282,14 +292,21 @@ pub fn target(context: &Context, plan: &Plan) -> Result<(Root, TargetGuard)> {
     let paths: Vec<_> = plan
         .changes
         .iter()
-        .map(|c| context.config.path_for_key(&c.key))
+        .map(|c| &c.key)
+        .chain(plan.guards.iter().map(|g| &g.key))
+        .map(|key| context.config.path_for_key(key))
         .collect::<Result<_>>()?;
-    let root =
-        Root::open(&context.config.root)?.bind_boundaries(&table.descriptor_boundaries(&paths))?;
+    let relevant = target_table(&table, &paths);
+    let descriptors: Vec<_> = relevant
+        .iter()
+        .map(|(p, e)| (p.clone(), table.native.then_some(e.id)))
+        .collect();
+    let root = Root::open(&context.config.root)?.bind_boundaries(&descriptors)?;
     Ok((
         root,
         TargetGuard {
-            table: relevant(&context.config, &table)?,
+            table: relevant,
+            paths,
             boundaries: plan.external_mounts.clone(),
         },
     ))
@@ -298,7 +315,7 @@ pub fn target(context: &Context, plan: &Plan) -> Result<(Root, TargetGuard)> {
 pub fn recheck(context: &Context, guard: &TargetGuard) -> Result<()> {
     let table = verify(context, &guard.boundaries)?;
     ensure!(
-        guard.table == relevant(&context.config, &table)?,
+        guard.table == target_table(&table, &guard.paths),
         "mount topology changed during apply; later actions were stopped"
     );
     Ok(())

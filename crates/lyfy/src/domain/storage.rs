@@ -86,6 +86,10 @@ pub struct Mount {
     #[serde(default)]
     pub base_host: Option<String>,
     #[serde(default)]
+    pub properties_only: bool,
+    #[serde(default)]
+    pub include: Vec<String>,
+    #[serde(default)]
     pub exclude: Vec<String>,
     #[serde(default)]
     pub max_file_bytes: Option<u64>,
@@ -185,6 +189,18 @@ pub fn validate(config: &Config) -> Result<()> {
     let mut names = BTreeSet::new();
     let mut roots = BTreeSet::new();
     for mount in &config.mounts {
+        ensure!(
+            !mount.properties_only || !mount.git_project && mount.include.is_empty(),
+            "properties_only cannot capture Git data or descendant includes"
+        );
+        for included in &mount.include {
+            ensure!(
+                config
+                    .logical(included)?
+                    .starts_with(config.logical(&mount.path)?),
+                "mount include is outside its VFS point"
+            );
+        }
         if let Some(host) = &mount.base_host
             && !host.is_empty()
         {
