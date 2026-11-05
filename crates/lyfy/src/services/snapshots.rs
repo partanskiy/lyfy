@@ -26,7 +26,8 @@ pub fn view(context: &Context) -> Result<crate::domain::state::SnapshotState> {
 pub fn view_at(context: &Context, id: &str) -> Result<crate::domain::state::SnapshotState> {
     let config = &context.config;
     let (snapshot, tree) = context.repository.effective(&config.host, id)?;
-    let mut sizes = BTreeMap::new();
+    let mut sizes =
+        crate::domain::acquisition::content::retained(&tree, snapshot.packages.as_deref())?;
     for node in tree.values() {
         if let crate::domain::state::Content::File { sha256 } = &node.content
             && !sizes.contains_key(sha256)
@@ -38,11 +39,10 @@ pub fn view_at(context: &Context, id: &str) -> Result<crate::domain::state::Snap
         }
     }
     Ok(crate::domain::state::SnapshotState {
-        schema: if crate::domain::state::extended_state(&tree) {
-            2
-        } else {
-            1
-        },
+        schema: crate::domain::acquisition::content::portable_schema(
+            &tree,
+            snapshot.packages.as_deref(),
+        ),
         system: snapshot.system,
         host: config.host.clone(),
         source_snapshot: id.into(),
@@ -128,7 +128,16 @@ pub fn commit(
 ) -> Result<Saved> {
     let config = &context.config;
     let snapshot = Snapshot {
-        schema: if changes.iter().any(|(k, n)| {
+        schema: if packages
+            .as_ref()
+            .is_some_and(|p| p.iter().any(|p| p.origin.is_some()))
+            || changes
+                .values()
+                .flatten()
+                .any(|n| n.package().is_some_and(|p| p.origin.is_some()))
+        {
+            4
+        } else if changes.iter().any(|(k, n)| {
             k == "home/"
                 || k == "system/"
                 || n.as_ref().is_some_and(|n| {

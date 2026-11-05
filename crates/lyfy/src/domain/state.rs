@@ -169,7 +169,10 @@ pub fn extended_state(tree: &Tree) -> bool {
 }
 
 pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
-    ensure!([1, 2, 3].contains(&schema), "unsupported snapshot schema");
+    ensure!(
+        [1, 2, 3, 4].contains(&schema),
+        "unsupported snapshot schema"
+    );
     ensure!(
         schema >= 3 || !extended_state(tree),
         "extended state requires schema 3"
@@ -268,6 +271,20 @@ pub struct ReplicaSource {
 }
 
 impl Snapshot {
+    pub fn validate_encoding(&self) -> Result<()> {
+        let tree = self
+            .changes
+            .iter()
+            .filter_map(|(k, n)| n.clone().map(|n| (k.clone(), n)))
+            .collect();
+        validate_schema(self.schema, &tree)?;
+        crate::domain::acquisition::content::validate(
+            self.schema,
+            false,
+            &tree,
+            self.packages.as_deref(),
+        )
+    }
     pub fn same_state(&self, other: &Self) -> bool {
         self.schema == other.schema
             && self.system == other.system

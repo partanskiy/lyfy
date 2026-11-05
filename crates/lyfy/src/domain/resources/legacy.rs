@@ -3,7 +3,7 @@ use crate::domain::{
         PackageOrigin, RecoveryDescription, RecoveryGuarantee, Resource, ResourceGraph,
         ResourceReference, ResourceSubject, SnapshotReference,
     },
-    state::{Content, SnapshotState},
+    state::SnapshotState,
 };
 use anyhow::{Result, ensure};
 use std::collections::BTreeSet;
@@ -14,7 +14,7 @@ impl ResourceGraph {
     pub fn from_snapshot(state: &SnapshotState, source: SnapshotReference) -> Result<Self> {
         source.validate()?;
         ensure!(
-            [1, 2].contains(&state.schema) && state.system == "arch",
+            [1, 2, 3].contains(&state.schema) && state.system == "arch",
             "unsupported resolved snapshot state"
         );
         ensure!(
@@ -29,16 +29,16 @@ impl ResourceGraph {
             state.tree.keys().all(|key| !state.deletions.contains(key)),
             "snapshot path is both present and deleted"
         );
-        let required: BTreeSet<_> = state
-            .tree
-            .values()
-            .filter_map(|node| match &node.content {
-                Content::File { sha256 } => Some(sha256),
-                _ => None,
-            })
-            .collect();
+        crate::domain::acquisition::content::validate(
+            state.schema,
+            true,
+            &state.tree,
+            state.packages.as_deref(),
+        )?;
+        let required =
+            crate::domain::acquisition::content::required(&state.tree, state.packages.as_deref())?;
         ensure!(
-            required == state.sizes.keys().collect(),
+            required.iter().collect::<BTreeSet<_>>() == state.sizes.keys().collect(),
             "snapshot content index mismatch"
         );
         let reference = |subject| ResourceReference {
@@ -92,16 +92,22 @@ impl ResourceGraph {
             guarantee: RecoveryGuarantee::Recorded,
             dependencies: vec![],
         }));
-        resources.extend(packages.values().map(|package| Resource {
-            reference: reference(ResourceSubject::Package {
-                name: package.name.clone(),
-            }),
-            recovery: RecoveryDescription::Package {
-                observed: package.clone(),
-                origin: PackageOrigin::Unknown {},
-            },
-            guarantee: RecoveryGuarantee::Recorded,
-            dependencies: vec![],
+        resources.extend(packages.values().map(|package| {
+            Resource {
+                reference: reference(ResourceSubject::Package {
+                    name: package.name.clone(),
+                }),
+                recovery: RecoveryDescription::Package {
+                    observed: package.clone(),
+                    origin: package
+                        .origin
+                        .as_deref()
+                        .cloned()
+                        .unwrap_or(PackageOrigin::Unknown {}),
+                },
+                guarantee: RecoveryGuarantee::Recorded,
+                dependencies: vec![],
+            }
         }));
         let graph = Self {
             schema: 1,
