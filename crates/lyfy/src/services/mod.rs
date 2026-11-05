@@ -3,6 +3,7 @@ pub(crate) mod archives;
 pub(crate) mod capture;
 pub(crate) mod external;
 pub(crate) mod files;
+pub(crate) mod generated;
 pub(crate) mod inspection;
 pub(crate) mod packages;
 pub(crate) mod projects;
