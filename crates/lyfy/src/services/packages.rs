@@ -1,7 +1,9 @@
 use crate::domain::{config::Config, packages::Package};
 use crate::infrastructure::pacman;
 use anyhow::Result;
+mod preparation;
 mod sources;
+pub use preparation::prepare;
 pub use sources::capture as capture_sources;
 
 pub fn capture(config: &Config) -> Result<Option<Vec<Package>>> {

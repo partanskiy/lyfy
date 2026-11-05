@@ -114,6 +114,52 @@ pub fn export_apply(context: &Context, directory: &Path) -> Result<BTreeMap<Stri
     Ok(paths)
 }
 
+pub fn prepare_packages(
+    context: &Context,
+    directory: &Path,
+    requested: &[crate::domain::packages::Package],
+) -> Result<BTreeMap<String, crate::domain::acquisition::PreparedPackage>> {
+    ensure!(
+        context.config.install_packages && context.config.packages_selected(),
+        "package preparation requires explicitly selected package execution"
+    );
+    private_dir(directory)?;
+    let mut pending = BTreeMap::new();
+    for package in requested {
+        package.validate()?;
+        ensure!(
+            pending
+                .insert(package.name.clone(), package.clone())
+                .is_none(),
+            "duplicate requested package work"
+        );
+    }
+    let mut prepared = BTreeMap::new();
+    for scope in routing::scopes(context, true)? {
+        let source = source(scope)?;
+        let state = selected_state(&source)?;
+        for package in state.packages.into_iter().flatten() {
+            if let Some(expected) = pending.remove(&package.name) {
+                ensure!(
+                    expected == package,
+                    "package source changed after privileged planning"
+                );
+                let artifact = crate::services::packages::prepare(
+                    &source,
+                    &package,
+                    &directory.join(&package.name),
+                )?;
+                prepared.insert(package.name, artifact);
+            }
+        }
+    }
+    ensure!(
+        pending.is_empty(),
+        "requested package work is outside selected immutable sources"
+    );
+    Ok(prepared)
+}
+
 fn selected_state(context: &Context) -> Result<SnapshotState> {
     let config = &context.config;
     let id = if config.snapshot == "latest" {
