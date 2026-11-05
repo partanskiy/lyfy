@@ -178,6 +178,9 @@ pub fn validate(config: &Config) -> Result<()> {
     let mut roots = BTreeSet::new();
     for mount in &config.mounts {
         if let Some(policy) = &mount.external {
+            if let Some(path) = &policy.identity_file {
+                crate::domain::acquisition::relative(path)?;
+            }
             ensure!(
                 !mount.git_project,
                 "external and Git boundaries require separate nested scopes"
