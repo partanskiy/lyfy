@@ -41,7 +41,7 @@ pub fn view_at(context: &Context, id: &str) -> Result<crate::domain::state::Snap
         }
     }
     Ok(crate::domain::state::SnapshotState {
-        schema: if !snapshot.package_inventory {
+        schema: if !snapshot.package_inventory && !tree.values().any(|n| n.project.is_some()) {
             3
         } else {
             crate::domain::acquisition::content::portable_schema(
@@ -151,7 +151,9 @@ pub fn commit(
     } = publication;
     let packages = captured.packages;
     let snapshot = Snapshot {
-        schema: if observed.is_some() {
+        schema: if changes.values().flatten().any(|n| n.project.is_some()) {
+            6
+        } else if observed.is_some() {
             5
         } else if !captured.inventory
             || packages

@@ -65,7 +65,9 @@ pub fn required(tree: &Tree, packages: Option<&[Package]>) -> Result<BTreeSet<St
 }
 
 pub fn stored_schema(tree: &Tree, packages: Option<&[Package]>) -> u32 {
-    if observations(tree, packages).any(|p| p.origin.is_some()) {
+    if tree.values().any(|n| n.project.is_some()) {
+        6
+    } else if observations(tree, packages).any(|p| p.origin.is_some()) {
         4
     } else if crate::domain::state::extended_state(tree) {
         3
@@ -75,7 +77,12 @@ pub fn stored_schema(tree: &Tree, packages: Option<&[Package]>) -> u32 {
 }
 
 pub fn portable_schema(tree: &Tree, packages: Option<&[Package]>) -> u32 {
-    stored_schema(tree, packages) - 1
+    let stored = stored_schema(tree, packages);
+    if stored == 6 { 4 } else { stored - 1 }
+}
+
+pub fn stored_from_portable(schema: u32) -> u32 {
+    if schema == 4 { 6 } else { schema + 1 }
 }
 
 pub fn validate(
@@ -84,7 +91,9 @@ pub fn validate(
     tree: &Tree,
     packages: Option<&[Package]>,
 ) -> Result<()> {
-    let minimum = if observations(tree, packages).any(|p| p.origin.is_some()) {
+    let minimum = if tree.values().any(|n| n.project.is_some()) {
+        if portable { 4 } else { 6 }
+    } else if observations(tree, packages).any(|p| p.origin.is_some()) {
         if portable { 3 } else { 4 }
     } else if crate::domain::state::extended_state(tree) {
         if portable { 2 } else { 3 }
@@ -92,7 +101,7 @@ pub fn validate(
         1
     };
     ensure!(
-        schema >= minimum && schema <= if portable { 3 } else { 5 },
+        schema >= minimum && schema <= if portable { 4 } else { 6 },
         "unsupported package acquisition schema"
     );
     retained(tree, packages)?;

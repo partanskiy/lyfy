@@ -57,7 +57,7 @@ pub fn read(
     let mut state: SnapshotState = serde_json::from_slice(&manifest)
         .map_err(|_| anyhow::anyhow!("invalid archive manifest"))?;
     ensure!(
-        [1, 2, 3].contains(&state.schema) && state.system == "arch",
+        [1, 2, 3, 4].contains(&state.schema) && state.system == "arch",
         "unsupported archive state"
     );
     identifier(&state.host)?;

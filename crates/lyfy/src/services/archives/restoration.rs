@@ -262,7 +262,7 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         })
         .collect();
     Ok(SnapshotState {
-        schema: if package_inventory {
+        schema: if package_inventory || tree.values().any(|n| n.project.is_some()) {
             crate::domain::acquisition::content::portable_schema(&tree, packages.as_deref())
         } else {
             3
