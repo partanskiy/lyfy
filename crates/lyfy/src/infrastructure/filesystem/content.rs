@@ -54,6 +54,7 @@ impl Root {
                 libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC,
             )
         })?;
+        self.check_mount(&dir, &file)?;
         ensure!(
             file.metadata()?.is_file(),
             "expected regular file: {}",

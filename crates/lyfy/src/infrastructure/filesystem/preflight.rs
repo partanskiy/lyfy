@@ -7,7 +7,10 @@ impl Root {
     /// User resources are untouched until every selected plan passes preflight.
     pub fn probe_metadata(&self, path: &Path, node: &Node, owner: (u32, u32)) -> Result<()> {
         let root_probe = Path::new("/.lyfy-root-probe");
-        let mut anchor = if path == Path::new("/") {
+        let bound_probe = path.join(".lyfy-mount-probe");
+        let mut anchor = if self.boundaries.contains_key(path) {
+            &bound_probe
+        } else if path == Path::new("/") {
             root_probe
         } else {
             path
@@ -46,7 +49,11 @@ impl Root {
                 libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
             )
         })?;
-        let probe = Self { directory };
+        let probe = Self {
+            directory,
+            boundaries: Default::default(),
+            guarded: false,
+        };
         let result = (|| -> Result<()> {
             match &node.content {
                 Content::Directory => probe.mkdir(Path::new("/node"), node.mode, Some(owner))?,

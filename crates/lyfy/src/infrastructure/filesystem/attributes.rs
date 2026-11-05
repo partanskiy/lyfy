@@ -25,18 +25,23 @@ fn list(file: &File) -> Result<Vec<CString>> {
 
 impl Root {
     pub(super) fn attribute_file(&self, path: &Path) -> Result<File> {
+        if let Some(file) = self.bound_directory(path)? {
+            return Ok(file);
+        }
         if path == Path::new("/") {
             return Ok(self.directory.try_clone()?);
         }
         let (dir, leaf) = self.parent(path, false)?;
         // SAFETY: no-follow open relative to a held parent descriptor.
-        checked(unsafe {
+        let file = checked(unsafe {
             libc::openat(
                 dir.as_raw_fd(),
                 leaf.as_ptr(),
                 libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC,
             )
-        })
+        })?;
+        self.check_mount(&dir, &file)?;
+        Ok(file)
     }
 
     pub fn attributes(&self, path: &Path) -> Result<BTreeMap<String, Vec<u8>>> {
