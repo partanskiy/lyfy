@@ -9,7 +9,13 @@ pub fn observe(
     root: &Root,
     path: &Path,
 ) -> Result<Option<(Node, Option<std::fs::File>)>> {
-    observe_application(config, root, path, config.application(path))
+    observe_application(
+        config,
+        root,
+        path,
+        config.application(path),
+        config.generated(path),
+    )
 }
 
 fn observe_application(
@@ -17,6 +23,7 @@ fn observe_application(
     root: &Root,
     path: &Path,
     application: Option<crate::domain::system_state::ApplicationExport>,
+    generated: Option<crate::domain::system_state::GeneratedKind>,
 ) -> Result<Option<(Node, Option<std::fs::File>)>> {
     let Some(stat) = root.metadata(path)? else {
         return Ok(None);
@@ -72,6 +79,7 @@ fn observe_application(
             project: None,
             mount: None,
             application,
+            generated,
         },
         bytes,
     )))
@@ -139,6 +147,9 @@ pub fn observe_like(
         expected
             .and_then(|n| n.application)
             .or_else(|| config.application(path)),
+        expected
+            .and_then(|n| n.generated)
+            .or_else(|| config.generated(path)),
     )?
     else {
         return Ok(None);

@@ -94,6 +94,8 @@ pub struct Node {
     pub mount: Option<Box<crate::domain::mounts::ExternalMount>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub application: Option<crate::domain::system_state::ApplicationExport>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generated: Option<crate::domain::system_state::GeneratedKind>,
 }
 
 impl Node {
@@ -132,6 +134,14 @@ impl Node {
                     && self.hardlink.is_none()
                     && self.package_baseline.is_none(),
             "application exports require independent regular files"
+        );
+        ensure!(
+            self.generated.is_none()
+                || matches!(self.content, Content::File { .. })
+                    && self.hardlink.is_none()
+                    && self.application.is_none()
+                    && self.package_baseline.is_none(),
+            "generated state requires an independent regular file"
         );
         if let Some(mount) = &self.mount {
             if let Some(path) = &mount.identity_file {
@@ -219,7 +229,7 @@ pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
     );
     for (key, node) in tree {
         ensure!(
-            node.application.is_none() || schema >= 9,
+            (node.application.is_none() && node.generated.is_none()) || schema >= 9,
             "application exports require schema 9"
         );
         ensure!(

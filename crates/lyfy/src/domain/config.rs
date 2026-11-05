@@ -315,6 +315,16 @@ impl Config {
         }
     }
 
+    pub fn generated(&self, path: &Path) -> Option<crate::domain::system_state::GeneratedKind> {
+        self.system_resources.iter().find_map(|r| match r {
+            crate::domain::system_state::SystemResourceRequest::Generated {
+                path: declared,
+                producer,
+            } if self.logical(declared).is_ok_and(|p| p == path) => Some(*producer),
+            _ => None,
+        })
+    }
+
     pub fn application(
         &self,
         path: &Path,

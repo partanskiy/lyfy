@@ -15,6 +15,7 @@ fn snapshot() -> (SnapshotReference, SnapshotState) {
         project: None,
         mount: None,
         application: None,
+        generated: None,
         package_baseline: None,
         content: Content::File {
             sha256: "a".repeat(64),
