@@ -46,7 +46,7 @@ pub use domain::packages::{Package, PackagePlan};
 pub use domain::plan::{Change, Guard, Plan, RequiredDependency};
 pub use domain::resources::{
     PackageOrigin, RecoveryDescription, RecoveryGuarantee, Resource, ResourceGraph, ResourceId,
-    ResourceReference, ResourceSubject, SnapshotReference,
+    ResourceReference, ResourceSubject, SelectedResources, SnapshotReference,
 };
 pub use domain::results::{
     Applied, CaptureDiagnostic, Formatted, MountedApply, MountedSave, SaveChangeKind, Saved,

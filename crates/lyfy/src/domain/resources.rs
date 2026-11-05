@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 mod filesystem;
 mod graph;
 mod legacy;
+mod selection;
 
 /// An immutable generation in one logical collection and storage destination.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
@@ -171,4 +172,12 @@ pub struct ResourceGraph {
     pub source: SnapshotReference,
     pub resources: Vec<Resource>,
     pub diagnostics: Vec<CaptureDiagnostic>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SelectedResources {
+    pub requested: Vec<ResourceReference>,
+    pub dependencies: Vec<ResourceReference>,
+    pub order: Vec<ResourceReference>,
 }

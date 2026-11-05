@@ -260,3 +260,32 @@ fn collection_boundaries_cannot_hide_conflicting_target_paths() {
     competing.reference.source.collection = "other".into();
     assert!(graph(vec![parent, competing]).validate().is_err());
 }
+
+#[test]
+fn selection_exposes_dependencies_without_selecting_unrelated_resources() {
+    let a = file("home/a");
+    let mut b = file("home/b");
+    b.dependencies.push(a.reference.clone());
+    let unrelated = file("home/other");
+    let graph = graph(vec![a.clone(), b.clone(), unrelated]);
+    let selected = graph.select(&[b.reference.identity()]).unwrap();
+    assert_eq!(selected.requested, vec![b.reference.clone()]);
+    assert_eq!(selected.dependencies, vec![a.reference.clone()]);
+    assert_eq!(
+        selected.order,
+        vec![a.reference.clone(), b.reference.clone()]
+    );
+    assert!(
+        graph
+            .select(&[file("home/missing").reference.identity()])
+            .is_err()
+    );
+    assert!(graph.select(&[]).unwrap().order.is_empty());
+    assert!(
+        graph
+            .select(&[a.reference.identity(), b.reference.identity()])
+            .unwrap()
+            .dependencies
+            .is_empty()
+    );
+}
