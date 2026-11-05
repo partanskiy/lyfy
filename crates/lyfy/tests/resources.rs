@@ -81,6 +81,13 @@ fn resource_keys_and_descriptions_reject_unsafe_or_unknown_state() {
     assert!(
         serde_json::from_value::<PackageOrigin>(json!({"kind":"unknown","extra":true})).is_err()
     );
+    let mut nested = serde_json::to_value(&resource).unwrap();
+    nested["recovery"]["node"]["content"] = json!({"kind":"directory","sha256":"discarded"});
+    assert!(serde_json::from_value::<Resource>(nested).is_err());
+    assert_eq!(
+        serde_json::from_value::<Content>(json!({"kind":"directory"})).unwrap(),
+        Content::Directory
+    );
 }
 
 #[test]
