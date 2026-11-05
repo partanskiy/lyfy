@@ -10,6 +10,8 @@ use crate::services::files::observe;
 use anyhow::{Result, ensure};
 use std::{collections::BTreeSet, path::PathBuf};
 
+mod selection;
+
 pub fn receipt_path(config: &Config) -> PathBuf {
     let context = format!(
         "{}\n{}\n{}",
@@ -51,11 +53,20 @@ pub fn build(context: &Context) -> Result<Plan> {
     } else {
         Tree::new()
     };
+    let available = tree;
+    let mut keys: BTreeSet<String> = available.keys().chain(previous.keys()).cloned().collect();
+    keys.extend(store.tombstones(&config.host, &id)?);
+    selection::validate_request(config, &keys, snapshot.packages.as_deref())?;
+    keys.retain(|key| {
+        config
+            .path_for_key(key)
+            .is_ok_and(|p| config.managed(&p) && config.path_selected(&p))
+    });
     let mut desired = Tree::new();
-    for (key, node) in tree {
+    for (key, node) in &available {
         let path = config.path_for_key(&key)?;
-        ensure!(config.key(&path)? == key, "noncanonical target namespace");
-        if config.managed(&path) {
+        ensure!(config.key(&path)? == *key, "noncanonical target namespace");
+        if keys.contains(key) {
             if let Content::File { sha256 } = &node.content {
                 let size = store.object_file(sha256)?.metadata()?.len();
                 ensure!(
@@ -63,11 +74,14 @@ pub fn build(context: &Context) -> Result<Plan> {
                     "object exceeds max_file_bytes"
                 );
             }
-            desired.insert(key, node);
+            desired.insert(key.clone(), node.clone());
         }
     }
-    let mut keys: BTreeSet<String> = desired.keys().chain(previous.keys()).cloned().collect();
-    keys.extend(store.tombstones(&config.host, &id)?);
+    let mut receipt = previous.clone();
+    receipt.retain(|key, _| !keys.contains(key));
+    receipt.extend(desired.clone());
+    let (dependencies, guards) =
+        selection::dependencies(config, &root, &available, &keys, &mut desired)?;
     let mut changes = vec![];
     crate::domain::state::validate_tree(&desired)?;
     let mut live = Tree::new();
@@ -78,6 +92,9 @@ pub fn build(context: &Context) -> Result<Plan> {
         {
             live.insert(key.clone(), node);
         }
+    }
+    for guard in &guards {
+        live.insert(guard.key.clone(), guard.expected.clone());
     }
     crate::services::files::link_tree(config, &root, &mut live)?;
     for key in keys {
@@ -145,24 +162,34 @@ pub fn build(context: &Context) -> Result<Plan> {
             c.key.clone(),
         )
     });
-    let package_plan = if config.check_packages {
-        snapshot
-            .packages
+    let package_desired = snapshot.packages.map(|packages| {
+        packages
+            .into_iter()
+            .filter(|p| config.package_selected(&p.name))
+            .collect::<Vec<_>>()
+    });
+    let mut package_plan = if config.check_packages && config.packages_selected() {
+        package_desired
             .as_ref()
             .map(|p| pacman::inventory(config).and_then(|current| packages::plan(p, &current)))
             .transpose()?
     } else {
         None
     };
+    if config.selection_active()
+        && let Some(plan) = &mut package_plan
+    {
+        plan.extra_explicit.clear();
+    }
     Ok(Plan {
         host: config.host.clone(),
         snapshot: id,
         changes,
-        guards: vec![],
-        dependencies: vec![],
+        guards,
+        dependencies,
         packages: package_plan,
-        receipt: desired.clone(),
+        receipt,
         desired,
-        package_desired: snapshot.packages,
+        package_desired,
     })
 }
