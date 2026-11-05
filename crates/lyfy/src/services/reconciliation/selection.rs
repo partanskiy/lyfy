@@ -14,6 +14,7 @@ pub fn validate_request(
     config: &Config,
     keys: &BTreeSet<String>,
     packages: Option<&[Package]>,
+    system: Option<&crate::domain::system_state::SystemState>,
 ) -> Result<()> {
     for selected in &config.selected_paths {
         let path = config.logical(selected)?;
@@ -33,6 +34,20 @@ pub fn validate_request(
             ResourceSubject::Package { name } => {
                 packages.is_some_and(|p| p.iter().any(|p| &p.name == name))
             }
+            ResourceSubject::Identity {
+                identity_kind,
+                source,
+            } => system.is_some_and(|s| {
+                s.identities
+                    .iter()
+                    .any(|i| i.kind == *identity_kind && i.id == *source)
+            }),
+            ResourceSubject::Service { name } => {
+                system.is_some_and(|s| s.services.iter().any(|u| u.name == *name))
+            }
+            _ => anyhow::bail!(
+                "this resource is a dependency; select its files or service to execute recovery"
+            ),
         };
         ensure!(
             exists,

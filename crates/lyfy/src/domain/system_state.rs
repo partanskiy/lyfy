@@ -399,3 +399,12 @@ pub enum IdentityAction {
         groups: Vec<String>,
     },
 }
+
+impl SystemRequirement {
+    pub fn key(&self) -> String {
+        match self {
+            Self::Storage { key, .. } => format!("storage:{key}"),
+            Self::Boot { .. } => "boot".into(),
+        }
+    }
+}
