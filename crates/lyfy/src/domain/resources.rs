@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 mod filesystem;
 mod graph;
+mod legacy;
 
 /// An immutable generation in one logical collection and storage destination.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
