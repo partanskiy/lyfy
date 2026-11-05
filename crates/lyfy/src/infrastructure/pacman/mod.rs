@@ -1,4 +1,5 @@
 mod audit;
+pub mod baselines;
 mod configuration;
 mod mtree;
 mod native;

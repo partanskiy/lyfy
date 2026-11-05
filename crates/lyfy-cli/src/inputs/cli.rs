@@ -52,6 +52,8 @@ pub struct Options {
     pub require_uki: Option<bool>,
     #[arg(long, env = "LYFY_CHECK_PACKAGES", global = true, action = clap::ArgAction::Set)]
     pub check_packages: Option<bool>,
+    #[arg(long, global = true, env = "LYFY_PACKAGE_FILE_POLICY")]
+    pub package_file_policy: Option<String>,
     #[arg(long, env = "LYFY_INSTALL_PACKAGES", global = true, action = clap::ArgAction::Set)]
     pub install_packages: Option<bool>,
     #[arg(long, env = "LYFY_OVERWRITE", global = true, action = clap::ArgAction::Set)]

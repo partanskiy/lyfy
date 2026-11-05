@@ -22,6 +22,7 @@ fn library_runs_without_a_cli_environment_or_configuration_file() {
         ownership_roots: vec![],
         require_uki: false,
         check_packages: false,
+        package_file_policy: "capture".into(),
         install_packages: false,
         overwrite: false,
         prune: false,

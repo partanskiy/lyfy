@@ -19,6 +19,8 @@ pub struct Config {
     pub ownership_roots: Vec<String>,
     pub require_uki: bool,
     pub check_packages: bool,
+    #[serde(default = "capture_package_files")]
+    pub package_file_policy: String,
     pub install_packages: bool,
     pub overwrite: bool,
     pub prune: bool,
@@ -57,6 +59,10 @@ impl Config {
             );
         }
         ensure!(self.system == "arch", "only system = arch is supported");
+        ensure!(
+            ["capture", "reject_executables"].contains(&self.package_file_policy.as_str()),
+            "package_file_policy must be capture or reject_executables"
+        );
         ensure!(
             ["strict", "skip"].contains(&self.capture_errors.as_str()),
             "capture_errors must be strict or skip"
@@ -251,6 +257,10 @@ impl Config {
 
 fn strict_capture() -> String {
     "strict".into()
+}
+
+fn capture_package_files() -> String {
+    "capture".into()
 }
 
 pub fn absolute(path: &Path) -> Result<()> {

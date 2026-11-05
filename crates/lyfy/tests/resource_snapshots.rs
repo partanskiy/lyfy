@@ -19,6 +19,7 @@ fn config(temp: &Path, format: &str) -> Config {
         ownership_roots: vec![],
         require_uki: false,
         check_packages: false,
+        package_file_policy: "capture".into(),
         install_packages: false,
         overwrite: true,
         prune: true,

@@ -74,6 +74,7 @@ pub(super) fn defaults() -> Config {
         ownership_roots: vec!["/usr/bin".into(), "/usr/lib".into(), "/usr/share".into()],
         require_uki: true,
         check_packages: true,
+        package_file_policy: "capture".into(),
         install_packages: false,
         overwrite: false,
         prune: false,
