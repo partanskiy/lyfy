@@ -200,3 +200,76 @@ fn unsupported_destination_metadata_blocks_all_target_writes() {
         }));
     }
 }
+
+#[test]
+fn explicit_owners_matching_the_destination_home_are_canonical_noops() {
+    use std::os::unix::fs::MetadataExt;
+    let f = Fixture::new();
+    let archive = f.temp.path().join("ownership.lyfy");
+    f.ok(&["save", "--export_file", archive.to_str().unwrap()]);
+    let target = f.root.join("home/test/.config/app.conf");
+    let metadata = fs::metadata(&target).unwrap();
+    let bytes = fs::read(&archive).unwrap();
+    let length = u64::from_le_bytes(bytes[8..16].try_into().unwrap()) as usize;
+    let mut manifest: serde_json::Value = serde_json::from_slice(&bytes[16..16 + length]).unwrap();
+    manifest["tree"]["home/.config/app.conf"]["owner"] =
+        serde_json::json!([metadata.uid(), metadata.gid()]);
+    let encoded = serde_json::to_vec(&manifest).unwrap();
+    let mut output = bytes[..8].to_vec();
+    output.extend((encoded.len() as u64).to_le_bytes());
+    output.extend(encoded);
+    output.extend(&bytes[16 + length..]);
+    fs::write(&archive, output).unwrap();
+    for _ in 0..2 {
+        let applied = f.ok(&[
+            "apply",
+            "--import_file",
+            archive.to_str().unwrap(),
+            "--write",
+            "--elevate=never",
+        ]);
+        assert!(applied["changes"].as_array().unwrap().is_empty());
+    }
+    assert_eq!(
+        fs::metadata(target).unwrap().modified().unwrap(),
+        metadata.modified().unwrap()
+    );
+}
+
+#[test]
+fn hardlinks_across_home_and_system_namespaces_keep_one_ownership_model() {
+    use std::os::unix::fs::MetadataExt;
+    let f = Fixture::new();
+    let system = f.root.join("etc/example.conf");
+    let home = f.root.join("home/test/.config/shared");
+    fs::hard_link(&system, &home).unwrap();
+    f.ok(&["save"]);
+    assert!(
+        f.ok(&["apply", "--write"])["changes"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    fs::remove_file(&system).unwrap();
+    f.ok(&[
+        "apply",
+        "--selected_paths",
+        "/etc/example.conf",
+        "--overwrite",
+        "true",
+        "--write",
+    ]);
+    assert_eq!(
+        fs::metadata(&system).unwrap().ino(),
+        fs::metadata(&home).unwrap().ino()
+    );
+    fs::remove_file(&home).unwrap();
+    f.write("etc/example.conf", "changed\n");
+    f.ok(&["apply", "--overwrite", "true", "--write"]);
+    assert_eq!(fs::read_to_string(&home).unwrap(), "common\n");
+    assert_eq!(
+        fs::metadata(&system).unwrap().ino(),
+        fs::metadata(&home).unwrap().ino()
+    );
+    assert_eq!(f.ok(&["save"])["created"], false);
+}

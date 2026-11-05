@@ -3,7 +3,7 @@ use crate::domain::plan::{Change, Plan, Receipt};
 use crate::domain::state::Content;
 use crate::infrastructure::filesystem::Root;
 use crate::infrastructure::store::{Store, timestamp, write_json};
-use crate::services::files::{observe, observe_like};
+use crate::services::files::observe_like;
 use crate::services::reconciliation::receipt_path;
 use anyhow::{Context, Result, ensure};
 use serde::Serialize;
@@ -132,9 +132,14 @@ fn execute(
     for change in &plan.changes {
         for guard in &plan.guards {
             ensure!(
-                observe(config, &root, &config.path_for_key(&guard.key)?)?
-                    .map(|(n, _)| n)
-                    .as_ref()
+                observe_like(
+                    config,
+                    &root,
+                    &config.path_for_key(&guard.key)?,
+                    Some(&guard.expected)
+                )?
+                .map(|(n, _)| n)
+                .as_ref()
                     == Some(&guard.expected),
                 "plan precondition changed: {}",
                 guard.key
@@ -171,7 +176,7 @@ fn execute(
                             .get(target)
                             .context("undeclared hardlink target")?;
                         ensure!(
-                            observe(config, &root, &target_path)?
+                            observe_like(config, &root, &target_path, Some(expected))?
                                 .map(|(n, _)| n)
                                 .as_ref()
                                 == Some(&expected.materialized()),
