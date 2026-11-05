@@ -5,7 +5,7 @@ use crate::domain::{
     state::{Node, Reference, Snapshot, Tree},
 };
 use crate::infrastructure::store::timestamp;
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub struct Baseline {
@@ -49,6 +49,34 @@ pub fn view_at(context: &Context, id: &str) -> Result<crate::domain::state::Snap
         diagnostics: snapshot.diagnostics,
         sizes,
     })
+}
+
+pub fn resources(
+    context: &Context,
+    collection: &str,
+    state: &crate::domain::state::SnapshotState,
+) -> Result<crate::domain::resources::ResourceGraph> {
+    use crate::domain::resources::{ResourceGraph, SnapshotReference};
+    let backend = if collection == "default" {
+        "default"
+    } else {
+        &context
+            .config
+            .mounts
+            .iter()
+            .find(|mount| mount.name == collection)
+            .context("unknown resource collection")?
+            .backend
+    };
+    ResourceGraph::from_snapshot(
+        state,
+        SnapshotReference {
+            backend: backend.into(),
+            collection: collection.into(),
+            host: state.host.clone(),
+            snapshot: state.source_snapshot.clone(),
+        },
+    )
 }
 
 pub fn baseline(context: &Context) -> Result<Baseline> {

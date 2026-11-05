@@ -17,11 +17,16 @@ pub struct Context {
 pub struct SnapshotView {
     context: Context,
     state: crate::domain::state::SnapshotState,
+    resources: crate::domain::resources::ResourceGraph,
 }
 
 impl SnapshotView {
     pub fn state(&self) -> &crate::domain::state::SnapshotState {
         &self.state
+    }
+
+    pub fn resources(&self) -> &crate::domain::resources::ResourceGraph {
+        &self.resources
     }
 
     pub fn open_content(&self, hash: &str) -> Result<impl std::io::Read> {
@@ -75,7 +80,12 @@ impl Context {
         }
         let context = scope.context;
         let state = crate::services::snapshots::view(&context)?;
-        Ok(SnapshotView { context, state })
+        let resources = crate::services::snapshots::resources(&context, mount, &state)?;
+        Ok(SnapshotView {
+            context,
+            state,
+            resources,
+        })
     }
 }
 
