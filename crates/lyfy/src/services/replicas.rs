@@ -62,6 +62,7 @@ fn copy(context: &Context, mount: &Mount, backend: &str, source_id: &str) -> Res
         base: None,
         changes,
         packages: state.packages,
+        package_inventory: state.package_inventory,
         diagnostics: state.diagnostics,
         replica_source: Some(ReplicaSource {
             backend: mount.backend.clone(),

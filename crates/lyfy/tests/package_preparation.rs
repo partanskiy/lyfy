@@ -39,6 +39,7 @@ fn context(
         tree: BTreeMap::new(),
         deletions: Default::default(),
         packages: Some(vec![package]),
+        package_inventory: true,
         diagnostics: vec![],
         sizes: objects
             .iter()

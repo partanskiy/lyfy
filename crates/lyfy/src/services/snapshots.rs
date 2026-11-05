@@ -50,6 +50,7 @@ pub fn view_at(context: &Context, id: &str) -> Result<crate::domain::state::Snap
         tree,
         deletions: context.repository.tombstones(&config.host, id)?,
         packages: snapshot.packages,
+        package_inventory: snapshot.package_inventory,
         diagnostics: snapshot.diagnostics,
         sizes,
     })
@@ -155,6 +156,7 @@ pub fn commit(
         base,
         changes,
         packages,
+        package_inventory: true,
         diagnostics,
         replica_source: None,
     };
