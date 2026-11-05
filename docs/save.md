@@ -246,6 +246,31 @@ blocks writing until the selection is explicitly expanded. Partial receipts
 retain all unaffected entries, including tracked deletions. overwrite and prune
 remain explicit. SnapshotView selection does not restrict the underlying snapshot.
 
+## Git projects
+
+Set git_project=true on a named mount whose path is the repository root. Choose
+its backend independently of parent Projects storage; replicas can retain another
+copy. Parent capture stops at configured nested mounts, including unselected ones.
+Unclassified .git boundaries block complete capture until configured or excluded.
+
+The independent provider retains all locally available Git objects (including
+alternates and unpublished/index-only objects), refs, HEAD, index flags/stages,
+reflog object references, hooks, safe local settings and the concrete working tree.
+Untracked and ignored files are included unless explicitly excluded. Git object
+packs and index stat/cache data are normalized; this is logical repository recovery,
+not preservation of its physical loose/packed layout. Save never commits local
+work, runs hooks, pushes or fetches implicitly. Credential-bearing remotes,
+connection settings, FETCH_HEAD descriptions and reflog messages are excluded.
+
+Missing objects, shallow history, linked worktrees, split/sparse indexes, current
+submodules and LFS pointers produce explicit diagnostics. These layouts require
+migration to a supported complete boundary before independent capture. External-only
+remote recovery is not advertised. Retained project copies restore without a
+source remote. Full metadata restore requires explicit selection of the entire
+project and review of unknown target Git metadata. A selected working file uses
+ordinary file reconciliation without resetting HEAD, refs or the index. Git fsck
+checks a disposable source before writes and verifies the restored repository.
+
 ## History and replicas
 
 History defaults to retained. retain=0 keeps all history; a positive value keeps

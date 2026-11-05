@@ -297,6 +297,11 @@ exceptions retain the original baseline and observed metadata. Provider absence
 or version drift is an explicit apply dependency. Namespace roots carry directory
 properties and cannot be deleted/retyped. These additions use snapshot schema 3
 and portable state schema 2; prior readers remain supported by current code.
+Acquisition catalogs use stored schema 4/portable schema 3; separate observation
+fingerprints use stored schema 5. Git-project descriptions use stored schema 6
+and portable schema 4. Projects retain verified object closure and staging/local
+work through normal concrete payloads. The projects service owns classification,
+selection boundaries and verification; Git mechanisms remain in infrastructure.
 
 ## Enforcement
 

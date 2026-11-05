@@ -166,6 +166,14 @@ independent copy restores after its synthetic remote disappears. Missing objects
 and unsupported layouts prevent completeness claims. Restoring part of a project
 never resets unrelated work through an implicit whole-repository operation.
 
+Implemented: independent Git project mounts retain object closure, refs, HEAD,
+index staging/flags, local work and ignored files through ordinary snapshot
+content. Alternates are materialized without source dependency. Source/index
+consistency and disposable preflight/final fsck checks guard recovery. Unsupported
+layouts fail explicitly. Tests restore after source removal, prove no-op recapture,
+preserve partial working-file boundaries, and reject shallow/linked/LFS/split/
+submodule/missing-object cases. External-only recovery is not advertised.
+
 ## Stage 8 External mounts and additional cloud storage
 
 Observe mount identities and availability before walking or interpreting missing
