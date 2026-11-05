@@ -84,6 +84,15 @@ pub struct Node {
 }
 
 impl Node {
+    pub fn package(&self) -> Option<&crate::domain::packages::Package> {
+        self.package_baseline
+            .as_ref()
+            .map(|b| &b.package)
+            .or_else(|| match &self.content {
+                Content::PackageFile { package, .. } => Some(package),
+                _ => None,
+            })
+    }
     pub fn materialized(&self) -> Self {
         let mut node = self.clone();
         node.package_baseline = None;

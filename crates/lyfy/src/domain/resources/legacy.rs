@@ -48,6 +48,10 @@ impl ResourceGraph {
             .flatten()
             .map(|p| (p.name.clone(), p.clone()))
             .collect();
+        ensure!(
+            packages.len() == state.packages.as_ref().map_or(0, Vec::len),
+            "duplicate package observations"
+        );
         let mut resources = Vec::new();
         for (key, node) in &state.tree {
             let mut dependencies = BTreeSet::new();
@@ -60,7 +64,7 @@ impl ResourceGraph {
             if let Some(target) = &node.hardlink {
                 dependencies.insert(path_reference(target));
             }
-            if let Content::PackageFile { package, .. } = &node.content {
+            if let Some(package) = node.package() {
                 if let Some(previous) = packages.insert(package.name.clone(), package.clone()) {
                     ensure!(
                         previous == *package,

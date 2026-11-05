@@ -96,7 +96,9 @@ pub fn dependencies(
                     .get(target)
                     .ok_or_else(|| anyhow::anyhow!("missing hardlink target"))?;
                 let observed = observe(config, root, &config.path_for_key(target)?)?;
-                let satisfied = observed.as_ref().is_some_and(|(n, _)| n == expected);
+                let satisfied = observed
+                    .as_ref()
+                    .is_some_and(|(n, _)| *n == expected.materialized());
                 required.insert(
                     target.clone(),
                     RequiredDependency {
@@ -111,7 +113,7 @@ pub fn dependencies(
                         target.clone(),
                         Guard {
                             key: target.clone(),
-                            expected: expected.clone(),
+                            expected: expected.materialized(),
                         },
                     );
                 }

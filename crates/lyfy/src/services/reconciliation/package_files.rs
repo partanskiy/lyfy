@@ -12,10 +12,7 @@ pub fn requirements(
     desired: &Tree,
     live: &Tree,
 ) -> Result<Vec<RequiredDependency>> {
-    if !desired
-        .values()
-        .any(|node| matches!(node.content, Content::PackageFile { .. }))
-    {
+    if !desired.values().any(|node| node.package().is_some()) {
         return Ok(vec![]);
     }
     let installed: BTreeMap<_, _> = pacman::inventory(config)?
@@ -24,13 +21,16 @@ pub fn requirements(
         .collect();
     let mut result = vec![];
     for (key, node) in desired {
-        if let Content::PackageFile { package, sha256 } = &node.content {
+        if let Some(package) = node.package() {
             let version = installed
                 .get(&package.name)
                 .is_some_and(|p| p.version == package.version);
-            let content = live.get(key).is_some_and(
-                |n| matches!(&n.content, Content::File { sha256: actual } if actual == sha256),
-            );
+            let content = match &node.content {
+                Content::PackageFile { sha256, .. } => live.get(key).is_some_and(
+                    |n| matches!(&n.content, Content::File { sha256: actual } if actual == sha256),
+                ),
+                _ => true,
+            };
             result.push(RequiredDependency {
                 key: format!("package/{}:{key}", package.name),
                 reason: format!(

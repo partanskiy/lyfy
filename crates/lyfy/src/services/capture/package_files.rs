@@ -1,6 +1,7 @@
 use crate::Context;
 use crate::domain::{
     config::Config,
+    package_files::PackageBaseline,
     packages::Package,
     state::{Content, Node},
 };
@@ -16,6 +17,30 @@ pub fn index(context: &Context, config: &Config) -> Result<Option<Baselines>> {
         .package_baselines
         .then(|| Database::open(config)?.baselines(config))
         .transpose()
+}
+
+pub fn description(index: &Option<Baselines>, path: &Path, node: &Node) -> Option<PackageBaseline> {
+    if !matches!(node.content, Content::File { .. }) {
+        return None;
+    }
+    let (package, expected) = index.as_ref()?.files.get(path.to_str()?)?;
+    if expected.mode & 0o170000 != 0o100000 {
+        return None;
+    }
+    Some(PackageBaseline {
+        package: package.clone(),
+        sha256: expected
+            .sha256?
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect(),
+        mode: expected.mode & 0o7777,
+        owner: (
+            u32::try_from(expected.uid).ok()?,
+            u32::try_from(expected.gid).ok()?,
+        ),
+        backup: expected.backup,
+    })
 }
 
 pub fn candidate<'a>(

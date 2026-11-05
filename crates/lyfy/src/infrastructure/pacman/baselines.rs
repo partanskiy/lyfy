@@ -4,6 +4,7 @@ use anyhow::{Result, ensure};
 use std::{collections::BTreeMap, path::Path};
 
 pub struct Baselines {
+    pub packages: Vec<Package>,
     pub files: BTreeMap<String, (Package, PackageFile)>,
     pub absent: Vec<String>,
 }
@@ -11,11 +12,12 @@ pub struct Baselines {
 impl Database {
     pub fn baselines(&mut self, config: &Config) -> Result<Baselines> {
         let mut result = Baselines {
+            packages: self.inventory()?,
             files: BTreeMap::new(),
             absent: vec![],
         };
         let mut ambiguous = std::collections::BTreeSet::new();
-        for package in self.inventory()? {
+        for package in result.packages.clone() {
             let paths = self.file_paths(&package.name)?;
             let paths: Vec<_> = paths
                 .into_iter()
