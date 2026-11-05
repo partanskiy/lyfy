@@ -15,6 +15,7 @@ pub struct Context {
     pub(crate) restore_receipts: std::collections::BTreeMap<String, crate::domain::plan::Receipt>,
     pub(crate) source_snapshot: Option<String>,
     pub(crate) package_baselines: bool,
+    pub(crate) system_baselines: bool,
     pub(crate) package_artifacts:
         std::collections::BTreeMap<String, crate::domain::acquisition::PreparedPackage>,
     pub(crate) package_stage: Option<crate::infrastructure::store::Store>,
@@ -60,6 +61,7 @@ impl Context {
             restore_receipts: Default::default(),
             source_snapshot: None,
             package_baselines: config.check_packages,
+            system_baselines: config.check_system,
             package_artifacts: Default::default(),
             package_stage: None,
             repository: crate::infrastructure::store::Store::configured(&config),

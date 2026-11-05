@@ -318,8 +318,25 @@ impl Config {
             "/var/tmp",
             "/var/cache",
             "/var/lib/pacman",
+            "/etc/passwd",
+            "/etc/passwd-",
+            "/etc/group",
+            "/etc/group-",
+            "/etc/subuid",
+            "/etc/subuid-",
+            "/etc/subgid",
+            "/etc/subgid-",
+            "/etc/shadow",
+            "/etc/shadow-",
+            "/etc/gshadow",
+            "/etc/gshadow-",
+            "/etc/.pwd.lock",
         ];
-        protected.iter().any(|p| logical.starts_with(p))
+        self.system_resources.iter().any(|r| {
+            matches!(r,
+            crate::domain::system_state::SystemResourceRequest::Excluded { path, .. }
+            if self.logical(path).is_ok_and(|p| logical.starts_with(p)))
+        }) || protected.iter().any(|p| logical.starts_with(p))
             || [&self.export_file, &self.import_file]
                 .into_iter()
                 .flatten()

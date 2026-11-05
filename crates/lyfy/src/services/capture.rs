@@ -272,6 +272,12 @@ pub fn scan(
             ..Default::default()
         });
     }
+    captured.system_state = crate::services::system::capture(
+        context,
+        &captured.tree,
+        &captured.deletions,
+        captured.system_state.take(),
+    )?;
     retain_previous(context, &mut captured)?;
     captured
         .diagnostics
