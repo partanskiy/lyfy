@@ -147,5 +147,11 @@ hosts/<host>/assets/<sha256>; directory/S3 use their normal content objects.
 History collection, replicas and complete archives preserve these verified assets.
 Readers retain stored schemas 1-3 and portable schemas 1-2.
 
+Stored schema 5 adds last-observed fingerprints for based hosts. These hashes
+separate captured observations from desired state during common-base updates;
+they do not retain another payload copy. Complete archives describe the resolved
+desired generation and use the existing portable schema. Import records its own
+observations. Current-only retention continues to preserve accepted base pins.
+
 An archive carries all concrete and retained source objects. External package
 references remain declared dependencies; export does not acquire missing inputs.
