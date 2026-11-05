@@ -92,7 +92,7 @@ pub fn validate(
         1
     };
     ensure!(
-        schema >= minimum && schema <= if portable { 3 } else { 4 },
+        schema >= minimum && schema <= if portable { 3 } else { 5 },
         "unsupported package acquisition schema"
     );
     retained(tree, packages)?;

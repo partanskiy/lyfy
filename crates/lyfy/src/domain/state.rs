@@ -175,7 +175,7 @@ pub fn extended_state(tree: &Tree) -> bool {
 
 pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
     ensure!(
-        [1, 2, 3, 4].contains(&schema),
+        [1, 2, 3, 4, 5].contains(&schema),
         "unsupported snapshot schema"
     );
     ensure!(
@@ -257,6 +257,8 @@ pub struct Snapshot {
     pub host: String,
     pub created_ns: u128,
     pub base: Option<Reference>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed: Option<crate::domain::common_state::Observations>,
     // None is an explicit deletion relative to the pinned base.
     pub changes: BTreeMap<String, Option<Node>>,
     pub packages: Option<Vec<crate::domain::packages::Package>>,
@@ -283,6 +285,20 @@ pub struct ReplicaSource {
 impl Snapshot {
     pub fn validate_encoding(&self) -> Result<()> {
         ensure!(
+            self.observed.is_none() || self.schema >= 5,
+            "observations require schema 5"
+        );
+        if let Some(observed) = &self.observed {
+            ensure!(
+                observed
+                    .files
+                    .values()
+                    .chain(observed.packages.values())
+                    .all(|h| crate::domain::config::is_digest(h)),
+                "invalid observation fingerprint"
+            );
+        }
+        ensure!(
             self.package_inventory || self.schema >= 4,
             "provider catalog requires schema 4"
         );
@@ -304,6 +320,7 @@ impl Snapshot {
             && self.system == other.system
             && self.host == other.host
             && self.base == other.base
+            && self.observed == other.observed
             && self.changes == other.changes
             && self.packages == other.packages
             && self.package_inventory == other.package_inventory

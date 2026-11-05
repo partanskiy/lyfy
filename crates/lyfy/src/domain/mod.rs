@@ -1,6 +1,7 @@
 pub mod access;
 pub(crate) mod acquisition;
 pub mod checks;
+pub(crate) mod common_state;
 pub mod config;
 pub mod diagnostics;
 pub mod identities;

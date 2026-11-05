@@ -134,6 +134,7 @@ pub fn commit(
     let config = &context.config;
     let packages = captured.packages;
     let snapshot = Snapshot {
+        observed: None,
         schema: if !captured.inventory
             || packages
                 .as_ref()

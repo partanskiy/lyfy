@@ -17,7 +17,7 @@ impl Repository {
         let mut snapshot: Snapshot =
             serde_json::from_slice(&bytes).context("invalid Git state manifest")?;
         ensure!(
-            [1, 2, 3, 4].contains(&snapshot.schema)
+            [1, 2, 3, 4, 5].contains(&snapshot.schema)
                 && snapshot.system == "arch"
                 && snapshot.host == host,
             "unsupported or mismatched Git state manifest"
