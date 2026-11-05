@@ -97,7 +97,13 @@ dependencies precede their consumers in deterministic order. Validation is
 structural; source availability and target execution require provider checks.
 The graph does not grant execution permission or add a fifth operation.
 
-Package acquisition, project/mount providers and path-selective execution follow
+`ResourceGraph::select(&[ResourceId])` returns requested references, additional
+dependencies and their execution order separately. Config.selected_paths and
+selected_resources select apply work without changing capture include/exclude.
+Plans report required dependencies; an unsatisfied boundary blocks writing.
+Partial execution merges affected entries into receipts and retains other state.
+
+Package acquisition and project/mount providers follow
 the remaining stages in [the implementation plan](resource-implementation.md).
 
 The Config/Context API remains available through explicit root exports. Internal
