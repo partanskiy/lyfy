@@ -28,9 +28,8 @@ pub fn plan_identities(
         .filter(|(k, _)| keys.contains(*k))
         .map(|(k, n)| (k.clone(), n.clone()))
         .collect();
-    let inventory = config.check_system && !config.selection_active();
     let needed = system
-        .map(|s| s.select(&selected, &BTreeSet::new(), inventory))
+        .map(|s| s.selected(&selected, &BTreeSet::new(), config))
         .transpose()?
         .unwrap_or_default();
     let target = accounts::catalog(root)?;
@@ -67,7 +66,7 @@ pub fn plan_identities(
             !target.iter().any(|r| r.kind == record.kind && r.id == id),
             "target numeric identity is occupied; provide identity_mappings: {name}"
         );
-        let enabled = config.install_identities && inventory;
+        let enabled = config.install_identities && config.identity_selected(record.kind, record.id);
         result.dependencies.push(RequiredDependency { key: format!("identity:{:?}:{}", record.kind, record.id),
             reason: format!("missing target identity {name}; creating accounts requires install_identities and selected system inventory"),
             satisfied: enabled, package: None });
@@ -160,7 +159,7 @@ pub fn plan_identities(
                 .map_or(group, |m| m.target.clone());
             groups.push(group);
         }
-        if !groups.is_empty() && inventory {
+        if !groups.is_empty() && config.identity_selected(record.kind, record.id) {
             result.dependencies.push(RequiredDependency {
                 key: format!("identity:groups:{}", record.id),
                 reason: "missing supplementary memberships; install_identities is required".into(),

@@ -153,3 +153,55 @@ fn service_links_require_permission_and_do_not_start_daemons() {
     ]);
     assert!(!link.exists());
 }
+
+#[test]
+fn selecting_one_service_preserves_other_unit_links_and_files() {
+    let f = Fixture::new();
+    fs::create_dir_all(f.root.join("etc/systemd/system/multi-user.target.wants")).unwrap();
+    for name in ["first", "second"] {
+        f.write(
+            &format!("etc/systemd/system/{name}.service"),
+            "[Service]\nExecStart=/usr/bin/true\n",
+        );
+        std::os::unix::fs::symlink(
+            format!("../{name}.service"),
+            f.root.join(format!(
+                "etc/systemd/system/multi-user.target.wants/{name}.service"
+            )),
+        )
+        .unwrap();
+    }
+    let resources = json!([{"kind":"service","name":"first.service"},{"kind":"service","name":"second.service"}]).to_string();
+    f.ok(&["save", "--system_resources", &resources]);
+    fs::remove_file(
+        f.root
+            .join("etc/systemd/system/multi-user.target.wants/first.service"),
+    )
+    .unwrap();
+    fs::remove_file(
+        f.root
+            .join("etc/systemd/system/multi-user.target.wants/second.service"),
+    )
+    .unwrap();
+    f.write("etc/example.conf", "unrelated local edit\n");
+    let selector = json!([{"collection":"default","host":"laptop","subject":{"kind":"service","name":"first.service"}}]).to_string();
+    f.ok(&[
+        "apply",
+        "--selected_resources",
+        &selector,
+        "--restore_services",
+        "true",
+        "--write",
+    ]);
+    assert!(
+        f.root
+            .join("etc/systemd/system/multi-user.target.wants/first.service")
+            .is_symlink()
+    );
+    assert!(
+        !f.root
+            .join("etc/systemd/system/multi-user.target.wants/second.service")
+            .is_symlink()
+    );
+    assert_eq!(f.read("etc/example.conf"), "unrelated local edit\n");
+}
