@@ -16,7 +16,10 @@ pub fn inspect(file: &File) -> Result<ArchiveIdentity> {
         "package archive must be a regular file"
     );
     let database = tempfile::tempdir()?;
-    let handle = alpm::Alpm::new(b"/".to_vec(), database.path().as_os_str().as_bytes().to_vec())?;
+    let handle = alpm::Alpm::new(
+        b"/".to_vec(),
+        database.path().as_os_str().as_bytes().to_vec(),
+    )?;
     let package = handle.pkg_load(
         format!("/proc/self/fd/{}", file.as_raw_fd()),
         false,
