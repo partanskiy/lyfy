@@ -45,6 +45,29 @@ fn two_hosts_preserve_unapplied_shared_intent_and_independent_exceptions() {
             host: "common".into(),
             ..support::config(temp.path(), format)
         };
+        if format == "git" {
+            use std::os::unix::fs::PermissionsExt;
+            fs::create_dir_all(&common.data_dir).unwrap();
+            fs::set_permissions(&common.data_dir, fs::Permissions::from_mode(0o700)).unwrap();
+            for args in [
+                vec!["init", "--initial-branch=main"],
+                vec!["config", "user.name", "Fixture"],
+                vec!["config", "user.email", "fixture@example.invalid"],
+            ] {
+                assert!(
+                    std::process::Command::new("/usr/bin/git")
+                        .env_clear()
+                        .env("PATH", "/usr/bin:/bin")
+                        .arg("-C")
+                        .arg(&common.data_dir)
+                        .args(args)
+                        .output()
+                        .unwrap()
+                        .status
+                        .success()
+                );
+            }
+        }
         let common_dir = common.root.join("home/test/.config");
         fs::create_dir_all(&common_dir).unwrap();
         fs::write(common_dir.join("shared"), "one").unwrap();
