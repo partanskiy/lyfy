@@ -80,6 +80,7 @@ pub struct Store {
     pub(crate) git: Option<crate::infrastructure::git::Repository>,
     pub(crate) age: Option<crate::infrastructure::encryption::Age>,
     pub(crate) remote: Option<std::rc::Rc<crate::infrastructure::s3::S3>>,
+    pub(crate) disk: Option<std::rc::Rc<crate::infrastructure::yandex::Disk>>,
     pub history: crate::domain::storage::History,
     pub retain: usize,
     pub temporary: Option<tempfile::TempDir>,
@@ -88,6 +89,7 @@ pub struct Store {
 pub struct RepositoryLock {
     _local: Lock,
     pub remote: Option<crate::infrastructure::s3_lease::Lease>,
+    pub disk: Option<crate::infrastructure::yandex::Lease>,
 }
 impl Store {
     pub fn ephemeral() -> Result<Self> {
@@ -110,6 +112,7 @@ impl Store {
             git: None,
             age: None,
             remote: None,
+            disk: None,
             temporary: None,
             history: Default::default(),
             retain: 0,
@@ -127,6 +130,7 @@ impl Store {
             git,
             age: None,
             remote: None,
+            disk: None,
             temporary: None,
             history: Default::default(),
             retain: 0,
@@ -141,12 +145,18 @@ impl Store {
         Ok(RepositoryLock {
             _local: local,
             remote: None,
+            disk: None,
         })
     }
     pub fn capture_lock(&self) -> Result<RepositoryLock> {
         let mut guard = self.lock()?;
         guard.remote = self
             .remote
+            .as_ref()
+            .map(|remote| remote.lease())
+            .transpose()?;
+        guard.disk = self
+            .disk
             .as_ref()
             .map(|remote| remote.lease())
             .transpose()?;

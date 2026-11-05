@@ -134,7 +134,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
                 }
                 .into();
             }
-            BackendKind::S3 => {
+            BackendKind::S3 | BackendKind::YandexDisk => {
                 scoped.data_dir = scoped.state_dir.join("storage-session");
                 scoped.storage_format = "directory".into();
             }
@@ -185,6 +185,37 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
                 recipients: backend.recipients.clone(),
                 identities: context.access.identity_files.clone(),
             });
+        }
+        if backend.kind == BackendKind::YandexDisk
+            && !capture_only
+            && !context.restore_sources.contains_key(&mount.name)
+            && error.is_none()
+        {
+            let connection = context
+                .access
+                .yandex
+                .get(&backend.name)
+                .cloned()
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Yandex backend {} requires input-owned OAuth credentials",
+                        backend.name
+                    )
+                })
+                .and_then(|credentials| {
+                    crate::infrastructure::yandex::Disk::new(
+                        backend
+                            .yandex
+                            .as_ref()
+                            .expect("validated Yandex connection"),
+                        credentials,
+                        &mount.name,
+                    )
+                });
+            match connection {
+                Ok(disk) => scoped_context.repository.disk = Some(std::rc::Rc::new(disk)),
+                Err(failure) => error = Some(format!("{failure:#}")),
+            }
         }
         scoped_context.capture_source = context.capture_source.clone();
         scoped_context.package_baselines = context.package_baselines;

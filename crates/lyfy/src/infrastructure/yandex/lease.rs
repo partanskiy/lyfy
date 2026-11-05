@@ -43,7 +43,7 @@ impl Disk {
         let token = self.writer.borrow().clone().ok_or_else(|| {
             anyhow::anyhow!("Yandex mutation requires its exclusive collection lock")
         })?;
-        let mut file = self
+        let file = self
             .read_raw(&format!("{}/.writer.lock/owner", self.prefix))?
             .ok_or_else(|| anyhow::anyhow!("Yandex writer lock is missing"))?;
         let mut observed = String::new();

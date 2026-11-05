@@ -21,6 +21,16 @@ pub fn resolve(
             access.protected_paths.push(canonical);
         }
     }
+    for path in config
+        .backends
+        .iter()
+        .filter_map(|b| b.yandex.as_ref()?.token_file.as_ref())
+    {
+        access.protected_paths.push(path.clone());
+        if let Ok(canonical) = fs::canonicalize(path) {
+            access.protected_paths.push(canonical);
+        }
+    }
     let save = matches!(
         command,
         Command::Save {
@@ -41,6 +51,26 @@ pub fn resolve(
         }
     }
     for backend in config.backends.iter().filter(|b| needed.contains(&b.name)) {
+        if let Some(connection) = &backend.yandex {
+            let token = env::var(
+                connection
+                    .token_env
+                    .as_deref()
+                    .unwrap_or("LYFY_YANDEX_TOKEN"),
+            )
+            .ok()
+            .or_else(|| {
+                connection
+                    .token_file
+                    .as_ref()
+                    .and_then(|p| read_yandex(p).ok())
+            });
+            if let Some(token) = token {
+                access
+                    .yandex
+                    .insert(backend.name.clone(), lyfy::YandexCredentials { token });
+            }
+        }
         let Some(connection) = &backend.s3 else {
             continue;
         };
@@ -57,6 +87,28 @@ pub fn resolve(
         }
     }
     Ok(access)
+}
+
+fn read_yandex(path: &std::path::Path) -> Result<String> {
+    use std::{
+        io::Read,
+        os::unix::fs::{MetadataExt, OpenOptionsExt},
+    };
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(path)?;
+    let metadata = file.metadata()?;
+    ensure!(
+        metadata.is_file()
+            && metadata.len() <= 16384
+            && metadata.mode() & 0o077 == 0
+            && metadata.uid() == unsafe { libc::geteuid() },
+        "Yandex token file must be private and owned by its caller"
+    );
+    let mut token = String::new();
+    file.take(16385).read_to_string(&mut token)?;
+    Ok(token.trim_end_matches('\n').into())
 }
 
 fn load(connection: &S3Connection, file: &std::path::Path) -> Result<Option<S3Credentials>> {
