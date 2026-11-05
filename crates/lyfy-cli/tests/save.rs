@@ -46,7 +46,10 @@ fn save_is_unchanged_in_both_backends_and_reports_the_previous_state_delta() {
             .iter()
             .find(|f| f["kind"] == "modified")
             .unwrap();
-        assert_eq!(modified["fields"], serde_json::json!(["content", "mode"]));
+        assert_eq!(
+            modified["fields"],
+            serde_json::json!(["content", "mode", "mtime"])
+        );
         assert_eq!(save()["changes"], 0);
     }
 }

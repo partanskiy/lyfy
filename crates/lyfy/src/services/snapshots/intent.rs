@@ -127,7 +127,7 @@ pub fn prepare(
                 .map(|o| o.mtimes.clone())
                 .unwrap_or_else(|| file_times(&host));
             desired = merge_files(&old_observations, &rebased, &current, Some(&times))?;
-            if captured.inventory && captured.packages.is_some() {
+            if captured.packages.is_some() {
                 let old = catalog(old_base.as_ref().and_then(|(s, _)| s.packages.as_deref()));
                 let host = catalog(previous.packages.as_deref());
                 let incoming = catalog(base.packages.as_deref());
@@ -176,6 +176,42 @@ pub fn prepare(
             if !intent.is_empty() || system_state.is_some() {
                 system_state.get_or_insert_default().set_intent(intent);
             }
+        }
+    }
+    for (key, node) in &mut desired {
+        if let Some(baseline) = current.get(key).and_then(|n| n.package_baseline.as_ref())
+            && node
+                .package()
+                .is_none_or(|p| p.name == baseline.package.name)
+            && captured.packages.as_ref().is_some_and(|packages| {
+                packages.iter().any(|p| {
+                    p.name == baseline.package.name && p.version == baseline.package.version
+                })
+            })
+            && matches!(
+                node.content,
+                crate::domain::state::Content::File { .. }
+                    | crate::domain::state::Content::PackageFile { .. }
+            )
+        {
+            let sha256 = match &node.content {
+                crate::domain::state::Content::File { sha256 }
+                | crate::domain::state::Content::PackageFile { sha256, .. } => sha256.clone(),
+                _ => unreachable!(),
+            };
+            node.content = if sha256 == baseline.sha256
+                && node.hardlink.is_none()
+                && current.get(key).is_some_and(|n| {
+                    matches!(n.content, crate::domain::state::Content::PackageFile { .. })
+                }) {
+                crate::domain::state::Content::PackageFile {
+                    package: baseline.package.clone(),
+                    sha256,
+                }
+            } else {
+                crate::domain::state::Content::File { sha256 }
+            };
+            node.package_baseline = Some(baseline.clone());
         }
     }
     if let Some(system) = &mut system_state {

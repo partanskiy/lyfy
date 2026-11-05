@@ -82,6 +82,13 @@ pub fn merge_files(
     observations: Option<&BTreeMap<String, crate::domain::state::FileTime>>,
 ) -> Result<crate::domain::state::Tree> {
     let mut result = merge_using(old, desired, incoming, file_fingerprints)?;
+    for (key, node) in &mut result {
+        if node.package_baseline.is_none()
+            && matches!(node.content, crate::domain::state::Content::File { .. })
+        {
+            node.package_baseline = desired.get(key).and_then(|n| n.package_baseline.clone());
+        }
+    }
     if let Some(times) = observations {
         let actual_hashes = file_fingerprints(incoming)?;
         for (key, node) in &mut result {
@@ -168,16 +175,15 @@ pub fn merge_system(
 }
 
 fn file_semantic(node: &crate::domain::state::Node) -> crate::domain::state::Node {
-    let mut result = node.without_timestamps();
-    if let Some(baseline) = &mut result.package_baseline {
-        baseline.package.source = "unknown".into();
-        baseline.package.origin = None;
+    if matches!(
+        node.content,
+        crate::domain::state::Content::File { .. }
+            | crate::domain::state::Content::PackageFile { .. }
+    ) {
+        node.materialized().without_timestamps()
+    } else {
+        node.without_timestamps()
     }
-    if let crate::domain::state::Content::PackageFile { package, .. } = &mut result.content {
-        package.source = "unknown".into();
-        package.origin = None;
-    }
-    result
 }
 
 pub fn file_times(
