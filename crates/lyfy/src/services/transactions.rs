@@ -237,6 +237,9 @@ fn execute(
         } else if let Some(before) = &change.before {
             root.remove(&path, before.directory())?;
         }
+        if let Some(time) = change.after.as_ref().and_then(|n| n.mtime) {
+            root.set_mtime(&path, time)?;
+        }
         journal.completed.push(change.key.clone());
         write_json(&transaction.join("journal.json"), &journal)?;
     }

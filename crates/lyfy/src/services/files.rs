@@ -80,6 +80,11 @@ fn observe_application(
             mount: None,
             application,
             generated,
+            mtime: (stat.st_mode & libc::S_IFMT != libc::S_IFDIR && application.is_none())
+                .then_some(crate::domain::state::FileTime {
+                    seconds: stat.st_mtime,
+                    nanoseconds: stat.st_mtime_nsec as u32,
+                }),
         },
         bytes,
     )))
@@ -154,6 +159,9 @@ pub fn observe_like(
     else {
         return Ok(None);
     };
+    if expected.is_some_and(|n| n.mtime.is_none()) {
+        node.mtime = None;
+    }
     if node.owner.is_none()
         && let Some(owner) = expected.and_then(|n| n.owner)
         && root

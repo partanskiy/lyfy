@@ -75,6 +75,9 @@ impl Root {
                     "destination cannot preserve attributes"
                 );
             }
+            if let Some(time) = node.mtime {
+                probe.set_mtime(Path::new("/node"), time)?;
+            }
             let stat = probe
                 .metadata(Path::new("/node"))?
                 .context("metadata probe disappeared")?;
@@ -82,6 +85,13 @@ impl Root {
                 (stat.st_uid, stat.st_gid) == owner && stat.st_mode & 0o7777 == node.mode,
                 "destination cannot preserve ownership or mode"
             );
+            if let Some(time) = node.mtime {
+                ensure!(
+                    (stat.st_mtime, stat.st_mtime_nsec)
+                        == (time.seconds, i64::from(time.nanoseconds)),
+                    "destination cannot preserve nanosecond mtime"
+                );
+            }
             Ok(())
         })();
         if let Some(stat) = probe.metadata(Path::new("/node"))? {

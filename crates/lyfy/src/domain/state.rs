@@ -5,6 +5,13 @@ use std::collections::BTreeMap;
 
 pub type Tree = BTreeMap<String, Node>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct FileTime {
+    pub seconds: i64,
+    pub nanoseconds: u32,
+}
+
 /// A complete, resolved state. Content streams are opened through SnapshotView.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -96,9 +103,23 @@ pub struct Node {
     pub application: Option<crate::domain::system_state::ApplicationExport>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub generated: Option<crate::domain::system_state::GeneratedKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mtime: Option<FileTime>,
 }
 
 impl Node {
+    pub fn without_timestamps(&self) -> Self {
+        let mut node = self.clone();
+        node.mtime = None;
+        node
+    }
+    pub fn observed_eq(&self, expected: &Self) -> bool {
+        let mut current = self.clone();
+        if expected.mtime.is_none() {
+            current.mtime = None;
+        }
+        current == expected.materialized()
+    }
     pub fn package(&self) -> Option<&crate::domain::packages::Package> {
         self.package_baseline
             .as_ref()
@@ -124,6 +145,12 @@ impl Node {
         matches!(self.content, Content::Directory)
     }
     pub fn validate(&self) -> Result<()> {
+        if let Some(time) = self.mtime {
+            ensure!(
+                time.nanoseconds < 1_000_000_000 && !self.directory() && self.application.is_none(),
+                "invalid or unsupported file mtime"
+            );
+        }
         ensure!(
             self.project.is_none() || self.mount.is_none(),
             "one node cannot own two baseline providers"
@@ -229,7 +256,8 @@ pub fn validate_schema(schema: u32, tree: &Tree) -> Result<()> {
     );
     for (key, node) in tree {
         ensure!(
-            (node.application.is_none() && node.generated.is_none()) || schema >= 9,
+            (node.application.is_none() && node.generated.is_none() && node.mtime.is_none())
+                || schema >= 9,
             "application exports require schema 9"
         );
         ensure!(
