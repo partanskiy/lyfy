@@ -62,6 +62,7 @@ pub fn dependencies(
     config: &Config,
     available: &Tree,
     selected: &BTreeSet<String>,
+    previous: &Tree,
 ) -> Result<Vec<RequiredDependency>> {
     let mut result = vec![];
     for (key, _) in available.iter().filter(|(_, n)| n.project.is_some()) {
@@ -89,7 +90,8 @@ pub fn dependencies(
                                     || anyhow::anyhow!("non-UTF-8 Git target metadata")
                                 )?
                             );
-                        if !available.contains_key(&candidate) {
+                        if !available.contains_key(&candidate) && !previous.contains_key(&candidate)
+                        {
                             result.push(RequiredDependency { key:candidate, reason:"untracked target Git metadata requires review before complete project restoration".into(), satisfied:false, package:None });
                         }
                     }
