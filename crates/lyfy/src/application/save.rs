@@ -23,7 +23,9 @@ pub(crate) fn run(
             capture_and_publish(&scope.context, dry_run, observer)
         };
         if scope.name == "default" && context.config.mounts.is_empty() {
-            return outcome;
+            let mut result = outcome?;
+            session::record_save(context, &mut result);
+            return Ok(result);
         }
         let (result, error) = match outcome {
             Ok(result) => {
@@ -57,6 +59,7 @@ pub(crate) fn run(
             error,
         });
     }
+    session::record_save(context, &mut combined);
     Ok(combined)
 }
 

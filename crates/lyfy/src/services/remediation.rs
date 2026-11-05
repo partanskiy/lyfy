@@ -58,6 +58,7 @@ pub fn plan(config: &Config, report: &Report) -> Result<Plan> {
         packages: None,
         identity_actions: vec![],
         coverage: vec![],
+        requirements: vec![],
         desired: Default::default(),
         receipt: Default::default(),
         package_desired: None,
