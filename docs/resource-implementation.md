@@ -17,15 +17,9 @@ reviewed commits and verification before its behavior is advertised.
 | Apply | Per-scope file plan, backups, journals and receipts | Dependency plans, partial receipts and privileged execution handoff |
 | Common base | Immutable pin per saved host | Reviewed reconciliation of old/new bases and host exceptions |
 
-Current capture excludes package binaries through default include paths, not by
-comparing every selected file with package metadata. packages::file_scope only
-excludes the configured pacman database. A broad include is not an efficient
-package-aware system backup yet.
-
-Current apply requires existing root privileges for package installation.
-User-owned private repositories cannot simply become root's writable session;
-store::private_dir enforces invoking-user ownership. Current receipts describe
-an entire resolved scope and cannot be reused unchanged for a smaller selection.
+Stages 1-4 extend this baseline with typed descriptions, partial receipts,
+input-owned privileged execution and package-aware file capture. Acquisition,
+shared-base reconciliation and the remaining typed providers follow below.
 
 ## Stage 1 Resource descriptions and compatibility
 
@@ -103,6 +97,16 @@ bytes; changed config, mode, ACL/xattr and missing files survive round trips.
 Missing comparison evidence cannot be treated as an unchanged file. Applying
 an override to a changed package baseline produces a reviewable reconciliation.
 Package effects remain visible when selection names only one provided file.
+
+Implemented: package_file content omits verified unchanged payloads; concrete
+overrides retain their package baseline, metadata differences and ACL/xattr.
+Missing package files are explicit deletions. Missing comparison evidence and
+hardlink groups keep concrete objects. The capture/reject_executables policy
+controls modified binaries. Explicit / and ~ scopes include root properties.
+Stored schema 3 and portable state schema 2 preserve readers for prior formats.
+Tests cover Git/directory payload omission, archives, no-op recapture, baseline
+version conflicts, metadata, hardlink topology and mode 555 on a temporary root.
+Missing providers remain explicit blocked dependencies until acquisition support.
 
 ## Stage 5 Package acquisition and builds
 

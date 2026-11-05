@@ -89,6 +89,12 @@ Unowned files, orphan packages and modified package metadata require review.
 Capture files, Unix permissions including special bits, ownership, symlinks,
 hardlinks, file/directory ACLs/xattr and optional package inventory.
 Files edited in place are saved directly, without templates.
+With check_packages enabled, verified unchanged package payloads become exact
+package/version/hash references. Changed files and metadata remain concrete
+exceptions; missing package files are explicit deletions. Missing mtree evidence
+and hardlink groups retain concrete objects. package_file_policy selects capture
+or reject_executables for modified non-backup executables.
+Explicit / or ~ scopes also capture their directory metadata.
 .IP
 .B \-\-dry_run
 previews changes without publishing snapshots, initializing storage or writing

@@ -291,6 +291,13 @@ Current schemas/readers and file behavior remain valid during staged migration.
 New resource kinds require explicit schema compatibility, coverage diagnostics
 and temporary-target tests before any recovery guarantee is advertised.
 
+Package file baselines compare concrete observations with libalpm mtree evidence.
+Verified unchanged payloads become pinned package references, while concrete
+exceptions retain the original baseline and observed metadata. Provider absence
+or version drift is an explicit apply dependency. Namespace roots carry directory
+properties and cannot be deleted/retyped. These additions use snapshot schema 3
+and portable state schema 2; prior readers remain supported by current code.
+
 ## Enforcement
 
 Run `python3 scripts/check-architecture.py`. CI requires this check. It verifies

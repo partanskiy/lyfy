@@ -107,7 +107,8 @@ LYFY_SELECTED_PATHS accept comma-separated paths. Each path selects its owning
 collection; nested collections remain unselected. selected_resources and
 LYFY_SELECTED_RESOURCES accept a complete JSON array of collection, host and
 subject identities. Subject kind is path with key, or package with name.
-Unknown selections fail. Path-only apply does not query or install packages.
+Unknown selections fail. Path-only apply avoids unrelated packages; selected
+package-provided files explicitly require provider verification.
 Unsatisfied dependencies outside selection block writes. Partial apply preserves
 unaffected receipts. Empty lists restore normal selection behavior.
 .TP
@@ -186,6 +187,12 @@ The default is false.
 Execution requires root and text display. Apply's input-owned elevate policy
 can request a one-shot root executor with verified sources.
 .TP
+.B package_file_policy
+Policy for changed package files, default capture. Concrete overrides include
+changed executables. reject_executables blocks modified non-backup executables.
+Unchanged regular-file payloads with sufficient mtree evidence use pinned
+package references; actual ownership, modes and ACL/xattr remain concrete.
+.TP
 .B overwrite
 Permit replacements that conflict with live content or the last applied
 receipt.
@@ -247,8 +254,9 @@ There is no shell or general environment interpolation.
 Virtual/runtime/cache trees /proc, /sys, /dev, /run, /tmp, /var/tmp,
 /var/cache and /var/lib/pacman are always excluded from file state.
 The data and state repositories themselves are also excluded.
-The root and home directory nodes are not restored as files, but their
-children may be managed through / or ~ scopes.
+Explicit / or ~ scopes include the root/home directory's own metadata.
+Namespace roots can have properties restored but cannot be deleted or replaced
+by a file or symlink.
 .SH EXAMPLE
 .nf
 system = "arch"

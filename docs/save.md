@@ -113,7 +113,31 @@ Other data restoration requires explicit collection/path/resource selection. Res
 conflict checks, overwrite and prune retain their existing meanings. An absent
 backup path never silently deletes unknown local data. Package inventory belongs
 to the single mount with packages=true, or to the default scope when none owns
-it. check_packages remains the global opt-out.
+it. check_packages remains the global opt-out. Package file classification follows
+the global opt-in across selected file collections, independently of where the
+single package inventory is stored.
+
+## Package files
+
+With check_packages enabled, save compares selected regular-file hashes and sizes
+with libalpm mtree evidence. Unchanged package payloads are represented by exact
+package/version/hash references. Actual metadata is retained, including local
+mode, ownership and ACL/xattr changes. Changed contents remain concrete payloads
+with their original package baseline; missing package files become explicit
+deletions. Missing comparison evidence retains concrete bytes. Hardlink groups
+also retain concrete objects to preserve their topology.
+
+`package_file_policy=capture` explicitly permits concrete changed executables.
+`reject_executables` blocks changes to non-backup package executables. Capture
+does not run package recipes or invoke package transactions.
+
+Apply exposes package dependencies even when a path selects just one provided
+file. A baseline must match the installed package version; omitted content must
+also be present and match its recorded hash. Missing/different providers block
+all selected writes. Metadata overrides can reuse verified target bytes. Concrete
+overrides still require a matching package baseline, so a package upgrade cannot
+silently change the context of a saved configuration exception. Package acquisition
+and explicit version-update policies are a separate recovery stage.
 
 mounts/backends are TOML arrays of tables. Their snake_case flags and ENV
 overrides accept a complete JSON array. selected_mounts accepts comma-separated
@@ -163,7 +187,8 @@ lyfy apply --selected_resources '[{"collection":"default","host":"laptop","subje
 
 Resource identities select exact paths or installed package names in the owning
 collection and host. Unknown/unmanaged selectors fail. Path-only restoration
-does not query or install packages. Flags, LYFY_SELECTED_PATHS and
+does not query or install unrelated packages. Selected package-provided files
+explicitly require verification of their provider. Flags, LYFY_SELECTED_PATHS and
 LYFY_SELECTED_RESOURCES replace lower-priority lists. An empty path flag clears
 the list; resource flags/ENV accept a complete JSON array. Selectors are apply-only.
 
@@ -276,7 +301,8 @@ and returns 2. Incomplete snapshots are refused by apply. A failed export,
 retention or required replica after publication reports the committed ID and
 the follow-up failure, rather than claiming rollback.
 
-New snapshots use schema 2; schema 1 remains readable. A first save after upgrade
+File-only snapshots use schema 2; package baselines and namespace root metadata
+use schema 3. Schemas 1/2 remain readable. A first save after upgrade
 may create a schema migration snapshot with zero file changes. Older binaries
 cannot read the new metadata. The Rust API uses Save { dry_run, capture_only };
 ordinary callers set capture_only=false. SnapshotView exposes resolved metadata

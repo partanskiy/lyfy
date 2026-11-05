@@ -172,7 +172,7 @@ fn root_vfs_mount_captures_children_and_defers_nested_points() {
     );
     assert!(state["changes"].get("system/etc/tree/parent").is_none());
     assert!(state["changes"].get("home/.config/app.conf").is_some());
-    assert!(state["changes"].get("system/").is_none());
+    assert_eq!(state["changes"]["system/"]["content"]["kind"], "directory");
 }
 
 #[test]
