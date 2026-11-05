@@ -13,6 +13,7 @@ struct Files<'a> {
 }
 
 pub(crate) fn validate(graph: &ResourceGraph) -> Result<()> {
+    let providers: BTreeMap<_, _> = graph.resources.iter().map(|r| (&r.reference, r)).collect();
     let mut hosts = BTreeMap::<_, Files<'_>>::new();
     for resource in &graph.resources {
         let ResourceSubject::Path { key } = &resource.reference.subject else {
@@ -59,8 +60,8 @@ pub(crate) fn validate(graph: &ResourceGraph) -> Result<()> {
                 ensure!(resource.dependencies.iter().any(|reference| {
                     reference.source.host == resource.reference.source.host
                         && matches!(&reference.subject, ResourceSubject::Package { name } if name == &package.name)
-                        && graph.resources.iter().any(|provider| provider.reference == *reference
-                            && matches!(&provider.recovery, RecoveryDescription::Package { observed, .. }
+                        && providers.get(reference).is_some_and(|provider|
+                            matches!(&provider.recovery, RecoveryDescription::Package { observed, .. }
                                 if observed.name == package.name && observed.version == package.version))
                 }), "resource lacks its matching package baseline dependency");
             }

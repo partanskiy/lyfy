@@ -44,7 +44,10 @@ pub fn capture_channel(
         diagnostics.extend(captured.diagnostics);
         deletions.extend(captured.deletions);
         if scope.context.config.check_packages {
-            inventory = packages::capture(&scope.context.config)?;
+            inventory = match captured.inventory {
+                Some(inventory) => inventory,
+                None => packages::capture(&scope.context.config)?,
+            };
         }
     }
     let mut result = Saved::empty(&context.config.host, false);
