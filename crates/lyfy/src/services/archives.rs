@@ -148,6 +148,7 @@ pub fn apply_source(mut context: Context) -> Result<Context> {
         changes.insert(key, None);
     }
     store.save(&Snapshot {
+        observed: None,
         replica_source: None,
         schema: state.schema + 1,
         system: "arch".into(),
