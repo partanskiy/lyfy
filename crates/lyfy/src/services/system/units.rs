@@ -114,10 +114,14 @@ pub fn plan_units(
     deleted: &mut BTreeSet<String>,
 ) -> Result<Vec<RequiredDependency>> {
     let mut dependencies = Vec::new();
-    if !config.check_system || config.selection_active() {
+    if !config.check_system {
         return Ok(dependencies);
     }
-    for unit in system.into_iter().flat_map(|s| &s.services) {
+    for unit in system
+        .into_iter()
+        .flat_map(|s| &s.services)
+        .filter(|u| config.service_selected(&u.name))
+    {
         let current = links(config, root, &unit.name)?;
         if current != unit.links {
             dependencies.push(RequiredDependency { key: format!("service:{}", unit.name),
@@ -162,27 +166,37 @@ pub fn plan_units(
     Ok(dependencies)
 }
 
+fn owns(unit: &ServiceRecord, key: &str, node: Option<&crate::domain::state::Node>) -> bool {
+    key.starts_with("system/etc/systemd/system/")
+        && matches!(node.map(|n| &n.content),
+        Some(Content::Symlink { target }) if Path::new(key).file_name().is_some_and(|n| n == unit.name.as_str())
+            || Path::new(target).file_name().is_some_and(|n| n == unit.name.as_str()))
+}
+
 pub fn unit_path_selected(
     config: &Config,
     system: Option<&SystemState>,
     key: &str,
     node: Option<&crate::domain::state::Node>,
 ) -> bool {
-    if !key.starts_with("system/etc/systemd/system/") {
-        return true;
-    }
-    let Some(Content::Symlink { target }) = node.map(|n| &n.content) else {
-        return true;
-    };
-    let owned = system.into_iter().flat_map(|s| &s.services).any(|u| {
-        Path::new(key)
-            .file_name()
-            .is_some_and(|n| n == u.name.as_str())
-            || Path::new(target)
-                .file_name()
-                .is_some_and(|n| n == u.name.as_str())
-    });
-    !owned || config.restore_services && config.check_system && !config.selection_active()
+    !system
+        .into_iter()
+        .flat_map(|s| &s.services)
+        .any(|u| owns(u, key, node))
+        || unit_path_requested(config, system, key, node)
+}
+
+pub fn unit_path_requested(
+    config: &Config,
+    system: Option<&SystemState>,
+    key: &str,
+    node: Option<&crate::domain::state::Node>,
+) -> bool {
+    config.restore_services
+        && system
+            .into_iter()
+            .flat_map(|s| &s.services)
+            .any(|u| config.service_selected(&u.name) && owns(u, key, node))
 }
 
 pub fn definition_guards(
@@ -192,12 +206,13 @@ pub fn definition_guards(
     desired: &Tree,
 ) -> Result<Vec<crate::domain::plan::Guard>> {
     let mut guards = Vec::new();
-    if !config.restore_services || !config.check_system || config.selection_active() {
+    if !config.restore_services || !config.check_system {
         return Ok(guards);
     }
     for definition in system
         .into_iter()
         .flat_map(|s| &s.services)
+        .filter(|u| config.service_selected(&u.name))
         .filter_map(|u| u.definition.as_ref())
     {
         if desired.contains_key(&definition.key) {

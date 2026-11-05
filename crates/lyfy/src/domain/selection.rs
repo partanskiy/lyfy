@@ -48,6 +48,20 @@ impl Config {
             || self.mounts.iter().any(|m| m.name == name && m.apply)
     }
 
+    pub fn identity_selected(
+        &self,
+        kind: crate::domain::identities::IdentityKind,
+        id: u32,
+    ) -> bool {
+        self.check_system && (!self.selection_active() || self.selected_resources.iter().any(|r|
+            matches!(r.subject, ResourceSubject::Identity { identity_kind, source } if identity_kind == kind && source == id)))
+    }
+
+    pub fn service_selected(&self, name: &str) -> bool {
+        self.check_system && (!self.selection_active() || self.selected_resources.iter().any(|r|
+            matches!(&r.subject, ResourceSubject::Service { name: selected } if selected == name)))
+    }
+
     pub fn packages_selected(&self) -> bool {
         !self.selection_active()
             || self

@@ -226,6 +226,49 @@ impl SystemState {
         Ok(result)
     }
 
+    pub fn selected(
+        &self,
+        tree: &crate::domain::state::Tree,
+        deleted: &BTreeSet<String>,
+        config: &crate::domain::config::Config,
+    ) -> Result<Self> {
+        let mut result = self.select(
+            tree,
+            deleted,
+            config.check_system && !config.selection_active(),
+        )?;
+        for account in &self.identities {
+            if config.identity_selected(account.kind, account.id)
+                && !result.identities.contains(account)
+            {
+                result.identities.push(account.clone());
+            }
+        }
+        let groups: BTreeSet<_> = result
+            .identities
+            .iter()
+            .flat_map(|r| r.primary_group.iter().chain(&r.groups))
+            .copied()
+            .collect();
+        for group in self
+            .identities
+            .iter()
+            .filter(|r| r.kind == IdentityKind::Group && groups.contains(&r.id))
+        {
+            if !result.identities.contains(group) {
+                result.identities.push(group.clone());
+            }
+        }
+        result.identities.sort_by_key(|r| (r.kind, r.id));
+        result.services = self
+            .services
+            .iter()
+            .filter(|u| config.service_selected(&u.name))
+            .cloned()
+            .collect();
+        Ok(result)
+    }
+
     pub fn empty(&self) -> bool {
         self.identities.is_empty()
             && self.services.is_empty()

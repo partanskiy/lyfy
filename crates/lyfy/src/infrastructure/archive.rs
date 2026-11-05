@@ -175,8 +175,7 @@ pub fn read(
                     .any(|p| config.logical(p).is_ok_and(|p| p.starts_with(&d.path)))
         });
         if let Some(system) = &state.system_state {
-            state.system_state =
-                Some(system.select(&state.tree, &state.deletions, config.check_system)?);
+            state.system_state = Some(system.selected(&state.tree, &state.deletions, config)?);
         }
         validate_tree(&state.tree)?;
     }

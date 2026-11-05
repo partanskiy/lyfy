@@ -137,9 +137,16 @@ pub fn build(context: &Context) -> Result<Plan> {
             snapshot.system_state.as_ref(),
             key,
             available.get(key).or_else(|| previous.get(key)),
-        ) && config
-            .path_for_key(key)
-            .is_ok_and(|p| config.managed(&p) && config.path_selected(&p))
+        ) && config.path_for_key(key).is_ok_and(|p| {
+            config.managed(&p)
+                && (config.path_selected(&p)
+                    || crate::services::system::unit_path_requested(
+                        config,
+                        snapshot.system_state.as_ref(),
+                        key,
+                        available.get(key).or_else(|| previous.get(key)),
+                    ))
+        })
     });
     let identity_plan = identities::map(
         config,

@@ -269,13 +269,7 @@ fn selected_state(context: &Context) -> Result<SnapshotState> {
         system_state: snapshot
             .system_state
             .as_ref()
-            .map(|s| {
-                s.select(
-                    &tree,
-                    &deletions,
-                    config.check_system && !config.selection_active(),
-                )
-            })
+            .map(|s| s.selected(&tree, &deletions, config))
             .transpose()?,
         schema: crate::domain::acquisition::content::portable_schema(&tree, packages.as_deref())
             .max(if snapshot.system_state.is_some() {
