@@ -129,6 +129,10 @@ impl Context {
         crate::services::archives::requires_root(self)
     }
 
+    pub fn apply_protected_paths(&self) -> Vec<std::path::PathBuf> {
+        crate::services::routing::protected_paths(self)
+    }
+
     pub fn read_receipts(
         &self,
     ) -> Result<std::collections::BTreeMap<String, crate::domain::plan::Receipt>> {

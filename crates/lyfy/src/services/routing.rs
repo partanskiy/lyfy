@@ -18,6 +18,29 @@ pub fn capture_scopes(context: &Context) -> Result<Vec<Scope>> {
     resolve(context, false, true)
 }
 
+pub fn protected_paths(context: &Context) -> Vec<PathBuf> {
+    let mut paths: Vec<_> = context
+        .config
+        .backends
+        .iter()
+        .filter_map(|b| b.path.clone())
+        .collect();
+    paths.extend([
+        context.config.data_dir.clone(),
+        context.config.state_dir.clone(),
+    ]);
+    paths.extend(context.access.protected_paths.clone());
+    paths.extend(context.access.identity_files.clone());
+    for path in paths.clone() {
+        if let Ok(canonical) = std::fs::canonicalize(path) {
+            paths.push(canonical);
+        }
+    }
+    paths.sort();
+    paths.dedup();
+    paths
+}
+
 fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Scope>> {
     let config = &context.config;
     let roots: Vec<_> = config
@@ -25,20 +48,7 @@ fn resolve(context: &Context, apply: bool, capture_only: bool) -> Result<Vec<Sco
         .iter()
         .map(|m| config.logical(&m.path))
         .collect::<Result<_>>()?;
-    let mut protected: Vec<_> = config
-        .backends
-        .iter()
-        .filter_map(|b| b.path.clone())
-        .collect();
-    protected.push(config.data_dir.clone());
-    protected.push(config.state_dir.clone());
-    protected.extend(context.access.protected_paths.clone());
-    for identity in &context.access.identity_files {
-        protected.push(identity.clone());
-        if let Ok(canonical) = std::fs::canonicalize(identity) {
-            protected.push(canonical);
-        }
-    }
+    let protected = protected_paths(context);
     let mut fallback = config.clone();
     if config.mounts.iter().any(|m| m.packages) || (apply && !config.packages_selected()) {
         fallback.check_packages = false;

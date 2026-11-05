@@ -377,3 +377,60 @@ fn corrupt_execution_content_never_reaches_the_destination() {
     assert!(execute(&executor, Request::Apply { write: true }).is_err());
     assert_eq!(fs::read_to_string(&target).unwrap(), "keep local\n");
 }
+
+#[test]
+fn protected_connection_paths_survive_execution_source_handoffs() {
+    let temp = tempfile::tempdir().unwrap();
+    let config = config(temp.path(), "directory");
+    let target = config.root.join("home/test/.config/app");
+    fs::create_dir_all(target.parent().unwrap()).unwrap();
+    fs::write(&target, "ordinary original\n").unwrap();
+    let original = Context::new(config.clone()).unwrap();
+    execute(
+        &original,
+        Request::Save {
+            dry_run: false,
+            capture_only: false,
+        },
+    )
+    .unwrap();
+    execute(&original, Request::Apply { write: true }).unwrap();
+    let caller = Context::new(config.clone())
+        .unwrap()
+        .with_access(lyfy::Access {
+            protected_paths: vec![target.clone()],
+            ..Default::default()
+        })
+        .unwrap();
+    let sources = caller.export_apply(&temp.path().join("first")).unwrap();
+    fs::write(&target, "synthetic connection material\n").unwrap();
+    let frozen = Context::new(config.clone())
+        .unwrap()
+        .with_restore_sources(sources)
+        .unwrap()
+        .with_access(lyfy::Access {
+            protected_paths: caller.apply_protected_paths(),
+            ..Default::default()
+        })
+        .unwrap();
+    let sources = frozen.export_apply(&temp.path().join("second")).unwrap();
+    let executor = Context::new(config)
+        .unwrap()
+        .with_restore_sources(sources)
+        .unwrap()
+        .with_access(lyfy::Access {
+            protected_paths: caller.apply_protected_paths(),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(
+        execute(&executor, Request::Apply { write: true })
+            .unwrap()
+            .exit_code,
+        0
+    );
+    assert_eq!(
+        fs::read_to_string(target).unwrap(),
+        "synthetic connection material\n"
+    );
+}

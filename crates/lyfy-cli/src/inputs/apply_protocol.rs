@@ -15,6 +15,8 @@ pub(super) struct Bundle {
     pub config: lyfy::Config,
     pub sources: BTreeMap<String, PathBuf>,
     pub receipts: BTreeMap<String, lyfy::Receipt>,
+    #[serde(default)]
+    pub protected_paths: Vec<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -43,6 +45,10 @@ pub(super) fn read(path: &Path) -> Result<Bundle> {
         "invalid execution bundle schema or sources"
     );
     bundle.config.validate()?;
+    ensure!(
+        bundle.protected_paths.iter().all(|p| p.is_absolute()),
+        "protected execution paths must be absolute"
+    );
     for (name, path) in &bundle.sources {
         ensure!(
             name == "default" || bundle.config.mounts.iter().any(|m| &m.name == name),
@@ -73,6 +79,10 @@ pub(super) fn execute(mut bundle: Bundle, write: bool) -> Result<Report> {
     bundle.config.import_file = None;
     bundle.config.export_file = None;
     let context = lyfy::Context::new(bundle.config)?
+        .with_access(lyfy::Access {
+            protected_paths: bundle.protected_paths,
+            ..Default::default()
+        })?
         .with_restore_sources(bundle.sources)?
         .with_restore_receipts(bundle.receipts)?;
     let outcome = lyfy::execute(&context, lyfy::Request::Apply { write })?;
