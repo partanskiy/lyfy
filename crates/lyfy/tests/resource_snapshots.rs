@@ -206,3 +206,169 @@ fn schema_one_and_two_stores_keep_views_apply_and_archive_recovery() {
         }
     }
 }
+
+#[test]
+fn execution_sources_pin_content_and_coordinate_receipts_without_republication() {
+    let temp = tempfile::tempdir().unwrap();
+    let config = config(temp.path(), "directory");
+    let target = config.root.join("home/test/.config/app");
+    fs::create_dir_all(target.parent().unwrap()).unwrap();
+    fs::write(&target, "generation one\n").unwrap();
+    let caller = Context::new(config.clone()).unwrap();
+    execute(
+        &caller,
+        Request::Save {
+            dry_run: false,
+            capture_only: false,
+        },
+    )
+    .unwrap();
+    let first = caller
+        .snapshot("default")
+        .unwrap()
+        .state()
+        .source_snapshot
+        .clone();
+    let expected = caller.read_receipts().unwrap();
+    let sources = caller.export_apply(&temp.path().join("sources")).unwrap();
+    fs::write(&target, "generation two\n").unwrap();
+    execute(
+        &caller,
+        Request::Save {
+            dry_run: false,
+            capture_only: false,
+        },
+    )
+    .unwrap();
+    let latest = caller
+        .snapshot("default")
+        .unwrap()
+        .state()
+        .source_snapshot
+        .clone();
+    assert_ne!(first, latest);
+    fs::remove_file(&target).unwrap();
+    let executor = Context::new(Config {
+        state_dir: temp.path().join("trusted-state"),
+        ..config.clone()
+    })
+    .unwrap()
+    .with_restore_sources(sources)
+    .unwrap()
+    .with_restore_receipts(expected.clone())
+    .unwrap();
+    let result = execute(&executor, Request::Apply { write: true }).unwrap();
+    let lyfy::Data::Apply(applied) = result.data else {
+        panic!("apply result")
+    };
+    assert_eq!(applied.plan.snapshot, first);
+    assert_eq!(fs::read_to_string(&target).unwrap(), "generation one\n");
+    assert_eq!(
+        caller.snapshot("default").unwrap().state().source_snapshot,
+        latest
+    );
+    assert!(caller.read_receipts().unwrap().is_empty());
+    let confirmed = executor.read_receipts().unwrap();
+    caller.record_receipts(&confirmed, &expected).unwrap();
+    assert_eq!(caller.read_receipts().unwrap(), confirmed);
+    assert!(caller.record_receipts(&confirmed, &expected).is_err());
+    assert_eq!(fs::read_to_string(&target).unwrap(), "generation one\n");
+    assert!(
+        execute(
+            &executor,
+            Request::Save {
+                dry_run: false,
+                capture_only: false
+            }
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn user_receipts_cannot_authorize_replacing_system_preimages() {
+    let temp = tempfile::tempdir().unwrap();
+    let config = Config {
+        include: vec!["/etc".into()],
+        overwrite: false,
+        ..config(temp.path(), "directory")
+    };
+    fs::create_dir_all(config.root.join("etc")).unwrap();
+    fs::create_dir_all(config.root.join("home/test")).unwrap();
+    let target = config.root.join("etc/app");
+    fs::write(&target, "saved\n").unwrap();
+    let caller = Context::new(config.clone()).unwrap();
+    execute(
+        &caller,
+        Request::Save {
+            dry_run: false,
+            capture_only: false,
+        },
+    )
+    .unwrap();
+    fs::write(&target, "untrusted local\n").unwrap();
+    let mut forged = caller.snapshot("default").unwrap().state().tree.clone();
+    let hash = format!("{:x}", Sha256::digest(b"untrusted local\n"));
+    forged.get_mut("system/etc/app").unwrap().content = lyfy::Content::File { sha256: hash };
+    let receipts = std::collections::BTreeMap::from([(
+        "default".into(),
+        lyfy::Receipt {
+            root: config.root.clone(),
+            home_dir: config.home_dir.clone(),
+            host: config.host.clone(),
+            tree: forged,
+        },
+    )]);
+    let executor = Context::new(Config {
+        state_dir: temp.path().join("trusted"),
+        ..config
+    })
+    .unwrap()
+    .with_restore_receipts(receipts)
+    .unwrap();
+    assert_eq!(
+        execute(&executor, Request::Apply { write: true })
+            .unwrap()
+            .exit_code,
+        1
+    );
+    assert_eq!(fs::read_to_string(&target).unwrap(), "untrusted local\n");
+}
+
+#[test]
+fn corrupt_execution_content_never_reaches_the_destination() {
+    use std::io::{Read, Seek, Write};
+    let temp = tempfile::tempdir().unwrap();
+    let config = config(temp.path(), "directory");
+    let target = config.root.join("home/test/.config/app");
+    fs::create_dir_all(target.parent().unwrap()).unwrap();
+    fs::write(&target, "saved\n").unwrap();
+    let caller = Context::new(config.clone()).unwrap();
+    execute(
+        &caller,
+        Request::Save {
+            dry_run: false,
+            capture_only: false,
+        },
+    )
+    .unwrap();
+    let sources = caller.export_apply(&temp.path().join("sources")).unwrap();
+    let mut file = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&sources["default"])
+        .unwrap();
+    file.seek(std::io::SeekFrom::End(-1)).unwrap();
+    let mut byte = [0];
+    file.read_exact(&mut byte).unwrap();
+    byte[0] ^= 1;
+    file.seek(std::io::SeekFrom::End(-1)).unwrap();
+    file.write_all(&byte).unwrap();
+    fs::write(&target, "keep local\n").unwrap();
+    let executor = Context::new(config)
+        .unwrap()
+        .with_restore_sources(sources)
+        .unwrap();
+    assert!(execute(&executor, Request::Apply { write: true }).is_err());
+    assert_eq!(fs::read_to_string(&target).unwrap(), "keep local\n");
+}
