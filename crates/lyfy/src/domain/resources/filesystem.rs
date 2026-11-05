@@ -1,6 +1,6 @@
 use crate::domain::{
     resources::{RecoveryDescription, Resource, ResourceGraph, ResourceSubject},
-    state::{Tree, validate_tree},
+    state::{Content, Tree, validate_tree},
 };
 use anyhow::{Result, ensure};
 use std::collections::{BTreeMap, BTreeSet};
@@ -56,6 +56,15 @@ pub(crate) fn validate(graph: &ResourceGraph) -> Result<()> {
                         .contains(&files.resources[target.as_str()].reference),
                     "resource lacks its hardlink dependency"
                 );
+            }
+            if let Content::PackageFile { package, .. } = &node.content {
+                ensure!(resource.dependencies.iter().any(|reference| {
+                    reference.source.host == resource.reference.source.host
+                        && matches!(&reference.subject, ResourceSubject::Package { name } if name == &package.name)
+                        && graph.resources.iter().any(|provider| provider.reference == *reference
+                            && matches!(&provider.recovery, RecoveryDescription::Package { observed, .. }
+                                if observed.name == package.name && observed.version == package.version))
+                }), "resource lacks its matching package baseline dependency");
             }
         }
     }

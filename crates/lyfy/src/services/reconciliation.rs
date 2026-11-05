@@ -11,6 +11,7 @@ use anyhow::{Result, ensure};
 use std::{collections::BTreeSet, path::PathBuf};
 
 mod identities;
+mod package_files;
 mod receipts;
 mod selection;
 pub use receipts::{read_receipts, record_receipts, validate_receipt};
@@ -138,8 +139,8 @@ pub fn build(context: &Context) -> Result<Plan> {
     }
     let mut receipt = previous.clone();
     receipt.retain(|key, _| !keys.contains(key));
-    receipt.extend(desired.clone());
-    let (dependencies, guards) =
+    receipt.extend(desired.iter().map(|(k, n)| (k.clone(), n.materialized())));
+    let (mut dependencies, guards) =
         selection::dependencies(config, &root, &available, &keys, &mut desired)?;
     let mut changes = vec![];
     crate::domain::state::validate_tree(&desired)?;
@@ -156,6 +157,7 @@ pub fn build(context: &Context) -> Result<Plan> {
         live.insert(guard.key.clone(), guard.expected.clone());
     }
     crate::services::files::link_tree(config, &root, &mut live)?;
+    dependencies.extend(package_files::requirements(config, &desired, &live)?);
     for key in keys {
         let path = config.path_for_key(&key)?;
         ensure!(config.key(&path)? == key, "noncanonical target namespace");
@@ -164,7 +166,7 @@ pub fn build(context: &Context) -> Result<Plan> {
         }
         let before = live.get(&key).cloned();
         let after = desired.get(&key).cloned();
-        if before == after {
+        if before == after.as_ref().map(Node::materialized) {
             continue;
         }
         let mut conflict = None;

@@ -42,6 +42,12 @@ impl ResourceGraph {
             subject,
         };
         let path_reference = |key: &str| reference(ResourceSubject::Path { key: key.into() });
+        let mut packages: std::collections::BTreeMap<_, _> = state
+            .packages
+            .iter()
+            .flatten()
+            .map(|p| (p.name.clone(), p.clone()))
+            .collect();
         let mut resources = Vec::new();
         for (key, node) in &state.tree {
             let mut dependencies = BTreeSet::new();
@@ -56,6 +62,17 @@ impl ResourceGraph {
             if let Some(target) = &node.hardlink {
                 dependencies.insert(path_reference(target));
             }
+            if let Content::PackageFile { package, .. } = &node.content {
+                if let Some(previous) = packages.insert(package.name.clone(), package.clone()) {
+                    ensure!(
+                        previous == *package,
+                        "package baseline differs from inventory"
+                    );
+                }
+                dependencies.insert(reference(ResourceSubject::Package {
+                    name: package.name.clone(),
+                }));
+            }
             resources.push(Resource {
                 reference: path_reference(key),
                 recovery: RecoveryDescription::File { node: node.clone() },
@@ -69,7 +86,7 @@ impl ResourceGraph {
             guarantee: RecoveryGuarantee::Recorded,
             dependencies: vec![],
         }));
-        resources.extend(state.packages.iter().flatten().map(|package| Resource {
+        resources.extend(packages.values().map(|package| Resource {
             reference: reference(ResourceSubject::Package {
                 name: package.name.clone(),
             }),
