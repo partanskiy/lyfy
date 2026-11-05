@@ -42,7 +42,7 @@ List overrides are comma-separated and replace the whole lower-priority list.
 is execution permission for apply/fmt, not a setting.
 It cannot be supplied through TOML or ENV.
 .B \-\-elevate
-is a lint launch policy, not a setting, and has no ENV equivalent.
+is a lint/save/apply launch policy, not a setting, and has no ENV equivalent.
 Its default auto mode requests sudo for interactive scans of the running
 system; never disables the request and required forces it.
 It preserves resolved user settings when invoking sudo for a protected scan.
@@ -116,6 +116,13 @@ Complete portable archive destination/source. Select one scope.
 Save/import publishes it; apply/import uses a private temporary source.
 Existing exports are never replaced. Encrypted sources produce age archives.
 .TP
+.B identity_mappings
+Explicit source UID/GID to target account-name mappings, default empty.
+Each table has kind (user/group), source (numeric ID) and target (existing name).
+CLI/LYFY_IDENTITY_MAPPINGS accept a complete JSON array. Needed names resolve
+through the target /etc/passwd or /etc/group before writes. Ownership and named
+POSIX ACL entries are mapped; home ownership remains symbolic.
+.TP
 .B identity_files, protected_paths
 Absolute connection identity paths and additional protected physical paths.
 These input-owned lists have LYFY_IDENTITY_FILES/LYFY_PROTECTED_PATHS overrides.
@@ -176,8 +183,8 @@ It is unknown when no target pacman.conf is available.
 Allow supported package restoration during apply with
 .BR \-\-write .
 The default is false.
-Execution requires existing root privileges and text display.
-Apply does not invoke sudo.
+Execution requires root and text display. Apply's input-owned elevate policy
+can request a one-shot root executor with verified sources.
 .TP
 .B overwrite
 Permit replacements that conflict with live content or the last applied
