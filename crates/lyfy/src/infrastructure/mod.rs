@@ -2,6 +2,7 @@ pub(crate) mod accounts;
 pub(crate) mod archive;
 pub(crate) mod encryption;
 pub(crate) mod filesystem;
+pub(crate) mod generated;
 pub(crate) mod git;
 pub(crate) mod mounts;
 pub(crate) mod pacman;

@@ -102,3 +102,5 @@ pub fn capture(mut command: Command) -> Result<BytesOutput> {
         stderr: err,
     })
 }
+
+pub(crate) mod confinement;

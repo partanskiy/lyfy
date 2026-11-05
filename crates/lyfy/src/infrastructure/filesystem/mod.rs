@@ -108,6 +108,10 @@ impl Root {
         Ok((dir, leaf))
     }
 
+    pub fn directory_descriptor(&self) -> Result<File> {
+        Ok(self.directory.try_clone()?)
+    }
+
     pub fn anchored(&self, path: &Path) -> Result<(File, std::path::PathBuf)> {
         let (parent, _) = self.parent(path, false)?;
         let path = Path::new(&format!("/proc/self/fd/{}", parent.as_raw_fd()))
