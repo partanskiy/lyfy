@@ -255,5 +255,6 @@ pub fn build(context: &Context) -> Result<Plan> {
         receipt,
         desired,
         package_desired,
+        package_execution: config.install_packages && config.packages_selected(),
     })
 }

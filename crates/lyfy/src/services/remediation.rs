@@ -57,6 +57,7 @@ pub fn plan(config: &Config, report: &Report) -> Result<Plan> {
         desired: Default::default(),
         receipt: Default::default(),
         package_desired: None,
+        package_execution: false,
     })
 }
 

@@ -32,6 +32,10 @@ pub fn requirements(
                 _ => true,
             };
             result.push(RequiredDependency {
+                package: Some(crate::domain::plan::PackageRequirement {
+                    name: package.name.clone(),
+                    version: package.version.clone(),
+                }),
                 key: format!("package/{}:{key}", package.name),
                 reason: format!(
                     "package baseline {}={} must supply verified content for {key}",

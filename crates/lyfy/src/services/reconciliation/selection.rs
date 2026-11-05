@@ -68,6 +68,7 @@ pub fn dependencies(
                     required
                         .entry(parent_key.clone())
                         .or_insert(RequiredDependency {
+                            package: None,
                             key: parent_key.clone(),
                             reason: "parent directory outside selection".into(),
                             satisfied,
@@ -102,6 +103,7 @@ pub fn dependencies(
                 required.insert(
                     target.clone(),
                     RequiredDependency {
+                        package: None,
                         key: target.clone(),
                         reason: "hardlink target outside selection".into(),
                         satisfied,
@@ -130,6 +132,7 @@ pub fn dependencies(
                     required.insert(
                         peer.clone(),
                         RequiredDependency {
+                            package: None,
                             key: peer.clone(),
                             reason: "replacing a hardlink primary requires its complete group"
                                 .into(),
