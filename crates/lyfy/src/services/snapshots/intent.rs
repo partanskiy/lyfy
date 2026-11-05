@@ -1,10 +1,10 @@
-use super::Baseline;
 use crate::Context;
 use crate::domain::{
     common_state::{Observations, fingerprints, merge},
     packages::{Package, PackageCapture},
     state::{Node, Reference, Tree},
 };
+use crate::services::snapshots::Baseline;
 use anyhow::{Result, ensure};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -112,7 +112,7 @@ pub fn prepare(
             );
         }
     }
-    deleted.extend(super::previous_keys(context)?);
+    deleted.extend(crate::services::snapshots::previous_keys(context)?);
     deleted.extend(base.tree.keys().cloned());
     let mut changes: BTreeMap<_, _> = desired
         .iter()
