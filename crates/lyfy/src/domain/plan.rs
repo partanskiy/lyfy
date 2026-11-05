@@ -11,13 +11,13 @@ pub struct Change {
     pub conflict: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Guard {
     pub key: String,
     pub expected: Node,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Plan {
     pub host: String,
     pub snapshot: String,

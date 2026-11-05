@@ -143,7 +143,7 @@ pub struct Formatted {
     pub transaction: Option<std::path::PathBuf>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, serde::Deserialize, Serialize)]
 pub struct Applied {
     #[serde(flatten)]
     pub plan: Plan,
@@ -152,7 +152,7 @@ pub struct Applied {
     pub mounts: Vec<MountedApply>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, serde::Deserialize, Serialize)]
 pub struct MountedApply {
     pub name: String,
     pub path: String,

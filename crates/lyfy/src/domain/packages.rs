@@ -19,7 +19,7 @@ pub fn valid_name(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || b"@._+-".contains(&c))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PackagePlan {
     pub install_native: Vec<String>,
     pub missing_foreign: Vec<String>,
