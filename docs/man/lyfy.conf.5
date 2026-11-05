@@ -193,6 +193,23 @@ changed executables. reject_executables blocks modified non-backup executables.
 Unchanged regular-file payloads with sufficient mtree evidence use pinned
 package references; actual ownership, modes and ACL/xattr remain concrete.
 .TP
+.B package_sources
+Explicit archive, local_recipe or aur_recipe inputs. Default is an empty array.
+Accepts TOML tables or a complete JSON array. Recipe revisions and resolved
+source digests are recorded without evaluating PKGBUILD during save.
+.TP
+.B package_version_policy
+locked (default) requires exact saved artifacts. current permits a full
+repository upgrade; explicit archive and recipe pins remain exact.
+.TP
+.B build_packages
+Permit unprivileged makepkg execution of retained recipes. Default false.
+Missing build requirements must be installed through pacman separately.
+.TP
+.B remove_packages
+Explicit comma-separated names to remove through pacman. Default empty.
+Unselected extra packages are retained. No recursive removal is requested.
+.TP
 .B overwrite
 Permit replacements that conflict with live content or the last applied
 receipt.

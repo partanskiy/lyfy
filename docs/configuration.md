@@ -24,7 +24,11 @@ See [the library boundary](library.md).
 | require_uki | true | Require Type #2 entries without Type #1 entries |
 | check_packages | true | Capture, compare and inspect package state |
 | package_file_policy | capture | Store changed package files; reject_executables instead blocks modified executables |
-| install_packages | false | Permit supported native package restoration with apply --write |
+| install_packages | false | Permit planned package transactions with apply --write |
+| package_sources | [] | Explicit archive/local_recipe/aur_recipe inputs; JSON array or TOML tables |
+| package_version_policy | locked | locked verifies saved versions; current permits a full repository upgrade |
+| build_packages | false | Permit unprivileged makepkg execution of retained recipes |
+| remove_packages | [] | Explicit comma-separated package names to remove; extras are retained by default |
 | overwrite | false | Permit replacing live content that conflicts with the receipt |
 | prune | false | Permit deleting explicitly tracked paths absent from desired state |
 | max_file_bytes | 0 | Maximum regular-file bytes during capture/planning; 0 is unlimited |

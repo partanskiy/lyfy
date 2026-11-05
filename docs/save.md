@@ -136,8 +136,56 @@ file. A baseline must match the installed package version; omitted content must
 also be present and match its recorded hash. Missing/different providers block
 all selected writes. Metadata overrides can reuse verified target bytes. Concrete
 overrides still require a matching package baseline, so a package upgrade cannot
-silently change the context of a saved configuration exception. Package acquisition
-and explicit version-update policies are a separate recovery stage.
+silently change the context of a saved configuration exception. An explicitly
+selected package inventory with install_packages=true can repair providers
+before file restoration. Its effects remain visible outside the selected path.
+
+### Package acquisition
+
+Save records a unique matching repository candidate with version, architecture,
+digest, servers and signature policy. This is evidence of an available source,
+not proof of the original installation method. Ambiguous and unavailable sources
+stay unresolved. Explicit package_sources override candidates:
+
+```toml
+[[package_sources]]
+package = "example"
+kind = "archive"
+path = "/srv/packages/example-1-1-x86_64.pkg.tar.zst"
+retain = true
+signature = "/srv/packages/example-1-1-x86_64.pkg.tar.zst.sig"
+signature_required = true
+```
+
+local_recipe uses a concrete recipe directory; aur_recipe uses a local AUR clone
+with an explicit immutable revision and matching origin. Recipes, auxiliary files,
+declared sources and build requirements are recorded without running PKGBUILD.
+Each sources entry supplies name, path and/or credential-free locator, sha256 and
+size. Local inputs are retained. .SRCINFO contributes declared build requirements;
+it is text evidence, not a proof that the recipe has no other dependencies.
+Helper caches are not searched automatically. Set package_sources explicitly.
+
+The default package_version_policy=locked refuses missing exact artifacts rather
+than substituting a newer version. current explicitly permits pacman -Syu for
+repository packages, but keeps archive/recipe pins exact. Upgraded package file
+baselines need separate reconciliation. remove_packages is the explicit removal
+list; extras are retained otherwise. Package transactions require the live /
+target and root. They are separate from file rollback and journal their actions,
+verified artifact digests, completion and resulting inventory.
+
+With apply --write and install_packages=true the CLI first previews through the
+root executor. The caller acquires exact archives or, with build_packages=true,
+builds frozen recipes unprivileged. makepkg does not install dependencies; missing
+requirements must already be satisfied through pacman. Root copies and rechecks
+prepared archives and signatures into private staging before pacman sees them.
+Signature validation uses a disposable public-key view and never imports keys
+into the target keyring. All selected file preimages are backed up before package
+actions; file plans are rebuilt afterwards before concrete overrides are written.
+
+Retained recipes/artifacts are included in complete exports and replicas. Package
+resources remain Recorded: a recipe alone does not prove dependency closure,
+network independence or bit-for-bit reproducibility. This implementation has
+synthetic build/signature tests; live host package deployment is a separate gate.
 
 mounts/backends are TOML arrays of tables. Their snake_case flags and ENV
 overrides accept a complete JSON array. selected_mounts accepts comma-separated
