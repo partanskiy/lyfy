@@ -56,7 +56,7 @@ jobs:
           mkdir -p dist
           tar -czf "dist/lyfy-$RELEASE_TAG-x86_64-unknown-linux-gnu.tar.gz" \
             -C target/x86_64-unknown-linux-gnu/release lyfy \
-            -C "$GITHUB_WORKSPACE" LICENSE DISTRIBUTION.md README.md ARCHITECTURE.md docs examples \
+            -C "$GITHUB_WORKSPACE" LICENSE DISTRIBUTION.md README.md ARCHITECTURE.md docs \
             -C "$GITHUB_WORKSPACE/target" THIRD_PARTY_LICENSES.txt
           bash scripts/archive-source.sh "${RELEASE_TAG#v}" "dist/lyfy-$RELEASE_TAG-source.tar.gz"
       - name: Create checksums

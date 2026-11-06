@@ -1,8 +1,7 @@
 # Moving existing state into lyfy
 
-This guide applies to any supported Arch Linux host. The
-[example profile](../examples/migration/laptop.toml) uses synthetic account,
-host, application and project names. It is not a deployment profile.
+This guide applies to any supported Arch Linux host. All names and paths in
+these examples are synthetic. They describe capabilities, not a real deployment.
 Keep real profiles, path inventories, migration plans and credentials outside
 the project's source repository. Explicitly review publication before sharing
 any captured state or configuration, including data already public elsewhere.
@@ -52,3 +51,66 @@ both directions while preserving each host's concrete exceptions.
 See [save/apply](save.md), [system recovery](system-recovery.md) and
 [storage guarantees](storage.md). Provider fixtures and live-provider validation
 are distinct evidence; record the scope of each recovery drill locally.
+
+## Example: route configuration, data and a Git project
+
+The initial selection contains only config. Select system, pictures, projects
+or demo-project explicitly when needed. Adapt the paths before use.
+
+```toml
+# Synthetic example. Replace logical paths and physical storage destinations.
+host = "laptop"
+home_dir = "/home/example"
+data_dir = "/home/example/.local/share/lyfy/default"
+state_dir = "/home/example/.local/state/lyfy"
+include = []
+capture_errors = "strict"
+check_packages = true
+check_system = true
+selected_mounts = ["config"]
+
+[[backends]]
+name = "configuration"
+kind = "git"
+path = "/home/example/.local/share/lyfy/configuration"
+
+[[backends]]
+name = "data"
+kind = "directory"
+path = "/home/example/Backups/lyfy"
+
+[[mounts]]
+name = "config"
+path = "~/.config"
+backend = "configuration"
+apply = true
+include = ["~/.config/editor", "~/.config/terminal"]
+
+[[mounts]]
+name = "system"
+path = "/etc"
+backend = "configuration"
+base_host = ""
+packages = true
+system = true
+include = ["/etc/hostname", "/etc/locale.conf"]
+
+[[mounts]]
+name = "pictures"
+path = "~/Pictures"
+backend = "data"
+history = "retained"
+retain = 10
+
+[[mounts]]
+name = "projects"
+path = "~/Projects"
+backend = "data"
+
+[[mounts]]
+name = "demo-project"
+path = "~/Projects/demo"
+backend = "data"
+git_project = true
+exclude = ["~/Projects/demo/build"]
+```

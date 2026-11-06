@@ -57,7 +57,7 @@ does not have to match the tag.
 
 Arch packaging is also a required PR check. It builds and inspects an actual
 package without installing it on the developer's laptop. The package includes
-only /usr/bin/lyfy, man pages, documentation, an example configuration and licenses. It
+only /usr/bin/lyfy, man pages, documentation with configuration examples and licenses. It
 does not write user configuration, install a service or run a system mutation.
 
 The source recipe uses vendored Rust dependencies and builds/tests offline with
