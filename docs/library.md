@@ -60,24 +60,23 @@ for capture/publication separation without CLI or sudo.
 ## Resource descriptions
 
 `SnapshotView::resources()` returns a validated `ResourceGraph` on explicit
-request. `state()` and `open_content()` keep their existing behavior, and stored
-snapshot schemas 1/2 remain readable. Package baselines/root properties use
-stored schema 3 and portable state schema 2; ordinary file state keeps its prior
-encoding. Content::PackageFile and Node::package_baseline distinguish omitted
-provider bytes from concrete overrides. SnapshotView::open_content opens only
-concrete objects present in state.sizes; package references remain dependencies.
-The graph's schema 1 versions resource descriptions independently of storage.
+request. `state()` exposes the resolved current-format SnapshotState;
+open_content() opens concrete objects listed in state.sizes. SNAPSHOT_SCHEMA=9
+and ARCHIVE_SCHEMA=7 are the only accepted formats. Resource graph schema 1
+versions descriptions independently. Prior stored/archive formats are rejected.
 
-`ResourceId` identifies a subject in a collection and host. `ResourceReference`
-adds its backend and immutable snapshot generation through `SnapshotReference`.
-Logical identity survives replication and generation changes. Subjects currently
-cover canonical home/system path keys and installed package names.
+ResourceId identifies a subject in a collection and host. ResourceReference adds
+its backend and immutable generation through SnapshotReference. Subjects cover
+paths, packages, identities, services, unit definitions, mount prerequisites and
+system requirements. RecoveryDescription distinguishes concrete files, package
+baselines, Git projects, application images, generated outputs, explicit deletions
+and the corresponding system descriptions.
 
-`RecoveryDescription` represents a concrete file node, an explicit deletion or
-an observed package with `PackageOrigin::Unknown {}`. Legacy adaptation retains
-file metadata, hardlinks, tombstones, inventory and diagnostics. It assigns
-`RecoveryGuarantee::Recorded`, without treating native/foreign classification
-as an acquisition recipe or claiming independent package recovery.
+Graphs retain metadata, hardlinks, tombstones, catalogs and diagnostics and
+assign Recorded guarantees. This does not promote observed package classification
+or an unverified external prerequisite into independent recovery. SystemState
+exposes public identities, persistent enablement, source topology and coverage;
+passwords and private bootstrap material are never account snapshot fields.
 
 ```rust
 use lyfy::SnapshotView;
@@ -115,8 +114,9 @@ the launch input owns that boundary and root-owned state selection.
 Plans report required dependencies; an unsatisfied boundary blocks writing.
 Partial execution merges affected entries into receipts and retains other state.
 
-Package acquisition and project/mount providers follow
-the remaining stages in [the implementation plan](resource-implementation.md).
+Package acquisition, projects, mount guards, system providers and current-format
+archives share these contracts. See [the implementation record](resource-implementation.md)
+and [system recovery](system-recovery.md).
 
 The Config/Context API remains available through explicit root exports. Internal
 layer paths, including the old lyfy::domain namespace, are private. See
