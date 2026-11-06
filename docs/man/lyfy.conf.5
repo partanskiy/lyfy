@@ -1,4 +1,4 @@
-.TH LYFY.CONF 5 "2026-10-29" "lyfy" "File Formats"
+.TH LYFY.CONF 5 "2026-11-06" "lyfy" "File Formats"
 .SH NAME
 lyfy.conf \- configuration and launch settings for lyfy
 .SH DESCRIPTION
@@ -92,7 +92,8 @@ Export/import provides explicit migration into a new destination.
 .B mounts, backends, selected_mounts
 Named VFS mount policies and Git/directory/S3/Yandex Disk destinations.
 Mounts have name, path, backend, history (retained/current_only), retain,
-apply, packages, exclude, max_file_bytes, replicas and replicas_required fields.
+apply, packages, system, include, exclude, base_host, properties_only,
+max_file_bytes, replicas and replicas_required fields.
 Backends have name, kind, optional local path, optional S3 connection and public
 age recipients. S3 connection fields are bucket, prefix, endpoint, region and
 optional profile. Nested paths use longest component-prefix ownership.
@@ -107,6 +108,11 @@ Mount/backend CLI and ENV overrides accept a complete JSON array.
 selected_mounts accepts comma-separated names including default.
 Data mounts participate in ordinary apply only when apply=true; explicit
 selection permits their restoration. Lists replace lower-priority lists.
+include optionally selects prefixes below a mount; ancestors are retained.
+properties_only retains one existing directory's metadata, without descendants.
+system=true assigns the single system inventory owner; packages is independent.
+base_host overrides the global setting; an empty string starts independent state
+for a new collection. Existing accepted bases are not silently detached.
 git_project=true declares an independent Git repository recovery boundary.
 Object closure, refs, index and local/ignored work are retained; incomplete
 or unsupported layouts block complete capture. Partial working-file restore
@@ -117,7 +123,9 @@ Apply-only path prefixes and logical resource identities. selected_paths and
 LYFY_SELECTED_PATHS accept comma-separated paths. Each path selects its owning
 collection; nested collections remain unselected. selected_resources and
 LYFY_SELECTED_RESOURCES accept a complete JSON array of collection, host and
-subject identities. Subject kind is path with key, or package with name.
+subject identities. Subjects include path with key, package with name,
+identity, service, unit_definition, mount and requirement. See the resource
+identity examples in the save guide.
 Unknown selections fail. Path-only apply avoids unrelated packages; selected
 package-provided files explicitly require provider verification.
 Unsatisfied dependencies outside selection block writes. Partial apply preserves
@@ -191,6 +199,33 @@ The default is true.
 Classification uses configured sync repositories in the target pacman.conf.
 It is unknown when no target pacman.conf is available.
 .TP
+.B check_system
+Capture required public identity hints and the owning collection's system
+catalog. Default true. Raw account/authentication databases are never file state.
+.TP
+.B system_resources
+Typed user, group, service, generated, application and excluded declarations.
+Default empty. Accepts a complete JSON array or TOML tables.
+Canonical system service names retain persistent links and definition pins.
+Application format sqlite uses consistent native backup/restore; sensitive
+(default true) requires an age-encrypted named backend.
+Generated producer ldconfig supports /etc/ld.so.cache, requires Landlock ABI
+>= 3 and confines output writes. Exclusions have an explicit path and reason.
+.TP
+.B install_identities
+Permit explicitly selected account creation and additive group memberships.
+Default false. Live-root execution requires root. New users have locked
+passwords and no generated home. ID collisions block dependent writes.
+.TP
+.B restore_services
+Permit declared persistent systemd link restoration. Default false.
+Link removals also need prune. Services are never started or stopped.
+Path-only unit-link selection cannot bypass service-resource permissions.
+.TP
+.B regenerate
+Permit the declared closed generated-state producer. Default false.
+Inputs must reproduce the recorded output hash exactly. No shell hooks.
+.TP
 .B install_packages
 Allow supported package restoration during apply with
 .BR \-\-write .
@@ -228,9 +263,10 @@ The default is false.
 Review the apply preview before enabling it.
 .TP
 .B prune
-Permit deletion of explicitly tracked paths absent from desired state.
+Permit deletion through explicit saved tombstones.
 The default is false.
-Untracked files are retained and directory deletion is nonrecursive.
+Unmentioned archive entries and untracked files are retained. Directory deletion
+is nonrecursive.
 .TP
 .B max_file_bytes
 Maximum regular-file bytes during capture and planning.
@@ -272,6 +308,9 @@ NO_COLOR disables colors. Never hides scan feedback.
 Progress always uses stderr and never enters report files.
 This preference is not passed to the library.
 .SH PATH RULES
+Current snapshot schema 9 and portable archive schema 7 are the only accepted
+formats. Earlier versions are unsupported.
+.PP
 Scope-list paths must be absolute or start with
 .BR ~/ .
 They are prefixes, not globs.

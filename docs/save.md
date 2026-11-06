@@ -17,6 +17,10 @@ state. Modified entries name changed fields without printing file contents.
 An unchanged save reuses its snapshot in both Git and directory storage.
 `changed` also covers inventory, base and schema changes; `created` reports a
 new publication. Multi-scope reports have totals and individual `mounts` results.
+A private confirmation record at `state_dir/saves/<timestamp>.json` records each
+scope's published ID, failures and replica outcomes; `manifest` names that file.
+No-op saves still record confirmation. Dry runs and capture-only channels do not.
+Publication is independent per scope, not a global transaction across backends.
 
 ## Protected reads
 
@@ -33,7 +37,7 @@ need capture elevation. Tests exercise the channel without authenticating sudo.
 
 ## Arbitrary nested VFS mounts
 
-The legacy include/exclude/storage_format settings remain the default scope.
+The top-level include/exclude/storage_format settings define the default scope.
 Named mounts override that scope and route arbitrary logical paths to named
 backends. The longest component-prefix match owns each path. A child is excluded
 from its parent even when that child is not selected. `/data-old` is not inside
@@ -100,6 +104,12 @@ the default ~/Projects exclusion; mount.exclude adds exclusions for that mount.
 Virtual/runtime trees and connection-file protection cannot be overridden.
 Mount exclusions are absolute or home-relative prefixes, not globs or paths
 relative to the mount. max_file_bytes can be overridden per mount.
+Mount.include optionally curates paths below the VFS point while retaining
+ancestors. properties_only captures one existing directory, for example root
+mode 0555, without descendants. system=true assigns the single system inventory
+owner; packages=true independently assigns the package owner. A mount's base_host
+overrides the global value; "" selects independent state for a new collection.
+See [collection policy](configuration.md#collection-capture-and-system-policy).
 
 ```sh
 lyfy save --selected_mounts system,pictures --dry_run
@@ -450,11 +460,16 @@ and returns 2. Incomplete snapshots are refused by apply. A failed export,
 retention or required replica after publication reports the committed ID and
 the follow-up failure, rather than claiming rollback.
 
-File-only snapshots use schema 2; package baselines and namespace root metadata
-use schema 3, acquisition catalogs schema 4, and based hosts with separate
-observation fingerprints schema 5. Prior schemas remain readable. A first save after upgrade
-may create a schema migration snapshot with zero file changes. Older binaries
-cannot read the new metadata. The Rust API uses Save { dry_run, capture_only };
+The current snapshot schema is 9 and portable archive schema is 7. Previous
+formats are deliberately unsupported; lyfy has no deployed-state compatibility
+requirement. Import/export transfers current state between supported backends,
+not older schemas. Files absent from an imported archive are unmentioned;
+only explicit saved tombstones can request deletion, even with prune enabled.
+Regular-file and symlink mtime is retained with nanosecond precision. Directory
+and runtime timestamps are outside the recovery promise. Public identities,
+persistent services, SQLite exports, generated state and boot/storage prerequisites
+are described in [system recovery](system-recovery.md). The concrete migration
+profile and outstanding host gates are in [dotfiles migration](dotfiles-migration.md). The Rust API uses Save { dry_run, capture_only };
 ordinary callers set capture_only=false. SnapshotView exposes resolved metadata
 and verified read streams. capture_only/CaptureArchive are the private read-only
 transport used by launch inputs, with no publication or authentication in core.

@@ -174,7 +174,7 @@ conditional current-pointer updates. Replicas record the exact source generation
 failures remain visible and cannot recapture a different generation implicitly.
 Retention preserves generations reachable through pinned base references.
 
-Legacy storage_format/include/exclude remain a fallback scope. Explicit VFS
+Top-level storage_format/include/exclude define the fallback scope. Explicit VFS
 mounts take ownership before that scope is scanned. Data restore requires an
 explicitly selected mount unless it was configured to participate in apply.
 Export/import carry manifests, verified content and pinned bases, not reports.

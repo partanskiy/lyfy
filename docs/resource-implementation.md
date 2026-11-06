@@ -1,11 +1,14 @@
 # Resource recovery implementation plan
 
-Status: staged delivery plan for the resource contract accepted on 2026-11-04.
-The [resource design](resource-design.md) defines the target behavior. The
-implementation baseline below is main at 278484c. Each stage requires its own
-reviewed commits and verification before its behavior is advertised.
+Status: all nine software stages implemented as of 2026-11-06. The
+[resource design](resource-design.md) defines the accepted contract. Current
+behavior and provider boundaries are documented in [save](save.md),
+[system recovery](system-recovery.md) and [dotfiles migration](dotfiles-migration.md).
+Real host deployment, work-laptop import, live cloud checks and boot recovery
+remain explicit deployment gates, not completed software tests.
 
-## Current implementation baseline
+The table below records the historical starting point at main 278484c.
+## Historical implementation baseline
 
 | Capability | Current support | Required extension |
 | --- | --- | --- |
@@ -17,29 +20,28 @@ reviewed commits and verification before its behavior is advertised.
 | Apply | Per-scope file plan, backups, journals and receipts | Dependency plans, partial receipts and privileged execution handoff |
 | Common base | Immutable pin per saved host | Reviewed reconciliation of old/new bases and host exceptions |
 
-Stages 1-4 extend this baseline with typed descriptions, partial receipts,
+Stages 1-4 extended this baseline with typed descriptions, partial receipts,
 input-owned privileged execution and package-aware file capture. Acquisition,
-shared-base reconciliation and the remaining typed providers follow below.
+shared-base reconciliation and the other typed providers are described below.
 
-## Stage 1 Resource descriptions and compatibility
+## Stage 1 Resource descriptions and format validation
 
 Introduce typed resource identities, recovery descriptions, pinned references,
 declared guarantees and dependencies in domain. Adapt existing file snapshots
 and package inventories without assigning unproven provenance or new guarantees.
 Keep concrete payloads and metadata; preserve current four-operation API boundaries.
 
-Acceptance: old schema 1/2 fixtures still read and round-trip through supported
-archives. Unknown kinds, cycles, dangling references and incompatible guarantees
-fail explicitly. File-only snapshots preserve existing apply behavior. A new
-schema is introduced only with complete validation and reader compatibility.
+Acceptance: unknown kinds, cycles, dangling references and incompatible
+resource guarantees fail explicitly. Concrete file/deletion metadata and
+hardlinks survive current-format storage/archive round trips.
 
-Implemented on 2026-11-05: typed resource identities, pinned references, concrete
-file/deletion descriptions, unresolved package observations and graph validation
-are available through the [library API](library.md#resource-descriptions).
-Legacy adapters preserve existing snapshot/archive formats and assign recorded
-guarantees. Tests cover schema 1/2 Git and directory stores, archive migration,
-metadata/hardlink/deletion preservation and invalid graph rejection. Execution
-of new provider kinds and path-selective apply remain later stages.
+Implemented on 2026-11-05 and revised on 2026-11-06: typed resource identities,
+pinned references, concrete file/deletion descriptions, unresolved package
+observations and graph validation are available through the
+[library API](library.md#resource-descriptions). Per the user's explicit decision,
+previous schemas and compatibility adapters were removed. Readers and writers
+now share snapshot schema 9 and archive schema 7 and reject all other versions.
+Tests cover both current stores, portable archives and unsupported versions.
 
 ## Stage 2 Selective planning and receipts
 
@@ -103,7 +105,7 @@ overrides retain their package baseline, metadata differences and ACL/xattr.
 Missing package files are explicit deletions. Missing comparison evidence and
 hardlink groups keep concrete objects. The capture/reject_executables policy
 controls modified binaries. Explicit / and ~ scopes include root properties.
-Stored schema 3 and portable state schema 2 preserve readers for prior formats.
+Current-format snapshots and archives preserve the complete provider metadata.
 Tests cover Git/directory payload omission, archives, no-op recapture, baseline
 version conflicts, metadata, hardlink topology and mode 555 on a temporary root.
 Missing providers remain explicit blocked dependencies until acquisition support.
@@ -198,10 +200,25 @@ Live Yandex account compatibility and real mount attachment remain unverified.
 
 ## Stage 9 Remaining system resources and migration gates
 
-Extend typed coverage for required users/groups, service state, storage/boot
-requirements, supported generated state and consistent application data exports.
-Keep each provider's execution and recovery boundary explicit. Unsupported or
-deliberately excluded state stays visible in the coverage report.
+Implemented: required public identity hints and opt-in root account creation,
+named ownership/ACL mapping, persistent systemd enablement with pinned unit
+providers, storage/firmware/boot requirements, confined ldconfig regeneration,
+consistent SQLite backup/restore, regular-file/symlink mtimes and explicit
+coverage classifications. Service runtime activation, credentials and unsupported
+application recovery remain declared boundaries. Saved guarantees remain recorded.
+
+Three-way common reconciliation covers files, packages and public system intent.
+Imported desired state retains separate live observations. Partial archives retain
+selection policies, mount guards and service permissions. Narrow archives never
+infer deletions from broader receipts. Durable save confirmations report each
+scope and replica independently. Curated VFS includes and metadata-only roots
+support migration without broad unintended capture.
+
+Fixture tests cover common updates across two hosts, no-op recapture, selected
+restore, encrypted offline archives, root handoff, ownership conflicts, service
+instances, active SQLite WAL connections, generated output confinement and
+mount/provider interruption. The migration audit maps the public dotfiles
+revision's declarations to a concrete acchan profile and explicit exclusions.
 
 Before retiring an existing maintenance setup:
 

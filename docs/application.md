@@ -82,17 +82,10 @@ are explicitly exported there too, for example Report, RuleId, Observation and
 Plan. Domain layout, persistence manifests, expected native package metadata and
 backend implementation types are private.
 
-This narrows a previously broad public namespace. Update imports such as:
-
-```rust
-// Before: use lyfy::domain::diagnostics::Report;
-use lyfy::Report;
-```
-
-Context/Config and operation behavior remain available. The old lyfy::domain
-module path is no longer public. Storage now supports nested VFS scopes and
-schema 2 metadata; schema 1 remains readable. See save.md for archive migration
-and execution behavior.
+Context/Config and operation behavior are exposed through explicit facade types.
+Internal modules remain private. Stored snapshots and portable archives accept
+only the current format versions, with no previous-version compatibility.
+See save.md for backend transfer and execution behavior.
 
 The contract is a Rust source API, not a stable binary ABI. pub controls source
 visibility; it does not establish an independently replaceable liblyfy.so ABI.
