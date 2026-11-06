@@ -95,7 +95,7 @@ jobs:
       image: archlinux:base-devel
     steps:
       - name: Install pacman-managed build dependencies
-        run: pacman -Syu --noconfirm --needed rust python git systemd groff pkgconf libarchive licenses
+        run: pacman -Syu --noconfirm --needed rust python git systemd groff pkgconf libarchive licenses sqlite age curl
       - uses: actions/checkout@v4
       - name: Build and inspect the source package as an unprivileged user
         run: |
