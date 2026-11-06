@@ -38,8 +38,8 @@ hardlinks survive current-format storage/archive round trips.
 Implemented on 2026-11-05 and revised on 2026-11-06: typed resource identities,
 pinned references, concrete file/deletion descriptions, unresolved package
 observations and graph validation are available through the
-[library API](library.md#resource-descriptions). Per the user's explicit decision,
-previous schemas and compatibility adapters were removed. Readers and writers
+[library API](library.md#resource-descriptions). Previous schemas and compatibility adapters were removed because
+the project supports only its current state format. Readers and writers
 now share snapshot schema 9 and archive schema 7 and reject all other versions.
 Tests cover both current stores, portable archives and unsupported versions.
 
@@ -235,3 +235,21 @@ release builds and per-commit checks. Recovery tests use synthetic data and
 temporary targets; real host apply, package changes and boot changes are separate
 deployment actions. Successful home synchronization is not evidence that full
 system recovery has been validated.
+
+## Follow-up work
+
+The nine-stage implementation establishes the supported resource model. It
+leaves these product areas for further design and verification:
+
+- Prove independently retained package recovery, including build dependencies,
+  toolchains and signature-trust bootstrap. Current resources remain recorded.
+- Extend large-data storage with multipart S3 transfers and evaluate chunking,
+  compression and transfer resumption against explicit integrity guarantees.
+- Support additional Git layouts such as submodules, LFS, shallow history and
+  linked worktrees without weakening strict completeness checks.
+- Add consistent export/restore adapters for application stores beyond SQLite.
+- Exercise provider conformance and complete-system recovery on disposable real
+  targets, keeping account credentials and deployment inventories private.
+
+These are remaining capabilities and verification work, not claims of support.
+Deployment of any particular user's machines is outside the public roadmap.
