@@ -6,9 +6,10 @@ see [distribution terms](DISTRIBUTION.md) for the approved native dependencies.
 Declarative system maintenance for Arch Linux: inspect the system, capture its
 concrete configuration, reconcile host state and apply supported policy fixes.
 
-The project is an initial working implementation. It does not yet replace a
-complete AUR helper or provide a universal automatic system repair engine.
-The architecture and current boundaries are explicit below.
+The resource recovery implementation includes selective restoration, package
+sources, Git projects, external mounts and system/application state. Recovery
+boundaries and deployment gates are explicit in [system recovery](docs/system-recovery.md)
+and the [dotfiles migration](docs/dotfiles-migration.md).
 
 ## Architecture
 
@@ -23,10 +24,9 @@ snapshots, reconciliation and transactions. Operations never call each other.
 There is no output layer. See the mandatory [architecture contract](ARCHITECTURE.md),
 [application/API layout](docs/application.md) and [contribution rules](CONTRIBUTING.md).
 
-The accepted [resource recovery design](docs/resource-design.md) defines the next
-steps for package-aware capture, Git projects, external mounts and selective
-restoration. It is an implementation contract; current command behavior is
-documented below and in the save guide.
+The accepted [resource recovery design](docs/resource-design.md) and
+[implementation record](docs/resource-implementation.md) describe all nine stages.
+Current command behavior is documented below and in the save guide.
 
 ## Build
 
@@ -79,10 +79,11 @@ lyfy fmt
   see [lint reports](docs/lint.md).
 - `save` previews or captures concrete state, reports file deltas and publishes
   host metadata/content. Git and directory reuse unchanged snapshots. Nested VFS
-  mounts can route to independent Git/directory/S3 backends, with retention,
+  mounts can route to independent Git/directory/S3/Yandex Disk backends, with retention,
   replicas, age encryption and portable exports. See the [save guide](docs/save.md).
-- `apply` returns a file plan and package comparison. `--write` executes the file
-  plan, with conflict checks, preimage backups and a transaction journal.
+- `apply` plans selected paths and resources with explicit dependencies. `--write`
+  executes authorized file, package, identity, service and generator actions,
+  with conflict checks, preimages, journals and partial receipts.
 - `fmt` returns supported policy fixes. `--write` currently removes only pacnew
   files identical to their active configuration; conflicting files need review.
 
