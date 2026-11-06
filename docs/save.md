@@ -468,8 +468,9 @@ only explicit saved tombstones can request deletion, even with prune enabled.
 Regular-file and symlink mtime is retained with nanosecond precision. Directory
 and runtime timestamps are outside the recovery promise. Public identities,
 persistent services, SQLite exports, generated state and boot/storage prerequisites
-are described in [system recovery](system-recovery.md). The concrete migration
-profile and outstanding host gates are in [dotfiles migration](dotfiles-migration.md). The Rust API uses Save { dry_run, capture_only };
+are described in [system recovery](system-recovery.md). The generic
+migration workflow is in the [migration guide](migration.md).
+The Rust API uses Save { dry_run, capture_only };
 ordinary callers set capture_only=false. SnapshotView exposes resolved metadata
 and verified read streams. capture_only/CaptureArchive are the private read-only
 transport used by launch inputs, with no publication or authentication in core.

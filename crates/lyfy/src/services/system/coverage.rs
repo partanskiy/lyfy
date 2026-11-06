@@ -202,7 +202,7 @@ pub fn observe(context: &Context, root: &Root, tree: &Tree, state: &mut SystemSt
         manual_steps: vec!["Prepare target partitions, filesystems and mount layout before file restoration.".into(),
             "Install and verify the bootloader/UKI, firmware entries and any Secure Boot trust separately; lyfy does not format disks or reboot.".into()] });
     state.coverage.push(CoverageItem { key: "boot:deployment".into(), status: CoverageStatus::Unresolved,
-        reason: "boot files and source topology are observations; bare-metal boot and the work laptop remain deployment checks".into() });
+        reason: "boot files and source topology are observations; bare-metal boot and real target deployment require separate verification".into() });
     if context.repository.age.is_some() {
         state.coverage.push(CoverageItem { key: "bootstrap:decryption".into(), status: CoverageStatus::Unresolved,
             reason: "decryption identities are deliberately outside snapshots; verify separate key recovery and an offline archive".into() });

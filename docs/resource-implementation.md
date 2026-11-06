@@ -3,8 +3,8 @@
 Status: all nine software stages implemented as of 2026-11-06. The
 [resource design](resource-design.md) defines the accepted contract. Current
 behavior and provider boundaries are documented in [save](save.md),
-[system recovery](system-recovery.md) and [dotfiles migration](dotfiles-migration.md).
-Real host deployment, work-laptop import, live cloud checks and boot recovery
+[system recovery](system-recovery.md) and [migration guide](migration.md).
+Real target deployment, live cloud checks and boot recovery
 remain explicit deployment gates, not completed software tests.
 
 The table below records the historical starting point at main 278484c.
@@ -84,7 +84,7 @@ objects check destination modes, ownership and attributes. Explicit identity
 mappings resolve target account names and named ACL entries. Tests cover archive
 tampering, immutable source generations, caller receipt compare-and-swap,
 system receipt trust and identity failures on temporary targets. Actual sudo
-authentication and restoration onto the work laptop remain deployment checks.
+authentication and restoration onto real targets remain deployment checks.
 
 ## Stage 4 Package baselines and file exceptions
 
@@ -217,8 +217,8 @@ support migration without broad unintended capture.
 Fixture tests cover common updates across two hosts, no-op recapture, selected
 restore, encrypted offline archives, root handoff, ownership conflicts, service
 instances, active SQLite WAL connections, generated output confinement and
-mount/provider interruption. The migration audit maps the public dotfiles
-revision's declarations to a concrete acchan profile and explicit exclusions.
+mount/provider interruption. The migration guide and synthetic profile describe
+how to inventory an existing setup without publishing environment-specific state.
 
 Before retiring an existing maintenance setup:
 
