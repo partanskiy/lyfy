@@ -25,3 +25,5 @@
 - Keep secrets out of fixtures, output, Git and documentation.
 - Use ASCII punctuation in prose and comments.
 - Run architecture checks, rustfmt, clippy, library and CLI tests, release build and commit validation before opening a PR.
+
+- Public examples, fixtures, documentation and release metadata must use synthetic environments. Keep real users' account names, hosts, file inventories and deployment plans outside this repository unless explicitly authorized for publication. Existing public availability elsewhere is not publication authorization.

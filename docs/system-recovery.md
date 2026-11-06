@@ -97,4 +97,4 @@ requirements describe prerequisites; lyfy does not partition, unlock disks,
 install a bootloader, rebuild every boot artifact or reboot the target.
 
 See [settings](configuration.md), [save/apply](save.md),
-[storage guarantees](storage.md) and the [dotfiles migration](dotfiles-migration.md).
+[storage guarantees](storage.md) and the [migration guide](migration.md).

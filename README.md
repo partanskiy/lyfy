@@ -9,7 +9,7 @@ concrete configuration, reconcile host state and apply supported policy fixes.
 The resource recovery implementation includes selective restoration, package
 sources, Git projects, external mounts and system/application state. Recovery
 boundaries and deployment gates are explicit in [system recovery](docs/system-recovery.md)
-and the [dotfiles migration](docs/dotfiles-migration.md).
+and the [migration guide](docs/migration.md).
 
 ## Architecture
 
