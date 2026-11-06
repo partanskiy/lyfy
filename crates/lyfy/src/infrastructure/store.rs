@@ -61,6 +61,15 @@ impl Lock {
     }
 }
 
+impl Drop for Lock {
+    fn drop(&mut self) {
+        // A concurrent fork can inherit the open description until exec. Unlock
+        // explicitly so that child cannot extend this operation's lock lifetime.
+        // SAFETY: the descriptor remains valid until this Drop returns.
+        unsafe { libc::flock(self._file.as_raw_fd(), libc::LOCK_UN) };
+    }
+}
+
 pub fn write_json(path: &Path, value: &impl Serialize) -> Result<()> {
     write_bytes(path, &serde_json::to_vec_pretty(value)?)
 }
@@ -323,3 +332,6 @@ impl Store {
         Ok((snapshot, tree))
     }
 }
+
+#[cfg(test)]
+mod locks_test;
