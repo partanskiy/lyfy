@@ -25,7 +25,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
     steps:
       - name: Install native Arch build dependencies
-        run: pacman -Syu --noconfirm --needed rust python git pkgconf libarchive github-cli licenses
+        run: pacman -Syu --noconfirm --needed rust python git pkgconf libarchive github-cli licenses sqlite age curl
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -77,7 +77,7 @@ jobs:
       VERSION: ${{ needs.publish.outputs.version }}
     steps:
       - name: Install pacman-managed packaging dependencies
-        run: pacman -Syu --noconfirm --needed rust python git systemd curl openssh pkgconf libarchive
+        run: pacman -Syu --noconfirm --needed rust python git systemd curl openssh pkgconf libarchive sqlite age
       - uses: actions/checkout@v4
       - name: Download and verify the released source
         run: |
