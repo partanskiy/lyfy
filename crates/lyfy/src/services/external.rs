@@ -160,7 +160,7 @@ pub fn connection_only(config: &Config, path: &Path) -> bool {
 
 pub fn finish(
     context: &Context,
-    guard: CaptureGuard,
+    guard: &CaptureGuard,
     tree: &mut Tree,
 ) -> Result<BTreeMap<String, ExternalMount>> {
     let table = Table::read(&context.config.root)?;
@@ -169,26 +169,26 @@ pub fn finish(
         guard.table == relevant(&context.config, &table)?,
         "mount topology changed during capture; no generation was published"
     );
-    if let Some((path, mount)) = guard.boundary {
+    if let Some((path, mount)) = &guard.boundary {
         let current = table
             .entries
-            .get(&path)
+            .get(path)
             .ok_or_else(|| anyhow::anyhow!("source mount disappeared"))?;
         ensure!(
             identity(
                 &context.config,
-                &path,
+                path,
                 current,
                 mount.identity_file.as_deref()
             )?
             .equivalent(&mount.identity),
             "source volume marker changed during capture"
         );
-        tree.get_mut(&context.config.key(&path)?)
+        tree.get_mut(&context.config.key(path)?)
             .ok_or_else(|| anyhow::anyhow!("external mount root was not captured"))?
-            .mount = Some(Box::new(mount));
+            .mount = Some(Box::new(mount.clone()));
     }
-    Ok(guard.source_mounts)
+    Ok(guard.source_mounts.clone())
 }
 
 pub fn source(context: &Context, guard: &CaptureGuard) -> Result<Root> {
@@ -208,22 +208,60 @@ pub fn plan(
         }
     }
     for (key, node) in available {
-        if let Some(mount) = &node.mount {
-            if ancestry::selected(keys, key) {
-                boundaries.insert(key.clone(), ancestry::target_policy(context, key, mount)?);
-            }
+        if let Some(mount) = &node.mount
+            && ancestry::selected(keys, key)
+        {
+            boundaries.insert(key.clone(), ancestry::target_policy(context, key, mount)?);
         }
     }
-    let dependencies = verify(context, &boundaries)
-        .err()
-        .map(|e| RequiredDependency {
-            key: "mount_topology".into(),
-            reason: e.to_string(),
-            satisfied: false,
-            package: None,
-        })
-        .into_iter()
-        .collect();
+    let table = Table::read(&context.config.root)?;
+    let mut dependencies = Vec::new();
+    for configured in &context.config.mounts {
+        let Some(policy) = &configured.external else {
+            continue;
+        };
+        let point = context.config.logical(&configured.path)?;
+        let key = context.config.key(&point)?;
+        if boundaries.contains_key(&key) || !ancestry::selected(keys, &key) {
+            continue;
+        }
+        if policy.recovery == MountRecovery::Materialize {
+            dependencies.push(RequiredDependency { key: key.clone(), reason: "materialization needs the saved filesystem boundary; select the collection root".into(), satisfied: false, package: None });
+            continue;
+        }
+        let observed = table
+            .entries
+            .get(&point)
+            .map(|e| identity(&context.config, &point, e, policy.identity_file.as_deref()))
+            .transpose()?;
+        if let Some(expected) = policy.expected.clone().or(observed) {
+            boundaries.insert(
+                key,
+                ExternalMount {
+                    identity: expected,
+                    recovery: policy.recovery,
+                    identity_file: policy.identity_file.clone(),
+                },
+            );
+        } else {
+            dependencies.push(RequiredDependency {
+                key,
+                reason: "configured target mount is disconnected".into(),
+                satisfied: false,
+                package: None,
+            });
+        }
+    }
+    dependencies.extend(
+        verify(context, &boundaries)
+            .err()
+            .map(|e| RequiredDependency {
+                key: "mount_topology".into(),
+                reason: e.to_string(),
+                satisfied: false,
+                package: None,
+            }),
+    );
     Ok((boundaries, dependencies))
 }
 

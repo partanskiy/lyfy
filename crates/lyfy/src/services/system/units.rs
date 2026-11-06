@@ -273,3 +273,70 @@ pub fn definition_guards(
     }
     Ok(guards)
 }
+
+pub fn path_dependencies(
+    config: &Config,
+    root: &Root,
+    system: Option<&SystemState>,
+    available: &Tree,
+    previous: &Tree,
+    keys: &BTreeSet<String>,
+) -> Result<Vec<RequiredDependency>> {
+    let mut result = Vec::new();
+    if !config.selection_active() {
+        return Ok(result);
+    }
+    let mut required = BTreeSet::new();
+    for key in keys
+        .iter()
+        .filter(|k| k.starts_with("system/etc/systemd/system/"))
+    {
+        let path = config.path_for_key(key)?;
+        if !config.path_selected(&path) {
+            continue;
+        }
+        let target = match available
+            .get(key)
+            .or_else(|| previous.get(key))
+            .map(|n| &n.content)
+        {
+            Some(Content::Symlink { target }) => Some(target.clone()),
+            Some(_) => None,
+            None => {
+                if root
+                    .metadata(&path)?
+                    .is_some_and(|s| s.st_mode & libc::S_IFMT == libc::S_IFLNK)
+                {
+                    Some(root.read_link(&path)?)
+                } else {
+                    None
+                }
+            }
+        };
+        let Some(target) = target else {
+            continue;
+        };
+        for unit in system.into_iter().flat_map(|s| &s.services) {
+            if (Path::new(key)
+                .file_name()
+                .is_some_and(|n| n == unit.name.as_str())
+                || Path::new(&target)
+                    .file_name()
+                    .is_some_and(|n| n == unit.name.as_str()))
+                && (!config.service_selected(&unit.name) || !config.restore_services)
+            {
+                required.insert(unit.name.clone());
+            }
+        }
+    }
+    for name in required {
+        result.push(RequiredDependency {
+            key: format!("service:{name}"),
+            reason: "unit links require explicit service resource selection and restore_services"
+                .into(),
+            satisfied: false,
+            package: None,
+        });
+    }
+    Ok(result)
+}
