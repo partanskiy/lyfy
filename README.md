@@ -11,58 +11,6 @@ sources, Git projects, external mounts and system/application state. Recovery
 boundaries and deployment gates are explicit in [system recovery](docs/system-recovery.md)
 and the [migration guide](docs/migration.md).
 
-## Architecture
-
-The Cargo workspace contains two packages: `lyfy` is the Rust library and
-`lyfy-cli` builds the executable named `lyfy`. CLI arguments, ENV, XDG discovery
-and application TOML loading belong to lyfy-cli. The library accepts resolved
-typed settings and exactly four operation requests. See the [library API
-boundary](docs/library.md).
-
-The four independent application operations share named services for inspection, capture,
-snapshots, reconciliation and transactions. Operations never call each other.
-There is no output layer. See the mandatory [architecture contract](ARCHITECTURE.md),
-[application/API layout](docs/application.md) and [contribution rules](CONTRIBUTING.md).
-
-The accepted [resource recovery design](docs/resource-design.md) and
-[implementation record](docs/resource-implementation.md) describe all nine stages.
-Current command behavior is documented below and in the save guide.
-
-## Build
-
-Arch builds require Rust/Cargo, pkgconf, pacman/libalpm 16 and libarchive.
-The executable dynamically links the native libraries; they remain managed
-by pacman. Build and release CI use Arch environments for the matching ABI.
-
-```sh
-cargo build -p lyfy-cli --locked --release
-target/release/lyfy --help
-```
-
-Installed packages include `man 1 lyfy` for commands and `man 5 lyfy.conf` for
-configuration, environment variables and XDG paths. Static manual sources live
-in [docs/man](docs/man). The dotted manual name follows the configuration-page
-convention; the actual configuration filename is `config.toml`.
-
-Build and test the library package independently:
-
-```sh
-cargo build -p lyfy --locked
-cargo test -p lyfy --locked
-bash scripts/check-library-deps.sh
-```
-
-The supported target system is Arch Linux. Tests run against temporary Linux
-directory trees and do not change the developer's real system. No daemon or
-Docker service is needed.
-
-Current releases support x86_64 (amd64) only and are distributed as the AUR
-source package `lyfy`. See [RELEASING.md](RELEASING.md) for release automation,
-package checks and credential handling.
-Versions use calendar numbering like synchrogit: `YY.M.PATCH`, for example
-`26.10.0`. Month and patch have no leading zeros; PATCH starts at 0 each month
-and increments for every release. Compatibility changes appear in release notes.
-
 ## Four commands
 
 ```sh
@@ -90,40 +38,6 @@ lyfy fmt
 `apply` and `fmt` are previews unless `--write` is present. Execution permission
 is not a configuration value and cannot be supplied by ENV. There are no
 hidden config, rules, init or package-management commands.
-
-Package inventory and inspection use dynamically linked libalpm, including
-dependency/conflict checks, ownership and orphan detection. File checks compare
-mtree metadata and stream SHA-256 reads with bounded memory. JSON findings
-carry typed `evidence` for changed fields such as `mode`, `mtime` and `sha256`.
-The interactive package installation transaction in apply still uses pacman;
-read-only package operations never invoke its CLI.
-
-Interactive `lyfy lint` requests sudo automatically when scanning the running
-system (`root = /`) as a non-root user, with both stdin and stderr connected
-to terminals. This is the default `--elevate=auto` launch policy.
-Use `--elevate=never` to retain current privileges. Bare `--elevate` (equivalent
-to `--elevate=required`) requests sudo even for another root or a noninteractive
-launch. Auto mode does not prompt in scripts or for alternative roots.
-
-The input invokes `/usr/bin/sudo`, which owns authentication, then runs only
-read-only lint with the original resolved user settings, including HOME/XDG
-paths and flag overrides. The child explicitly disables further elevation.
-The policy has no ENV/config equivalent. Sudo must be installed and authorize
-the request; refusal or failure stops that launch. When scanning without sudo,
-inaccessible paths become separate coverage diagnostics and accessible
-checks continue; partial coverage returns exit code 2. Running `sudo lyfy lint`
-directly is possible but may use root's HOME/XDG defaults instead of yours.
-
-Interactive live-system save also supports `--elevate=auto|never|required`.
-Only protected capture runs with sudo; the original caller verifies a private
-capture archive and publishes using their own repository/cloud credentials.
-`lyfy save --dry_run` previews without writing repositories, state or exports.
-
-Exit codes: 0 means the requested operation succeeded, 1 means findings at or
-above fail_on (default warning) or conflicts remain, 2 means incomplete coverage
-or an operational/configuration/export error. An apply preview
-with planned changes but no conflicts succeeds. A fmt preview with pending
-fixes returns 1.
 
 ## XDG configuration
 
@@ -181,57 +95,3 @@ implicitly pushes, pulls, merges or rewrites history. State synchronization
 conflicts are resolved using normal Git workflows. Real system snapshots belong
 in a separate private repository, not this public source repository.
 
-## Apply and packages
-
-An apply compares desired content, live content and the last applied receipt
-for the same host/root/home. A first deployment conflicts with different existing
-files. Review the preview before intentionally choosing `--overwrite true`.
-Known deletions additionally require `--prune true`; directory deletion is
-nonrecursive and fails if unknown contents remain. Untracked files are retained.
-
-Snapshots record all installed package names, versions, explicit/dependency
-reasons and native/foreign classification. Offline inventories have unknown
-classification when no target pacman.conf is available. Otherwise classification
-uses the target's configured sync repositories. Foreign does not imply AUR.
-
-Native restoration is a separate opt-in:
-
-```sh
-lyfy apply --install_packages true
-lyfy apply --install_packages true --write
-```
-
-Package execution requires existing root privileges; apply does not invoke sudo.
-It installs missing native packages using `pacman -Syu --needed`, preserves
-pacman's confirmation, then restores affected installation reasons. It refuses
-missing foreign packages. It does not remove extra packages or downgrade to
-recorded versions. The plan reports version/reason drift and extra explicit
-packages. After a package transaction the file plan is rebuilt and checked again.
-
-## Scope and current limits
-
-Default capture includes XDG user configuration, common shell/Git dotfiles,
-`/etc` and `/usr/local/etc`. `~/Projects`, caches, runtime trees, pacman database
-files and common identity/secret locations are excluded. Additional paths can
-be managed through include/exclude lists. This is a configuration/state tool,
-not a disk image or a package-cache backup.
-
-Regular files stream with bounded buffers; max_file_bytes=0 is unlimited locally.
-Directories, symlinks, Unix modes including special bits, ownership, hardlinks
-within a scope and file/directory ACLs/xattr are preserved. Sockets, devices,
-unsupported symlink attributes and non-UTF-8 names produce explicit diagnostics.
-Strict capture blocks publication on errors. Explicit capture_errors="skip"
-records an incomplete snapshot and returns 2; apply refuses incomplete snapshots.
-Active connection/identity files are always protected from capture.
-
-Target access uses descriptor-relative operations and refuses symlink parents.
-Individual replacements are atomic. A multi-file operation is not one atomic
-filesystem transaction: failures leave a private recovery journal and original
-file objects in `state_dir/transactions/<id>`. Automatic rollback, crash resume,
-filesystem snapshots and restoration of package transactions are not implemented.
-Pause concurrent editors/package transactions while capturing or applying state;
-lyfy cannot freeze the whole system.
-
-UKI is a strict lyfy policy, not an Arch Linux requirement. Boot migration,
-reboots, divergent pacnew merges, removal of unowned files/orphans and AUR builds
-require deliberate handling and are not automatic fixes in this version.
