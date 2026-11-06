@@ -23,6 +23,11 @@ See [the library boundary](library.md).
 | ownership_roots | /usr/bin, /usr/lib, /usr/share | Trees checked for files outside pacman ownership |
 | require_uki | true | Require Type #2 entries without Type #1 entries |
 | check_packages | true | Capture, compare and inspect package state |
+| check_system | true | Capture required public identity hints and the owning collection's system catalog |
+| system_resources | [] | Typed user/group/service/generated/application/excluded declarations |
+| install_identities | false | Permit explicit account creation and additive group memberships |
+| restore_services | false | Restore declared persistent systemd links without starting services |
+| regenerate | false | Permit verified execution of a declared generated-state producer |
 | package_file_policy | capture | Store changed package files; reject_executables instead blocks modified executables |
 | install_packages | false | Permit planned package transactions with apply --write |
 | package_sources | [] | Explicit archive/local_recipe/aur_recipe inputs; JSON array or TOML tables |
@@ -30,7 +35,7 @@ See [the library boundary](library.md).
 | build_packages | false | Permit unprivileged makepkg execution of retained recipes |
 | remove_packages | [] | Explicit comma-separated package names to remove; extras are retained by default |
 | overwrite | false | Permit replacing live content that conflicts with the receipt |
-| prune | false | Permit deleting explicitly tracked paths absent from desired state |
+| prune | false | Permit explicit saved deletions; omitted archive entries never imply deletion |
 | max_file_bytes | 0 | Maximum regular-file bytes during capture/planning; 0 is unlimited |
 | capture_errors | strict | strict blocks incomplete saves; explicit skip records diagnostics and returns 2 |
 | mounts | [] | Named VFS paths, backend, history, restore, git_project and replica policies |
@@ -107,4 +112,58 @@ ownership and metadata permit. See [apply privileges](save.md#apply-privileges).
 `[{"kind":"user","source":1000,"target":"workuser"}]`. Kinds are user/group.
 Mappings apply to numeric system ownership and named POSIX ACL entries. Home
 ownership stays symbolic. Only needed names are looked up in the target
-`/etc/passwd` or `/etc/group`; a missing name blocks all selected writes.
+`/etc/passwd` or `/etc/group`. Saved public names supply automatic mappings;
+explicit identity_mappings override them. A missing account blocks dependent
+writes until an explicitly selected identity plan can create it. Raw passwd,
+group, shadow, gshadow, subuid/subgid files and their standard backups are always
+outside ordinary file restoration.
+
+## Collection capture and system policy
+
+Mount.include is an optional list of absolute or ~/ paths below its VFS point.
+An empty list includes the entire subtree. Ancestor directories are retained,
+while unlisted siblings stay outside capture and apply. Mount.exclude adds
+prefix exclusions. Neither list is a glob. A properties_only mount retains one
+existing directory's metadata and excludes descendants; it is suitable for /.
+It cannot be a Git project or declare descendant includes.
+
+Mount.system selects the single explicit owner of the system inventory; otherwise
+the default collection owns it. Needed numeric owner/ACL hints can accompany
+file-only collections. Mount.packages independently selects the package owner.
+Mount.base_host overrides the global base host; an empty string explicitly makes
+the collection independent. Removing an existing accepted base requires a new
+collection rather than silently changing its history.
+
+system_resources accepts a complete JSON array or equivalent TOML tables:
+
+```toml
+[[system_resources]]
+kind = "user"
+name = "backup"
+
+[[system_resources]]
+kind = "service"
+name = "backup@daily.service"
+
+[[system_resources]]
+kind = "generated"
+path = "/etc/ld.so.cache"
+producer = "ldconfig"
+
+[[system_resources]]
+kind = "application"
+path = "~/.local/share/example/state.sqlite"
+format = "sqlite"
+sensitive = true
+
+[[system_resources]]
+kind = "excluded"
+path = "~/.local/share/example/cache"
+reason = "rebuildable application cache"
+```
+
+Sensitive SQLite exports require an age-encrypted named backend. Explicit
+sensitive=false is for reviewed nonsecret databases. ldconfig is the supported
+closed generator and requires Landlock ABI >= 3 plus a writable target /tmp.
+No arbitrary shell hooks or SQL scripts are accepted. See
+[system recovery](system-recovery.md) for execution and coverage boundaries.

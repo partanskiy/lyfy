@@ -124,12 +124,14 @@ replicas, native age encryption and complete archives. Mount names scope host
 state independently; explicit selection controls data restoration. Remote
 publication uses expected ETags and a collection writer lock.
 
-File-only manifests use schema 2 with file/directory xattr/ACL, special modes,
-hardlink declarations and incomplete-capture/provenance metadata. Package
-baselines and namespace root properties require schema 3. Schemas 1/2 remain
-readable; older binaries reject the new descriptions. Current-only retention
-keeps pinned bases and their content. Store encoding/recipient markers prevent
-accidentally interpreting encrypted content as plaintext or changing policy.
+The only supported stored schema is 9; the only portable state schema is 7.
+The project has no backward compatibility requirement. Prior and unknown formats
+fail explicitly. These formats retain content, xattr/ACL, special modes,
+hardlinks, nanosecond regular-file/symlink mtime, package evidence, provider
+catalogs, system requirements and incomplete-capture diagnostics. Directory
+mtime and kernel inode/access/change/birth times are excluded properties.
+Current-only retention keeps accepted base pins and their content. Encoding and
+recipient markers prevent accidental plaintext/encrypted policy changes.
 
 Package-provided regular files use package_file content with an observed package,
 exact version and SHA-256. Their bytes are omitted from payload/object storage.
@@ -139,30 +141,26 @@ Actual ACL/xattr remain in the node. Package hardlink groups retain concrete
 objects. Missing package files have explicit tombstones, including on first save.
 Absent mtree comparison evidence leaves ordinary concrete files.
 
-Acquisition sources use stored schema 4 and portable schema 3. Sources live once
+Acquisition sources live once
 per collection in the package catalog; file provider references omit duplicate
 origin descriptions. package_inventory=false distinguishes a partial provider
 catalog from a full inventory. Git stores retained source objects under
 hosts/<host>/assets/<sha256>; directory/S3 use their normal content objects.
 History collection, replicas and complete archives preserve these verified assets.
-Readers retain stored schemas 1-3 and portable schemas 1-2.
 
-Stored schema 5 adds last-observed fingerprints for based hosts. These hashes
-separate captured observations from desired state during common-base updates;
-they do not retain another payload copy. Complete archives describe the resolved
-desired generation and use the existing portable schema. Import records its own
-observations. Current-only retention continues to preserve accepted base pins.
+Separate observation fingerprints preserve unapplied imported/common intent for
+files, packages, identities and services. Local file times are reconciled without
+turning identical cross-host copies into content conflicts. Package acquisition
+metadata remains distinct from installed name/version/reason observations.
+Complete archives carry resolved desired state; importing does not assert that
+it has already been applied to the target.
 
-Stored schema 6 and portable schema 4 add typed Git-project descriptions on
-directory boundaries. Normalized Git metadata, object packs and working files
-are ordinary verified payloads, so archives, encryption, replicas and retention
-use their existing mechanisms. Earlier stored/portable descriptions remain readable.
-
-Stored schema 7 and portable schema 5 add external-mount identity/recovery
-descriptions. Source names are hashes; stable UUIDs/marker hashes or boot/mount
-instance pins identify the source. Captures and file transactions hold verified
-descriptors and recheck topology. Connection-only state retains no remote children;
-local materialization is an explicit target policy.
+Git-project directory descriptions retain normalized metadata, object packs and
+working files through ordinary verified payloads. External-mount descriptions
+pin UUIDs, marker hashes or mount instances without retaining raw connection
+source names. Captures and transactions hold descriptors and recheck topology,
+including ancestor mounts of nested collections. Connection-only state retains
+no remote children; local materialization is an explicit target policy.
 
 Yandex Disk stores immutable payloads through REST. Cooperative exclusive directory
 creation provides its writer lock; this is not conditional HTTP CAS. Verified pointer
