@@ -1,97 +1,112 @@
 # lyfy
 
-Own source is licensed under [MIT](LICENSE). Linked builds follow GPL-3.0-only;
-see [distribution terms](DISTRIBUTION.md) for the approved native dependencies.
+lyfy saves and restores configuration and selected data on Arch Linux. Use it
+to keep several machines in sync, recover a project or restore part of a system.
+It records the files you actually use, together with the metadata and recovery
+sources needed to explain how they can be restored.
 
-Declarative system maintenance for Arch Linux: inspect the system, capture its
-concrete configuration, reconcile host state and apply supported policy fixes.
-
-The resource recovery implementation includes selective restoration, package
-sources, Git projects, external mounts and system/application state. Recovery
-boundaries and deployment gates are explicit in [system recovery](docs/system-recovery.md)
-and the [migration guide](docs/migration.md).
+A collection can be any filesystem path. For example, configuration can live in
+Git, pictures in S3 and a project inside another collection can retain its own
+Git history and local changes. Verified unchanged package files are represented
+by package references; modified files remain concrete overrides.
 
 ## Four commands
 
-```sh
-lyfy lint
-lyfy save --host laptop
-lyfy apply --host laptop
-lyfy fmt
+| Command | What it does |
+| --- | --- |
+| `lyfy lint` | Inspect the system and report configuration, package and boot-policy findings |
+| `lyfy save` | Capture selected files, metadata and supported resources |
+| `lyfy apply` | Preview restoration from saved state |
+| `lyfy fmt` | Preview supported fixes for inspection findings |
+
+`apply` and `fmt` change the target only with `--write`. Save can be previewed
+with `--dry_run`. Conflicting files, tracked deletions and package/account actions
+have additional explicit permissions.
+
+## Start with a small configuration
+
+Create `~/.config/lyfy/config.toml` and select the paths you want to manage. This
+example uses fictional application names; replace them with your own paths:
+
+```toml
+host = "laptop"
+include = ["~/.config/editor", "~/.config/terminal"]
+check_packages = false
 ```
 
-- `lint` runs the [Arch rule catalog](docs/rules.md). It reports incomplete and
-  skipped checks explicitly. Terminals show updating stage progress and package
-  counts on stderr. The final report explains findings and remedies. Export
-  text, JSON, TOML, YAML, Markdown or SARIF with `--format` and `--output_file`;
-  see [lint reports](docs/lint.md).
-- `save` previews or captures concrete state, reports file deltas and publishes
-  host metadata/content. Git and directory reuse unchanged snapshots. Nested VFS
-  mounts can route to independent Git/directory/S3/Yandex Disk backends, with retention,
-  replicas, age encryption and portable exports. See the [save guide](docs/save.md).
-- `apply` plans selected paths and resources with explicit dependencies. `--write`
-  executes authorized file, package, identity, service and generator actions,
-  with conflict checks, preimages, journals and partial receipts.
-- `fmt` returns supported policy fixes. `--write` currently removes only pacnew
-  files identical to their active configuration; conflicting files need review.
-
-`apply` and `fmt` are previews unless `--write` is present. Execution permission
-is not a configuration value and cannot be supplied by ENV. There are no
-hidden config, rules, init or package-management commands.
-
-## XDG configuration
-
-Configuration lookup takes the first readable file:
-
-1. `$XDG_CONFIG_HOME/lyfy/config.toml`, default `~/.config/lyfy/config.toml`.
-2. Each `$XDG_CONFIG_DIRS/lyfy/config.toml`, default `/etc/xdg/lyfy/config.toml`.
-
-An explicit `--config_file` or `LYFY_CONFIG_FILE` selects one required file.
-Unknown fields and malformed configuration are errors. Relative XDG base
-variables are ignored according to the [XDG specification](https://specifications.freedesktop.org/basedir/latest/).
-
-Every setting has a snake_case flag and a `LYFY_UPPER_CASE` environment variable.
-Precedence is flag > ENV > TOML > default. Lists replace the lower-priority
-list. Boolean overrides take an explicit true/false value.
+The default backend is a local Git repository in `~/.local/share/lyfy`. Missing
+optional paths are skipped. Review what will be saved, then capture it:
 
 ```sh
-LYFY_HOST=desktop lyfy save --host laptop
-lyfy lint --require_uki false
-lyfy save --include '/etc,~/.config,~/.bashrc'
-lyfy apply --format json
+lyfy save --dry_run
+lyfy save
 ```
 
-See [examples/config.toml](examples/config.toml) and the [complete settings reference](docs/configuration.md).
-No shell expansion occurs; `~` is supported only in managed scope lists.
-
-Persistent content lives in `$XDG_DATA_HOME/lyfy` (default `~/.local/share/lyfy`).
-By default this is a Git worktree; `storage_format = "directory"` selects the
-alternative immutable JSON/content-object store. Both path and format have flag
-and ENV overrides. Named VFS mounts can select other backends independently.
-See the [storage contract](docs/storage.md) and [save guide](docs/save.md).
-Receipts, locks and recovery journals live in `$XDG_STATE_HOME/lyfy` (default
-`~/.local/state/lyfy`). Newly created application directories are private.
-No cache or runtime directory is created when it is not needed.
-
-## Hosts without templates
+Preview restoration before applying it:
 
 ```sh
-lyfy save --host common
-# Edit real files on the laptop.
-lyfy save --host laptop --base_host common
-# Inspect or deploy that concrete laptop state.
-lyfy apply --host laptop
+lyfy apply
+lyfy apply --write
 ```
 
-A host snapshot stores only differences from its optional base. It pins the
-base's immutable snapshot ID; saving common later does not rewrite existing
-host snapshots. Saving edited files updates the selected host, not the base.
-Home paths map to the destination `home_dir`, including a different username.
-Home ownership maps to the destination home directory's owner and group.
+Restore just one selected path when needed:
 
-Share the state repository using normal Git clone/fetch/push. Use a full clone
-so pinned base revisions remain available. lyfy commits locally and never
-implicitly pushes, pulls, merges or rewrites history. State synchronization
-conflicts are resolved using normal Git workflows. Real system snapshots belong
-in a separate private repository, not this public source repository.
+```sh
+lyfy apply --selected_paths '~/.config/editor'
+lyfy apply --selected_paths '~/.config/editor' --write
+```
 
+Keep saved machine state and real deployment profiles in private storage.
+Application configuration can contain credentials even when its filename looks
+ordinary. The [migration guide](docs/migration.md) explains how to inventory an
+existing setup, capture each host and verify restoration before replacing it.
+
+## Choose how state is stored and shared
+
+Named collections route arbitrary paths to Git, directory, S3 or Yandex Disk
+backends. Nested collections own their paths independently. History retention,
+replicas, age encryption and portable archives are configurable per destination
+and collection. See the [save and restore guide](docs/save.md) for TOML examples.
+
+Hosts can share a pinned common base while retaining their own concrete
+configuration. Updating the common state is reconciled with each host's observed
+files and exceptions. Git synchronization uses ordinary clone/fetch/push;
+lyfy never pushes or merges a repository implicitly.
+
+Supported resources include files with Linux metadata, package sources and
+exceptions, independent Git projects, external mount identity, public account
+mappings, persistent systemd links, SQLite exports and verified ldconfig output.
+The [system recovery guide](docs/system-recovery.md) describes each boundary.
+
+## Installation and current scope
+
+lyfy targets Arch Linux x86_64 and is available as the AUR package
+[lyfy](https://aur.archlinux.org/packages/lyfy). To build from source, use the
+pacman-managed Rust toolchain, pkgconf, pacman/libalpm and libarchive:
+
+```sh
+cargo build -p lyfy-cli --locked --release
+target/release/lyfy --help
+```
+
+Capture is strict by default: unsupported objects and incomplete reads block
+publication. User files can be restored without root when their metadata allows
+it; system ownership, accounts and package changes require root. Lyfy preserves
+preimages and journals, but does not provide automatic rollback, a filesystem
+freeze or disk/bootloader preparation. Read the recovery guide before relying
+on a snapshot for complete system recovery.
+
+The project is still evolving. Only current snapshot/archive formats are
+supported; previous versions have no compatibility guarantee.
+
+## Documentation
+
+- [Settings reference](docs/configuration.md) and `man 5 lyfy.conf`
+- [Save, selective apply, backends and encryption](docs/save.md)
+- [Migration with synthetic configuration examples](docs/migration.md)
+- [Inspection findings and reports](docs/lint.md)
+- [Recovery boundaries](docs/system-recovery.md) and [storage guarantees](docs/storage.md)
+- [Rust library API](docs/library.md), [architecture](ARCHITECTURE.md) and [contributing](CONTRIBUTING.md)
+
+Own source is licensed under [MIT](LICENSE). Linked builds follow GPL-3.0-only;
+see [distribution terms](DISTRIBUTION.md) for native dependency licensing.
