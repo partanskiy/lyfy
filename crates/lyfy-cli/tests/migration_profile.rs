@@ -5,8 +5,15 @@ use std::fs;
 #[test]
 fn synthetic_example_isolates_a_curated_home_capture() {
     let f = Fixture::new();
-    let mut profile: toml::Value =
-        toml::from_str(include_str!("../../../examples/migration/laptop.toml")).unwrap();
+    let guide = include_str!("../../../docs/migration.md");
+    let example = guide
+        .split_once("```toml\n")
+        .unwrap()
+        .1
+        .split_once("\n```")
+        .unwrap()
+        .0;
+    let mut profile: toml::Value = toml::from_str(example).unwrap();
     for (name, value) in [
         ("root", f.root.to_str().unwrap()),
         ("home_dir", "/home/test"),
