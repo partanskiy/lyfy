@@ -238,8 +238,16 @@ impl SystemState {
         deleted: &BTreeSet<String>,
         config: &crate::domain::config::Config,
     ) -> Result<Self> {
+        let mut needed = tree.clone();
+        for unit in self
+            .services
+            .iter()
+            .filter(|u| config.service_selected(&u.name))
+        {
+            needed.extend(unit.links.clone());
+        }
         let mut result = self.select(
-            tree,
+            &needed,
             deleted,
             config.check_system && !config.selection_active(),
         )?;
@@ -269,7 +277,13 @@ impl SystemState {
         result.services = self
             .services
             .iter()
-            .filter(|u| config.service_selected(&u.name))
+            .filter(|u| {
+                config.service_selected(&u.name)
+                    || tree
+                        .keys()
+                        .chain(deleted.iter())
+                        .any(|k| within(k, "system/etc/systemd/system"))
+            })
             .cloned()
             .collect();
         Ok(result)

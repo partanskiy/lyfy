@@ -50,6 +50,7 @@ pub fn scan(
         );
     }
     let package_files = package_files::index(context, config)?;
+    let initial_packages = package_files.as_ref().map(|i| i.packages.clone());
     let mut omitted = std::collections::BTreeSet::new();
     let mut captured = Captured {
         tree: Tree::new(),
@@ -282,7 +283,7 @@ pub fn scan(
         }
     }
     crate::services::projects::capture(context, &mut captured.tree, persist)?;
-    let source_mounts = crate::services::external::finish(context, topology, &mut captured.tree)?;
+    let source_mounts = crate::services::external::finish(context, &topology, &mut captured.tree)?;
     if !source_mounts.is_empty() {
         captured.system_state = Some(crate::domain::system_state::SystemState {
             source_mounts,
@@ -295,6 +296,13 @@ pub fn scan(
         &captured.deletions,
         captured.system_state.take(),
     )?;
+    crate::services::external::finish(context, &topology, &mut captured.tree)?;
+    if let Some(expected) = initial_packages {
+        anyhow::ensure!(
+            crate::infrastructure::pacman::inventory(config)? == expected,
+            "package inventory changed during final provider capture"
+        );
+    }
     retain_previous(context, &mut captured)?;
     captured
         .diagnostics

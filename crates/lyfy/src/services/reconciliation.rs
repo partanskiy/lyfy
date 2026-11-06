@@ -128,7 +128,7 @@ pub fn build(context: &Context) -> Result<Plan> {
     }
     let mut available = tree;
     let mut deleted = store.tombstones(&config.host, &id)?;
-    let unit_dependencies = crate::services::system::plan_units(
+    let mut unit_dependencies = crate::services::system::plan_units(
         config,
         &root,
         snapshot.system_state.as_ref(),
@@ -137,6 +137,14 @@ pub fn build(context: &Context) -> Result<Plan> {
     )?;
     let mut keys: BTreeSet<String> = available.keys().cloned().collect();
     keys.extend(deleted);
+    unit_dependencies.extend(crate::services::system::path_dependencies(
+        config,
+        &root,
+        snapshot.system_state.as_ref(),
+        &available,
+        &previous,
+        &keys,
+    )?);
     selection::validate_request(
         config,
         &keys,

@@ -19,11 +19,18 @@ pub fn capture(
     let mut system = source.unwrap_or_default();
     system.inventory = config.check_system;
     let catalog = accounts::catalog(&root)?;
+    if config.check_system {
+        system.services = units::capture_units(context, &root, tree)?;
+    }
+    let mut account_tree = tree.clone();
+    for unit in &system.services {
+        account_tree.extend(unit.links.clone());
+    }
     let mut needed = SystemState {
         identities: catalog.clone(),
         ..Default::default()
     }
-    .select(tree, deleted, false)?
+    .select(&account_tree, deleted, false)?
     .identities;
     if config.check_system {
         for request in &config.system_resources {
@@ -62,19 +69,20 @@ pub fn capture(
         .iter()
         .flat_map(|r| r.primary_group.iter().chain(&r.groups).copied())
         .collect();
-    for group in catalog.into_iter().filter(|r| {
+    for group in catalog.iter().filter(|r| {
         r.kind == crate::domain::identities::IdentityKind::Group && groups.contains(&r.id)
     }) {
-        if !needed.contains(&group) {
-            needed.push(group);
+        if !needed.contains(group) {
+            needed.push(group.clone());
         }
     }
     needed.sort_by_key(|r| (r.kind, r.id));
     system.identities = needed;
-    if config.check_system {
-        system.services = units::capture_units(context, &root, tree)?;
-    }
     coverage::observe(context, &root, tree, &mut system)?;
+    ensure!(
+        accounts::catalog(&root)? == catalog,
+        "public identities changed during system capture"
+    );
     system.validate()?;
     ensure!(
         system.identities.iter().all(|r| r.id != u32::MAX),
@@ -187,6 +195,8 @@ pub fn connect(plans: &mut [&mut crate::domain::plan::Plan]) {
 }
 
 mod units;
-pub use units::{definition_guards, plan_units, unit_path_requested, unit_path_selected};
+pub use units::{
+    definition_guards, path_dependencies, plan_units, unit_path_requested, unit_path_selected,
+};
 
 mod coverage;
