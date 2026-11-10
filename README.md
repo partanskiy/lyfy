@@ -101,6 +101,7 @@ supported; previous versions have no compatibility guarantee.
 
 ## Documentation
 
+- [Product roadmap: CLI visual polish, browser system overview and recovery](docs/roadmap.md)
 - [Settings reference](docs/configuration.md) and `man 5 lyfy.conf`
 - [Save, selective apply, backends and encryption](docs/save.md)
 - [Migration with synthetic configuration examples](docs/migration.md)

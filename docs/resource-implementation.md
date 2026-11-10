@@ -238,6 +238,10 @@ system recovery has been validated.
 
 ## Follow-up work
 
+The [product roadmap](roadmap.md) tracks CLI visual polish, a browser system
+overview with lint and save-state visibility, and complete-system recovery
+goals alongside these technical follow-ups.
+
 The nine-stage implementation establishes the supported resource model. It
 leaves these product areas for further design and verification:
 
